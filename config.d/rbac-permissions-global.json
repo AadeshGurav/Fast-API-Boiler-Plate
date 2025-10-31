@@ -1,0 +1,67 @@
+{
+  "rbac_permissions": {
+    "*": {
+      "id": "*",
+      "name": "All Permissions",
+      "description": "Wildcard permission granting access to everything",
+      "resource": "*",
+      "action": "*"
+    },
+    "users:read": {
+      "id": "users:read",
+      "name": "Read Users",
+      "description": "View user information and lists",
+      "resource": "users",
+      "action": "read"
+    },
+    "users:write": {
+      "id": "users:write",
+      "name": "Write Users",
+      "description": "Create, update, and delete users",
+      "resource": "users",
+      "action": "write"
+    },
+    "reports:read": {
+      "id": "reports:read",
+      "name": "Read Reports",
+      "description": "View reports and analytics",
+      "resource": "reports",
+      "action": "read"
+    },
+    "reports:write": {
+      "id": "reports:write",
+      "name": "Write Reports",
+      "description": "Create and modify reports",
+      "resource": "reports",
+      "action": "write"
+    },
+    "profile:read": {
+      "id": "profile:read",
+      "name": "Read Profile",
+      "description": "View own profile information",
+      "resource": "profile",
+      "action": "read"
+    },
+    "profile:write": {
+      "id": "profile:write",
+      "name": "Write Profile",
+      "description": "Update own profile information",
+      "resource": "profile",
+      "action": "write"
+    },
+    "dashboard:read": {
+      "id": "dashboard:read",
+      "name": "Read Dashboard",
+      "description": "View dashboard and widgets",
+      "resource": "dashboard",
+      "action": "read"
+    },
+    "public:read": {
+      "id": "public:read",
+      "name": "Read Public Content",
+      "description": "View public information",
+      "resource": "public",
+      "action": "read"
+    }
+  }
+}

@@ -1,0 +1,553 @@
+{% extends "base.html" %}
+
+{% block title %}API Demo{% endblock %}
+
+{% block header %}API Testing & Documentation{% endblock %}
+{% block subtitle %}Interactive API testing and authentication demo{% endblock %}
+
+{% block content %}
+    <div class="card">
+        <h2>API Authentication Status</h2>
+        <div class="auth-status">
+            {% if false %}
+                <div class="status-indicator authenticated">
+                    <span class="status-icon">✓</span>
+                    <span class="status-text">Authenticated</span>
+                </div>
+                <div class="auth-details">
+                    <p><strong>Role:</strong> </p>
+                    <p><strong>Permissions:</strong> </p>
+                    <p><strong>Token:</strong> <code>Present</code></p>
+                </div>
+            {% else %}
+                <div class="status-indicator not-authenticated">
+                    <span class="status-icon">✗</span>
+                    <span class="status-text">Not authenticated</span>
+                </div>
+                <div class="auth-actions">
+                    <a href="/demo/auth/login" class="btn btn-primary">Login</a>
+                    <a href="/demo/auth/register" class="btn btn-secondary">Register</a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="card">
+        <h2>API Endpoints</h2>
+        <div class="endpoints-grid">
+            <div class="endpoint-card">
+                <h3>Authentication</h3>
+                <div class="endpoint-list">
+                    <div class="endpoint-item">
+                        <span class="method post">POST</span>
+                        <span class="path">/auth/login</span>
+                        <button class="btn btn-sm btn-primary" onclick="testEndpoint('POST', '/api/v1/auth/login')">Test</button>
+                    </div>
+                    <div class="endpoint-item">
+                        <span class="method post">POST</span>
+                        <span class="path">/auth/register</span>
+                        <button class="btn btn-sm btn-primary" onclick="testEndpoint('POST', '/api/v1/auth/register')">Test</button>
+                    </div>
+                    <div class="endpoint-item">
+                        <span class="method get">GET</span>
+                        <span class="path">/auth/logout</span>
+                        <button class="btn btn-sm btn-primary" onclick="window.location.href='/demo/auth/logout'">Go</button>
+                    </div>
+                    <div class="endpoint-item">
+                        <span class="method get">GET</span>
+                        <span class="path">/auth/profile</span>
+                        <button class="btn btn-sm btn-primary" onclick="testEndpoint('GET', '/api/v1/auth/me')">Test</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="endpoint-card">
+                <h3>RBAC Management</h3>
+                <div class="endpoint-list">
+                    <div class="endpoint-item">
+                        <span class="method get">GET</span>
+                        <span class="path">/rbac/roles</span>
+                        <button class="btn btn-sm btn-primary" onclick="testEndpoint('GET', '/api/v1/rbac/roles')">Test</button>
+                    </div>
+                    <div class="endpoint-item">
+                        <span class="method get">GET</span>
+                        <span class="path">/rbac/permissions</span>
+                        <button class="btn btn-sm btn-primary" onclick="testEndpoint('GET', '/api/v1/rbac/permissions')">Test</button>
+                    </div>
+                    <div class="endpoint-item">
+                        <span class="method get">GET</span>
+                        <span class="path">/rbac/groups</span>
+                        <button class="btn btn-sm btn-primary" onclick="testEndpoint('GET', '/api/v1/rbac/groups')">Test</button>
+                    </div>
+                    <div class="endpoint-item">
+                        <span class="method get">GET</span>
+                        <span class="path">/api/v1/rbac/users/:id/permissions</span>
+                        <button class="btn btn-sm btn-primary" onclick="testEndpoint('GET', '/api/v1/rbac/users/me/permissions')">Test</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="endpoint-card">
+                <h3>System Information</h3>
+                <div class="endpoint-list">
+                    <div class="endpoint-item">
+                        <span class="method get">GET</span>
+                        <span class="path">/health</span>
+                        <button class="btn btn-sm btn-primary" onclick="testEndpoint('GET', '/api/v1/health')">Test</button>
+                    </div>
+                    <div class="endpoint-item">
+                        <span class="method get">GET</span>
+                        <span class="path">/api/info</span>
+                        <button class="btn btn-sm btn-primary" onclick="testEndpoint('GET', '/api/v1/status')">Test</button>
+                    </div>
+                    <div class="endpoint-item">
+                        <span class="method get">GET</span>
+                        <span class="path">/metrics</span>
+                        <button class="btn btn-sm btn-primary" onclick="testEndpoint('GET', '/api/v1/metrics')">Test</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <h2>API Test Results</h2>
+        <div id="test-results" class="test-results">
+            <p class="no-results">No tests run yet. Click "Test" buttons above to test API endpoints.</p>
+        </div>
+        <div class="test-actions">
+            <button class="btn btn-secondary" onclick="clearResults()">Clear Results</button>
+            <button class="btn btn-primary" onclick="runAllTests()">Run All Tests</button>
+        </div>
+    </div>
+    
+    <div class="card">
+        <h2>API Documentation</h2>
+        <div class="api-docs">
+            <h3>Authentication Flow</h3>
+            <ol>
+                <li><strong>Register:</strong> POST to <code>/auth/register</code> with user details</li>
+                <li><strong>Login:</strong> POST to <code>/auth/login</code> with username/password</li>
+                <li><strong>Get Token:</strong> Response includes session token for API calls</li>
+                <li><strong>Use Token:</strong> Include token in Authorization header: <code>Bearer &lt;token&gt;</code></li>
+            </ol>
+            
+            <h3>RBAC System</h3>
+            <ul>
+                <li><strong>Roles:</strong> Hierarchical permissions (admin > manager > user > guest)</li>
+                <li><strong>Permissions:</strong> Resource-based access control (resource:action)</li>
+                <li><strong>Groups:</strong> Collections of roles for easier management</li>
+                <li><strong>Temporary Permissions:</strong> Time-limited access grants</li>
+            </ul>
+            
+            <h3>Example API Calls</h3>
+            <div class="code-examples">
+                <h4>Login Request:</h4>
+                <pre><code>POST /auth/login
+Content-Type: application/json
+
+{
+    "username": "admin",
+    "password": "admin"
+}</code></pre>
+                
+                <h4>Get User Permissions:</h4>
+                <pre><code>GET /rbac/user/admin/permissions
+Authorization: Bearer &lt;your-token&gt;</code></pre>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <h2>Quick Actions</h2>
+        <div class="quick-actions">
+            <a href="/docs" class="btn btn-primary" target="_blank">Open API Docs (Swagger)</a>
+            <a href="/redoc" class="btn btn-secondary" target="_blank">Open ReDoc</a>
+            <a href="/demo/auth/dashboard" class="btn btn-secondary">Go to Dashboard</a>
+            {% if user and user.role == 'admin' %}
+            <a href="/admin/panel" class="btn btn-secondary">Admin Panel</a>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .auth-status {
+        margin-bottom: 20px;
+    }
+    
+    .status-indicator {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 15px;
+    }
+    
+    .status-indicator.authenticated {
+        background-color: #e8f5e9;
+        border: 1px solid #4caf50;
+        color: #2e7d32;
+    }
+    
+    .status-indicator.not-authenticated {
+        background-color: #ffebee;
+        border: 1px solid #f44336;
+        color: #c62828;
+    }
+    
+    .status-icon {
+        font-size: 1.2em;
+        font-weight: bold;
+    }
+    
+    .auth-details {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-radius: 4px;
+        margin-top: 10px;
+    }
+    
+    .auth-details code {
+        background-color: #e9ecef;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-family: monospace;
+    }
+    
+    .endpoints-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .endpoint-card {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 20px;
+        background-color: #f8f9fa;
+    }
+    
+    .endpoint-card h3 {
+        margin-top: 0;
+        margin-bottom: 15px;
+        color: #333;
+    }
+    
+    .endpoint-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .endpoint-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        background-color: white;
+        border-radius: 4px;
+        border: 1px solid #ddd;
+    }
+    
+    .method {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.8em;
+        font-weight: bold;
+        text-transform: uppercase;
+        min-width: 50px;
+        text-align: center;
+    }
+    
+    .method.get {
+        background-color: #e3f2fd;
+        color: #1976d2;
+    }
+    
+    .method.post {
+        background-color: #e8f5e9;
+        color: #388e3c;
+    }
+    
+    .method.put {
+        background-color: #fff3e0;
+        color: #f57c00;
+    }
+    
+    .method.delete {
+        background-color: #ffebee;
+        color: #d32f2f;
+    }
+    
+    .path {
+        flex-grow: 1;
+        font-family: monospace;
+        font-size: 0.9em;
+    }
+    
+    .test-results {
+        min-height: 200px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 15px;
+        background-color: #f8f9fa;
+        margin-bottom: 15px;
+    }
+    
+    .no-results {
+        color: #666;
+        font-style: italic;
+        text-align: center;
+        margin-top: 50px;
+    }
+    
+    .test-result {
+        margin-bottom: 15px;
+        padding: 10px;
+        border-radius: 4px;
+        border-left: 4px solid #ddd;
+    }
+    
+    .test-result.success {
+        background-color: #e8f5e9;
+        border-left-color: #4caf50;
+    }
+    
+    .test-result.error {
+        background-color: #ffebee;
+        border-left-color: #f44336;
+    }
+    
+    .test-result-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 5px;
+    }
+    
+    .test-result-method {
+        font-weight: bold;
+        font-family: monospace;
+    }
+    
+    .test-result-status {
+        font-weight: bold;
+    }
+    
+    .test-result-status.success {
+        color: #4caf50;
+    }
+    
+    .test-result-status.error {
+        color: #f44336;
+    }
+    
+    .test-result-body {
+        font-family: monospace;
+        font-size: 0.9em;
+        background-color: white;
+        padding: 10px;
+        border-radius: 4px;
+        white-space: pre-wrap;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    
+    .api-docs {
+        line-height: 1.6;
+    }
+    
+    .api-docs h3 {
+        color: #333;
+        margin-top: 20px;
+        margin-bottom: 10px;
+    }
+    
+    .api-docs h4 {
+        color: #555;
+        margin-top: 15px;
+        margin-bottom: 8px;
+    }
+    
+    .code-examples {
+        margin-top: 15px;
+    }
+    
+    .code-examples pre {
+        background-color: #f8f9fa;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 15px;
+        overflow-x: auto;
+        font-size: 0.9em;
+    }
+    
+    .code-examples code {
+        font-family: 'Courier New', monospace;
+    }
+    
+    .btn {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 14px;
+    }
+    
+    .btn-sm {
+        padding: 4px 8px;
+        font-size: 12px;
+    }
+    
+    .btn-primary {
+        background-color: #3498db;
+        color: white;
+    }
+    
+    .btn-primary:hover {
+        background-color: #2980b9;
+    }
+    
+    .btn-secondary {
+        background-color: #95a5a6;
+        color: white;
+    }
+    
+    .btn-secondary:hover {
+        background-color: #7f8c8d;
+    }
+    
+    .test-actions,
+    .quick-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 15px;
+        flex-wrap: wrap;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let testCount = 0;
+    
+    async function ensureAuthHeader(options) {
+        const opts = options || {};
+        const token = window.DemoAuth.getAccessToken();
+        if (token) {
+            opts.headers = { ...(opts.headers || {}), 'Authorization': `Bearer ${token}` };
+        }
+        return opts;
+    }
+
+    function testEndpoint(method, path) {
+        testCount++;
+        const resultDiv = document.createElement('div');
+        resultDiv.className = 'test-result';
+        resultDiv.id = `test-${testCount}`;
+        
+        const headerDiv = document.createElement('div');
+        headerDiv.className = 'test-result-header';
+        headerDiv.innerHTML = `
+            <span class="test-result-method">${method} ${path}</span>
+            <span class="test-result-status">Testing...</span>
+        `;
+        
+        const bodyDiv = document.createElement('div');
+        bodyDiv.className = 'test-result-body';
+        bodyDiv.textContent = 'Sending request...';
+        
+        resultDiv.appendChild(headerDiv);
+        resultDiv.appendChild(bodyDiv);
+        
+        const resultsContainer = document.getElementById('test-results');
+        if (resultsContainer.querySelector('.no-results')) {
+            resultsContainer.innerHTML = '';
+        }
+        resultsContainer.appendChild(resultDiv);
+        
+        // Scroll to the new result
+        resultDiv.scrollIntoView({ behavior: 'smooth' });
+        
+        // Make the API call
+        const options = { method: method, headers: { 'Content-Type': 'application/json' } };
+        
+        // Add authentication if available
+        // Attach token if available
+        const withAuth = ensureAuthHeader(options);
+        
+        // Add request body for POST requests
+        if (method === 'POST') {
+            if (path.includes('/login')) {
+                options.body = JSON.stringify({
+                    username: 'admin',
+                    password: 'admin'
+                });
+            } else if (path.includes('/register')) {
+                options.body = JSON.stringify({
+                    username: 'testuser',
+                    password: 'testpass123',
+                    email: 'test@example.com',
+                    first_name: 'Test',
+                    last_name: 'User'
+                });
+            }
+        }
+        
+        window.DemoAuth.fetch(path, options)
+            .then(response => {
+                const statusSpan = headerDiv.querySelector('.test-result-status');
+                statusSpan.textContent = `${response.status} ${response.statusText}`;
+                
+                if (response.ok) {
+                    resultDiv.classList.add('success');
+                    statusSpan.classList.add('success');
+                } else {
+                    resultDiv.classList.add('error');
+                    statusSpan.classList.add('error');
+                }
+                
+                return response.text();
+            })
+            .then(data => {
+                try {
+                    const jsonData = JSON.parse(data);
+                    bodyDiv.textContent = JSON.stringify(jsonData, null, 2);
+                } catch (e) {
+                    bodyDiv.textContent = data;
+                }
+            })
+            .catch(error => {
+                resultDiv.classList.add('error');
+                const statusSpan = headerDiv.querySelector('.test-result-status');
+                statusSpan.textContent = 'Error';
+                statusSpan.classList.add('error');
+                bodyDiv.textContent = `Error: ${error.message}`;
+            });
+    }
+    
+    function clearResults() {
+        const resultsContainer = document.getElementById('test-results');
+        resultsContainer.innerHTML = '<p class="no-results">No tests run yet. Click "Test" buttons above to test API endpoints.</p>';
+        testCount = 0;
+    }
+    
+    function runAllTests() {
+        clearResults();
+        
+        // Test basic endpoints
+        setTimeout(() => testEndpoint('GET', '/api/v1/health'), 100);
+        setTimeout(() => testEndpoint('GET', '/api/v1/status'), 200);
+        setTimeout(() => testEndpoint('GET', '/api/v1/rbac/roles'), 300);
+        setTimeout(() => testEndpoint('GET', '/api/v1/rbac/permissions'), 400);
+        setTimeout(() => testEndpoint('GET', '/api/v1/rbac/groups'), 500);
+        setTimeout(() => testEndpoint('GET', '/api/v1/auth/me'), 600);
+    }
+</script>
+{% endblock %}

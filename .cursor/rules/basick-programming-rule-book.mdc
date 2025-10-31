@@ -1,0 +1,135 @@
+---
+description: Core Programming, Design & Formatting Rules
+globs: **/*.*
+alwaysApply: true
+---
+
+# Strict Procedure
+Before writing or suggesting code:
+1. Index the entire code base.
+2. Read and analyze everything relevant.
+3. Fully understand the problem or request.
+4. Think critically about design, maintainability, and testability.
+5. Only then, provide the most elegant and maintainable solution.
+
+
+# Core Principles
+- **Beautiful is better than ugly.**
+- **Explicit is better than implicit.**
+- **Simple is better than complex.**
+- **Complex is better than complicated.**
+- **Flat is better than nested.**
+- **Sparse is better than dense.**
+- **Readability counts.**
+- **Errors should never pass silently**
+  - unless explicitly silenced.
+- **There should be one (and preferably only one) obvious way to do it.**
+- **If the implementation is hard to explain, it’s a bad idea.**
+- **If the implementation is easy to explain, it may be a good idea.**
+- **Now is better than never.**
+- **Namespaces are a honking great idea.**
+
+Additional reminders:
+- No useless comments — only comment **intent**, not implementation.
+- Code should **read like prose** — minimal cognitive load.
+- Complexity amaze the inexperienced; Simplicity amazes experts.
+
+Reference: [The Tao of Programming](https://jcarpizo.github.io/tao-of-programming.html)
+
+
+# Code Structure & Maintainability
+
+### 1. Function & Class Design
+- Functions must be **small, testable, and self-contained**.
+- Each function should do **one clear thing** (Single Responsibility).
+- Use **descriptive, self-explanatory names** for variables, classes, and methods.
+- Avoid vague names like `data`, `temp`, `info`, or `util`.
+- Use clear **verb-noun** patterns for functions, e.g.:
+  - `load_config_file()`, `parse_user_input()`, `calculate_average_weight()`.
+
+### 2. File Size & Organization
+- **Maximum file length:** 300 lines (hard limit).
+- If exceeding 300 lines, **split** into multiple smaller modules.
+  - Move helper classes/functions into separate files.
+  - Use clear, domain-specific module names.
+- Keep each file focused on **one area of concern**.
+
+Example:
+
+```dir
+analytics/
+├── init.py
+├── data_loader.py
+├── data_cleaner.py
+├── model_trainer.py
+```
+
+### 3. Testing
+- Ensure each function is **unit-testable**.
+- Avoid global states or implicit dependencies.
+- Prefer dependency injection over imports inside functions.
+
+
+# Style & Formatting Enforcement
+
+### 1. Formatters
+Always format **only changed files** after every code modification:
+- Run **Black** with project-standard settings.
+- Run **Ruff** for linting and quick fixes.
+- Run **Flake8** for deeper static analysis and style enforcement.
+- Fix all **Flake8** issues before commit (no warnings ignored).
+
+### 2. Style Rules
+- 4-space indentation.
+- 88-character max line length (Black default).
+- Double quotes for strings.
+- One blank line between logical blocks.
+- Imports sorted by Ruff/Black automatically.
+- Remove unused imports, variables, and redundant type hints.
+
+### 3. Code Quality Automation
+Cursor should:
+1. Auto-format using **Black** and **Ruff** on changed files.
+2. Run **Flake8** checks post-format.
+3. Suggest and fix Flake8 issues inline.
+4. Flag files exceeding **300 lines** and recommend splitting.
+
+
+# Software Architecture Guidelines
+
+### SOLID Principles
+- **S**ingle Responsibility: Each class/module does one thing.
+- **O**pen/Closed: Open for extension, closed for modification.
+- **L**iskov Substitution: Subtypes must be safely replaceable.
+- **I**nterface Segregation: Prefer multiple small interfaces.
+- **D**ependency Inversion: Depend on abstractions, not concretions.
+
+### DRY (Don’t Repeat Yourself)
+- Extract repeated logic into reusable utilities or helpers.
+- Avoid duplication that causes maintenance overhead.
+
+### Programming Patterns
+- Use **Factory**, **Builder**, **Adapter**, **Strategy**, or **Observer** patterns as needed.
+- Prefer **composition over inheritance**.
+- Avoid overengineering — apply patterns **only** when they simplify.
+
+### Code Boundaries
+- Keep data logic, business logic, and I/O separate.
+- Maintain clear **module responsibilities** and **layer boundaries**.
+
+
+# UI / UX Design Principles
+(Keep same as before — omitted for brevity if not code-related.)
+
+# Architectural Mindset
+- Think in **systems**, not features.
+- Code must be easy to read, modify, and extend.
+- Favor **clarity over cleverness**.
+- Each decision must be defensible in a design review.
+
+# Quick Summary
+✅ **Code:** Small, testable, self-documenting functions. <300 lines per file.  
+✅ **Formatting:** Black + Ruff + Flake8 after every change.  
+✅ **Naming:** Descriptive, intent-revealing, consistent.  
+✅ **Architecture:** SOLID + DRY + clear module boundaries.  
+✅ **Cursor:** Automatically enforce all above.

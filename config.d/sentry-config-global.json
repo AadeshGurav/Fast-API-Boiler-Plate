@@ -1,0 +1,9 @@
+{
+  "sentry_dsn": null,
+  "sentry_environment": "development",
+  "sentry_traces_sample_rate": 1.0,
+  "sentry_profiles_sample_rate": 1.0,
+  "sentry_enable_performance_monitoring": true,
+  "sentry_enable_session_tracking": true,
+  "sentry_before_send": null
+}

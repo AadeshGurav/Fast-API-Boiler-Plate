@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card demo-card">
+                <div class="card-body">
+                    <h4 class="card-title">
+                        <i class="fas fa-heartbeat me-2"></i>
+                        Health Check
+                    </h4>
+                    <p class="text-muted">System health status and service monitoring.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card demo-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="card-title mb-0">System Status</h5>
+                        <span class="badge bg-{{ 'success' if health_data.status == 'healthy' else 'danger' }} fs-6">
+                            {{ health_data.status | title }}
+                        </span>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <ul class="list-unstyled">
+                                <li><strong>Timestamp:</strong> {{ health_data.timestamp }}</li>
+                                <li><strong>Uptime:</strong> {{ health_data.uptime if health_data.uptime else 'N/A' }}</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Services:</h6>
+                            <ul class="list-unstyled">
+                                {% if health_data.services %}
+                                    {% for service, status in health_data.services.items() %}
+                                    <li>
+                                        <i class="fas fa-{{ 'check-circle text-success' if status == 'connected' or status == 'active' else 'times-circle text-danger' }} me-2"></i>
+                                        {{ service | title }}: {{ status }}
+                                    </li>
+                                    {% endfor %}
+                                {% else %}
+                                    <li><i class="fas fa-info-circle text-info me-2"></i>Service status not available</li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card demo-card">
+                <div class="card-body">
+                    <h5 class="card-title">Raw Health Data</h5>
+                    <pre class="bg-light p-3 rounded">{{ health_data | tojson(indent=2) }}</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

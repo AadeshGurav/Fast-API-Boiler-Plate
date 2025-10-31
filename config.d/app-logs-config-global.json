@@ -1,0 +1,13 @@
+{
+  "logs_path": "logs",
+  "log_level": 10,
+  "log_formatter_text": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+  "log_max_bytes": 5242880,
+  "log_backup_count": 3,
+  "log_sample_rate": 1.0,
+  "log_console_formatter_text": "%(levelname)s | %(asctime)s | %(name)s:%(lineno)d | %(message)s",
+  "log_file_formatter_text": "%(message)s",
+  "log_enable_request_id_propagation": true,
+  "log_enable_trace_correlation": true,
+  "log_request_id_header": "X-Request-ID"
+}

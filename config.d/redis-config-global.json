@@ -1,0 +1,7 @@
+{
+  "redis_host": "localhost",
+  "redis_port": 6379,
+  "redis_password": null,
+  "app_redis_decode_responses": true,
+  "cache_ttl": 3600
+}

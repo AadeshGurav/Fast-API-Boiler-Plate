@@ -1,0 +1,26 @@
+{
+  "oauth_providers": {
+    "google": {
+      "provider": "google",
+      "client_id": "",
+      "client_secret": "",
+      "redirect_uri": "http://localhost:8000/oauth/google/callback",
+      "scopes": ["openid", "email", "profile"],
+      "authorization_url": "https://accounts.google.com/o/oauth2/v2/auth",
+      "token_url": "https://oauth2.googleapis.com/token",
+      "userinfo_url": "https://www.googleapis.com/oauth2/v3/userinfo"
+    },
+    "apple": {
+      "provider": "apple",
+      "client_id": "",
+      "client_secret": "",
+      "redirect_uri": "http://localhost:8000/oauth/apple/callback",
+      "scopes": ["name", "email"],
+      "authorization_url": "https://appleid.apple.com/auth/authorize",
+      "token_url": "https://appleid.apple.com/auth/token",
+      "userinfo_url": "https://appleid.apple.com/auth/userinfo"
+    }
+  },
+  "oauth_enabled": false,
+  "oauth_default_provider": "google"
+}

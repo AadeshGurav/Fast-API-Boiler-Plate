@@ -1,0 +1,90 @@
+# Core Framework
+fastapi==0.115.13         # Latest stable release (Jun 17, 2025) :contentReference[oaicite:1]{index=1}
+uvicorn[standard]==0.34.3 # Latest (Jun 1, 2025) :contentReference[oaicite:2]{index=2}
+wsproto
+websockets==12.0
+uvloop>=0.14.0,<0.19.0    # Matches uvicorn-standard dependency :contentReference[oaicite:3]{index=3}
+httptools==0.6.3         # Required minimum for uvicorn-standard :contentReference[oaicite:4]{index=4}
+
+# Async Support
+# asyncio is part of the standard library; no explicit install needed
+aiofiles==23.2.1         # Existing stable version
+
+# Dependency Injection
+dependency-injector==4.41.0
+
+# Database Drivers
+motor==3.3.2
+pymongo==4.5.0
+redis[hiredis]==5.0.1
+asyncpg==0.29.0
+aiosqlite==0.19.0
+
+# ORM / ODM
+sqlalchemy==2.0.23
+# pymongo already included above
+
+# Auth & Security
+python-jose[cryptography]==3.3.0
+passlib[argon2]==1.7.4
+argon2-cffi==23.1.0
+python-multipart==0.0.6
+PyJWT==2.8.0
+cryptography==41.0.7
+bcrypt==4.1.2
+
+# Config & Env
+python-dotenv==1.0.0
+pydantic[email]==2.5.0
+pydantic-settings==2.1.0
+email-validator==2.1.0
+
+# Logging & Monitoring
+python-json-logger==2.0.7
+prometheus-client==0.19.0
+sentry-sdk[fastapi]==2.32.0
+
+# OpenTelemetry
+opentelemetry-api==1.34.1
+opentelemetry-sdk==1.34.1
+opentelemetry-instrumentation==0.55b1
+opentelemetry-instrumentation-fastapi==0.55b1
+opentelemetry-instrumentation-httpx==0.55b1
+opentelemetry-instrumentation-pymongo==0.55b1
+opentelemetry-instrumentation-redis==0.55b1
+opentelemetry-exporter-otlp==1.34.1
+opentelemetry-exporter-otlp-proto-grpc==1.34.1
+
+# HTTP Client
+httpx==0.25.2
+requests==2.31.0
+user-agents==2.2.0
+
+# Templates, CORS, Sessions
+jinja2==3.1.2
+itsdangerous==2.2.0
+starlette==0.46.2
+
+# Dev Tools
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+black==23.11.0
+isort==5.12.0
+flake8==6.1.0
+mypy==1.7.1
+ruff==0.5.3
+pre-commit==3.5.0
+
+# Perf Testing
+locust==2.17.0
+
+# Additional Utilities
+typing-extensions==4.8.0
+
+# Prod Extras
+gunicorn==21.2.0
+gevent==23.9.1
+setproctitle==1.3.6
+psutil==7.0.0
+colorama==0.4.6

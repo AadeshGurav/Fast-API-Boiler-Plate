@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+
+{% block title %}Login{% endblock %}
+
+{% block header %}User Login{% endblock %}
+{% block subtitle %}Sign in to access your account{% endblock %}
+
+{% block content %}
+    <div class="card">
+        <h2>Login to Your Account</h2>
+        
+        {% if error_message %}
+            <div class="alert alert-error">
+                <strong>Error:</strong> {{ error_message }}
+            </div>
+        {% endif %}
+        
+        {% if success_message %}
+            <div class="alert alert-success">
+                <strong>Success:</strong> {{ success_message }}
+            </div>
+        {% endif %}
+        
+        <form id="login-form" class="auth-form">
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" id="username" name="username" required 
+                       value="{{ username or '' }}" 
+                       placeholder="Enter your username">
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" required 
+                       placeholder="Enter your password">
+            </div>
+            
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="remember_me" value="true">
+                    Remember me for 30 days
+                </label>
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Login</button>
+                <a href="/demo/auth/register" class="btn btn-secondary">Create Account</a>
+            </div>
+        </form>
+        
+        <div class="auth-links">
+            <p><a href="/demo/auth/forgot-password">Forgot your password?</a></p>
+            <p>Don't have an account? <a href="/demo/auth/register">Register here</a></p>
+        </div>
+    </div>
+    
+    <div class="card">
+        <h2>Demo Credentials</h2>
+        <p>Use these credentials to test the authentication system:</p>
+        <div class="demo-credentials">
+            <div class="credential-item">
+                <strong>Admin User:</strong><br>
+                Username: <code>admin</code><br>
+                Password: <code>admin</code>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .auth-form {
+        max-width: 400px;
+        margin: 0 auto;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+    }
+    
+    .form-group input[type="text"],
+    .form-group input[type="password"] {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 16px;
+    }
+    
+    .form-group input[type="checkbox"] {
+        margin-right: 8px;
+    }
+    
+    .form-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+    }
+    
+    .btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+    }
+    
+    .btn-primary {
+        background-color: #3498db;
+        color: white;
+    }
+    
+    .btn-primary:hover {
+        background-color: #2980b9;
+    }
+    
+    .btn-secondary {
+        background-color: #95a5a6;
+        color: white;
+    }
+    
+    .btn-secondary:hover {
+        background-color: #7f8c8d;
+    }
+    
+    .auth-links {
+        text-align: center;
+        margin-top: 20px;
+    }
+    
+    .auth-links a {
+        color: #3498db;
+        text-decoration: none;
+    }
+    
+    .auth-links a:hover {
+        text-decoration: underline;
+    }
+    
+    .alert {
+        padding: 15px;
+        margin-bottom: 20px;
+        border-radius: 4px;
+    }
+    
+    .alert-error {
+        background-color: #ffebee;
+        border: 1px solid #f44336;
+        color: #c62828;
+    }
+    
+    .alert-success {
+        background-color: #e8f5e9;
+        border: 1px solid #4caf50;
+        color: #2e7d32;
+    }
+    
+    .demo-credentials {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-radius: 4px;
+        margin-top: 10px;
+    }
+    
+    .credential-item {
+        margin-bottom: 10px;
+    }
+    
+    .credential-item code {
+        background-color: #e9ecef;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-family: monospace;
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value;
+
+  const alertContainer = document.createElement('div');
+  try {
+    await window.DemoAuth.login(username, password);
+    window.location.href = '/demo/auth/dashboard';
+  } catch (err) {
+    alertContainer.className = 'alert alert-error';
+    alertContainer.innerHTML = `<strong>Error:</strong> ${err.message || 'Login failed'}`;
+    const form = document.getElementById('login-form');
+    form.parentNode.insertBefore(alertContainer, form);
+  }
+});
+</script>
+{% endblock %}

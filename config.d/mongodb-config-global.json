@@ -1,0 +1,7 @@
+{
+  "mongo_host": "localhost",
+  "mongo_port": 27017,
+  "mongo_username": "root",
+  "mongo_password": "",
+  "mongo_auth_source": ""
+}

@@ -1,0 +1,9 @@
+<div class="message {{ type }}">
+    {% if icon %}
+    <span class="icon">{{ icon }}</span>
+    {% endif %}
+    <span class="message-text">{{ text }}</span>
+    {% if dismissible %}
+    <button class="dismiss-btn">&times;</button>
+    {% endif %}
+</div>

@@ -1,0 +1,29 @@
+{
+  "session_lifetime": 3600,
+  "session_cookie_name": "session",
+  "session_max_age": 1209600,
+  "session_cookie_path": "/",
+  "session_cookie_same_site": "lax",
+  "session_cookie_https_only": false,
+  "app_allow_credentials": false,
+  "public_paths": [
+    "/",
+    "/docs",
+    "/redoc",
+    "/openapi.json",
+    "/auth/jwt/login",
+    "/auth/login",
+    "/auth/register",
+    "/auth/reset-password",
+    "/auth/forgot-password",
+    "/auth/fastapi-users/register",
+    "/health",
+    "/static"
+  ],
+  "admin_only_paths": [
+    "/admin",
+    "/users/list",
+    "/users/{id}/permissions",
+    "/users/{id}/role"
+  ]
+}

@@ -1,0 +1,36 @@
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+ignore = ["ANN401"]
+select = ["ALL"]
+exclude = [
+    ".venv",
+    "venv",
+    "env",
+]
+
+
+[tool.isort]
+profile = "black"
+line_length = 120
+known_third_party = ["fastapi"]
+skip_gitignore = true
+skip = ["env", ".env", "venv", ".venv"]
+
+
+[tool.black]
+line-length = 120
+skip-string-normalization = true
+target-version = ['py310']
+exclude = '''
+/(
+    env
+  | \.venv
+  | venv
+)/
+'''
+
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"

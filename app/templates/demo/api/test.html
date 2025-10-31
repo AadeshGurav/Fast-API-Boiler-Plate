@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card demo-card">
+                <div class="card-body">
+                    <h4 class="card-title">
+                        <i class="fas fa-flask me-2"></i>
+                        API Testing
+                    </h4>
+                    <p class="text-muted">Test API endpoints and view responses in real-time.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card demo-card">
+                <div class="card-body">
+                    <h5 class="card-title">Test Endpoints</h5>
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-primary" onclick="testEndpoint('/api/v1/health')">
+                            <i class="fas fa-heartbeat me-2"></i>Health Check
+                        </button>
+                        <button class="btn btn-outline-success" onclick="testEndpoint('/api/v1/metrics')">
+                            <i class="fas fa-chart-line me-2"></i>Metrics
+                        </button>
+                        <button class="btn btn-outline-info" onclick="testEndpoint('/api/v1/status')">
+                            <i class="fas fa-info-circle me-2"></i>Status
+                        </button>
+                        <button class="btn btn-outline-warning" onclick="testEndpoint('/api/v1/auth/me')">
+                            <i class="fas fa-sign-in-alt me-2"></i>Auth Test
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card demo-card">
+                <div class="card-body">
+                    <h5 class="card-title">Response</h5>
+                    <div id="api-response" class="bg-light p-3 rounded" style="min-height: 200px;">
+                        <p class="text-muted">Click a button to test an endpoint...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function testEndpoint(endpoint) {
+        const responseDiv = document.getElementById('api-response');
+        responseDiv.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Testing endpoint...</div>';
+        
+        try {
+            const response = await window.DemoAuth.fetch(endpoint);
+            const data = await response.json();
+            
+            responseDiv.innerHTML = `
+                <h6>Response from ${endpoint}:</h6>
+                <pre class="bg-white p-2 rounded">${JSON.stringify(data, null, 2)}</pre>
+                <small class="text-muted">Status: ${response.status} ${response.statusText}</small>
+            `;
+        } catch (error) {
+            responseDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <h6>Error testing ${endpoint}:</h6>
+                    <p>${error.message}</p>
+                </div>
+            `;
+        }
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+
+{% block title %}Register{% endblock %}
+
+{% block header %}Create Account{% endblock %}
+{% block subtitle %}Join our platform and get started{% endblock %}
+
+{% block content %}
+    <div class="card">
+        <h2>Create Your Account</h2>
+        
+        {% if error_message %}
+            <div class="alert alert-error">
+                <strong>Error:</strong> {{ error_message }}
+            </div>
+        {% endif %}
+        
+        {% if success_message %}
+            <div class="alert alert-success">
+                <strong>Success:</strong> {{ success_message }}
+            </div>
+        {% endif %}
+        
+        <form id="register-form" class="auth-form">
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" id="username" name="username" required 
+                       value="{{ username or '' }}" 
+                       placeholder="Choose a username"
+                       minlength="3" maxlength="50">
+                <small class="form-help">3-50 characters, letters, numbers, and underscores only</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" id="email" name="email" required 
+                       value="{{ email or '' }}" 
+                       placeholder="Enter your email address">
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" required 
+                       placeholder="Create a strong password"
+                       minlength="8">
+                <small class="form-help">Minimum 8 characters with at least one special character</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="confirm_password">Confirm Password:</label>
+                <input type="password" id="confirm_password" name="confirm_password" required 
+                       placeholder="Confirm your password">
+            </div>
+            
+            <div class="form-group">
+                <label for="first_name">First Name:</label>
+                <input type="text" id="first_name" name="first_name" required 
+                       value="{{ first_name or '' }}" 
+                       placeholder="Enter your first name">
+            </div>
+            
+            <div class="form-group">
+                <label for="last_name">Last Name:</label>
+                <input type="text" id="last_name" name="last_name" required 
+                       value="{{ last_name or '' }}" 
+                       placeholder="Enter your last name">
+            </div>
+            
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="terms_accepted" value="true" required>
+                    I agree to the <a href="/terms" target="_blank">Terms of Service</a> and <a href="/privacy" target="_blank">Privacy Policy</a>
+                </label>
+            </div>
+            
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="newsletter" value="true">
+                    Subscribe to our newsletter for updates and tips
+                </label>
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Create Account</button>
+                <a href="/demo/auth/login" class="btn btn-secondary">Already have an account?</a>
+            </div>
+        </form>
+        
+        <div class="auth-links">
+            <p>Already have an account? <a href="/demo/auth/login">Login here</a></p>
+        </div>
+    </div>
+    
+    <div class="card">
+        <h2>Account Benefits</h2>
+        <ul class="feature-list">
+            <li>Access to personalized dashboard</li>
+            <li>Role-based permissions and features</li>
+            <li>Secure session management</li>
+            <li>API access with authentication</li>
+            <li>Profile management and preferences</li>
+        </ul>
+    </div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .auth-form {
+        max-width: 500px;
+        margin: 0 auto;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+    }
+    
+    .form-group input[type="text"],
+    .form-group input[type="email"],
+    .form-group input[type="password"] {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 16px;
+    }
+    
+    .form-group input[type="checkbox"] {
+        margin-right: 8px;
+    }
+    
+    .form-help {
+        display: block;
+        margin-top: 5px;
+        font-size: 0.9em;
+        color: #666;
+    }
+    
+    .form-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+    }
+    
+    .btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+    }
+    
+    .btn-primary {
+        background-color: #27ae60;
+        color: white;
+    }
+    
+    .btn-primary:hover {
+        background-color: #229954;
+    }
+    
+    .btn-secondary {
+        background-color: #95a5a6;
+        color: white;
+    }
+    
+    .btn-secondary:hover {
+        background-color: #7f8c8d;
+    }
+    
+    .auth-links {
+        text-align: center;
+        margin-top: 20px;
+    }
+    
+    .auth-links a {
+        color: #3498db;
+        text-decoration: none;
+    }
+    
+    .auth-links a:hover {
+        text-decoration: underline;
+    }
+    
+    .alert {
+        padding: 15px;
+        margin-bottom: 20px;
+        border-radius: 4px;
+    }
+    
+    .alert-error {
+        background-color: #ffebee;
+        border: 1px solid #f44336;
+        color: #c62828;
+    }
+    
+    .alert-success {
+        background-color: #e8f5e9;
+        border: 1px solid #4caf50;
+        color: #2e7d32;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Password confirmation validation and submit handler
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('register-form');
+        const password = document.getElementById('password');
+        const confirmPassword = document.getElementById('confirm_password');
+
+        function validatePassword() {
+            if (password.value !== confirmPassword.value) {
+                confirmPassword.setCustomValidity('Passwords do not match');
+            } else {
+                confirmPassword.setCustomValidity('');
+            }
+        }
+
+        password.addEventListener('change', validatePassword);
+        confirmPassword.addEventListener('keyup', validatePassword);
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (password.value !== confirmPassword.value) {
+                validatePassword();
+                return;
+            }
+            const payload = {
+                username: document.getElementById('username').value.trim(),
+                email: document.getElementById('email').value.trim(),
+                password: password.value,
+                roles: ["user"],
+                groups: [],
+                metadata: {
+                    first_name: document.getElementById('first_name').value.trim(),
+                    last_name: document.getElementById('last_name').value.trim(),
+                    newsletter: !!document.querySelector('input[name="newsletter"]:checked')
+                }
+            };
+
+            const alertContainer = document.createElement('div');
+            try {
+                const res = await fetch('/api/v1/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!res.ok) {
+                    const text = await res.text();
+                    throw new Error(text || `Registration failed (${res.status})`);
+                }
+                window.location.href = '/demo/auth/login';
+            } catch (err) {
+                alertContainer.className = 'alert alert-error';
+                alertContainer.innerHTML = `<strong>Error:</strong> ${err.message || 'Registration failed'}`;
+                form.parentNode.insertBefore(alertContainer, form);
+            }
+        });
+    });
+</script>
+{% endblock %}

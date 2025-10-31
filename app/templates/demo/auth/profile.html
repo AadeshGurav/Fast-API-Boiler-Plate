@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card demo-card">
+                <div class="card-body">
+                    <h4 class="card-title">
+                        <i class="fas fa-user me-2"></i>
+                        User Profile
+                    </h4>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Personal Information:</h6>
+                            <ul class="list-unstyled">
+                                <li><strong>Username:</strong> {{ user.username }}</li>
+                                <li><strong>Email:</strong> {{ user.email }}</li>
+                                <li><strong>Role:</strong> <span class="badge bg-primary">{{ user.role }}</span></li>
+                                <li><strong>Status:</strong> <span class="badge bg-success">Active</span></li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Account Details:</h6>
+                            <ul class="list-unstyled">
+                                <li><strong>Member Since:</strong> {{ user.get('member_since', '2024-01-01') }}</li>
+                                <li><strong>Last Login:</strong> {{ user.get('last_login', 'Just now') }}</li>
+                                <li><strong>Groups:</strong> {{ user.get('groups', ['users']) | join(', ') }}</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <h6>Permissions:</h6>
+                        <div class="row">
+                            {% for permission in user.get('permissions', []) %}
+                            <div class="col-md-3 mb-2">
+                                <span class="badge bg-info">{{ permission }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <a href="/demo/auth/dashboard" class="btn btn-primary">
+                            <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+                        </a>
+                        <a href="/demo/auth/logout" class="btn btn-outline-danger">
+                            <i class="fas fa-sign-out-alt me-2"></i>Logout
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

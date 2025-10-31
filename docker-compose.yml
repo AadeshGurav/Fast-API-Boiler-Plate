@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: boiler_plate
+    command: ["python3", "main.py"]
+    volumes:
+      - ./:/app
+      - ./config.d:/app/config.d
+    depends_on:
+      - mongodb
+      - redis
+    ports:
+      - "8000:8000"
+    networks:
+      - ag-network
+
+  mongodb:
+    image: bitnami/mongodb:8.0.9
+    container_name: mongodb
+    restart: always
+    networks:
+      - ag-network
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/bitnami/mongodb
+    environment:
+      MONGODB_EXTRA_FLAGS: "--oplogSize=1024"
+      MONGODB_ENABLE_DIRECTORY_PER_DB: "yes"
+      MONGODB_ENABLE_IPV6: "no"
+      MONGODB_REPLICA_SET_MODE: "primary"
+      MONGODB_REPLICA_SET_NAME: "boiler_plate"
+      MONGODB_ROOT_PASSWORD: "ag"
+      MONGODB_REPLICA_SET_KEY: "D49JCXRupmVfXduUR4TCCjZXUDjWtSq7"
+    deploy:
+      resources:
+        limits:
+          memory: 2048M
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mongosh --quiet -u root -p 'ag' --eval 'quit(db.runCommand({ ping: 1 }).ok ? 0 : 2)' || exit 1"
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    security_opt:
+      - "no-new-privileges"
+    sysctls:
+      net.core.somaxconn: "65535"
+    cap_drop:
+      - ALL
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - ag-network
+
+volumes:
+  mongodb_data:
+  redis_data:
+
+networks:
+  ag-network:
+    driver: bridge

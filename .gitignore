@@ -1,0 +1,17 @@
+__pycache__
+.idea
+*.pyc
+*.xml
+*.iml
+.idea/WDP1009-Zoho_CRM_Costing_Tool.iml
+.idea/misc.xml
+output.tex
+*.log
+*.aux
+*.pdf
+*.out
+.venv/
+.environment/
+logs/*
+.logs/*
+*-local.json

@@ -1,0 +1,32 @@
+{
+  "rbac_roles": {
+    "admin": {
+      "id": "admin",
+      "name": "Administrator",
+      "permissions": ["*"],
+      "inherits": [],
+      "metadata": {"level": 100, "description": "Full system access"}
+    },
+    "manager": {
+      "id": "manager",
+      "name": "Manager",
+      "permissions": ["users:read", "users:write", "reports:read", "reports:write"],
+      "inherits": ["user"],
+      "metadata": {"level": 50, "description": "Management access"}
+    },
+    "user": {
+      "id": "user",
+      "name": "User",
+      "permissions": ["profile:read", "profile:write", "dashboard:read"],
+      "inherits": [],
+      "metadata": {"level": 10, "description": "Basic user access"}
+    },
+    "guest": {
+      "id": "guest",
+      "name": "Guest",
+      "permissions": ["public:read"],
+      "inherits": [],
+      "metadata": {"level": 1, "description": "Limited guest access"}
+    }
+  }
+}

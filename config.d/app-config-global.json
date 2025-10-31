@@ -1,0 +1,20 @@
+{
+  "app_title": "One Conf",
+  "app_host": "127.0.0.1",
+  "app_port": 8000,
+  "app_debug": true,
+  "app_reload": false,
+  "app_workers": 1,
+  "app_log_level": "info",
+  "app_version": "1.0.0",
+  "app_database": "oneconf",
+  "app_description": "Production-ready FastAPI application",
+  "log_uvicorn": true,
+  "uvicorn_log_level": "info",
+  "environment": "development",
+  "enable_metrics": true,
+  "enable_tracing": true,
+  "enable_health_checks": true,
+  "maintenance_mode": false,
+  "process_title_format": "FastAPI: {app_title}-{environment}-{process_type}-{worker_id}"
+}

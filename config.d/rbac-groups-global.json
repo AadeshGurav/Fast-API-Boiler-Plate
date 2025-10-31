@@ -1,0 +1,28 @@
+{
+  "rbac_groups": {
+    "admins": {
+      "id": "admins",
+      "name": "Administrators",
+      "roles": ["admin"],
+      "metadata": {"description": "System administrators with full access"}
+    },
+    "staff": {
+      "id": "staff",
+      "name": "Staff Members",
+      "roles": ["manager", "user"],
+      "metadata": {"description": "Staff members with management and user access"}
+    },
+    "users": {
+      "id": "users",
+      "name": "Regular Users",
+      "roles": ["user"],
+      "metadata": {"description": "Regular users with basic access"}
+    },
+    "guests": {
+      "id": "guests",
+      "name": "Guest Users",
+      "roles": ["guest"],
+      "metadata": {"description": "Guest users with limited access"}
+    }
+  }
+}

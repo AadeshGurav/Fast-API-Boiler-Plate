@@ -1,0 +1,36 @@
+{
+  "rate_limit_enabled": true,
+  "rate_limit_requests": 100,
+  "rate_limit_window": 60,
+  "rate_limit_algorithm": "sliding_window",
+  "rate_limit_tiers": {
+    "default": {
+      "requests": 100,
+      "window": 60
+    },
+    "auth": {
+      "requests": 10,
+      "window": 300,
+      "patterns": ["/auth/login", "/auth/register", "/auth/reset"]
+    },
+    "api": {
+      "requests": 1000,
+      "window": 60,
+      "patterns": ["/api/"]
+    },
+    "admin": {
+      "requests": 50,
+      "window": 60,
+      "patterns": ["/admin/"]
+    },
+    "authenticated": {
+      "requests": 500,
+      "window": 60
+    },
+    "public": {
+      "requests": 50,
+      "window": 60,
+      "patterns": ["/public/"]
+    }
+  }
+}
