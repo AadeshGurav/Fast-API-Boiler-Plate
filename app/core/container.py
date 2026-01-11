@@ -1,20 +1,17 @@
 from __future__ import annotations
+
 from dependency_injector import containers, providers
 from fastapi import FastAPI
 
 from app.api.app import AppFactory
 from app.core.class_store import ClassStore
-from app.database.repositories import (
-    OAuthRepository,
-    RBACRepository,
-    SessionRepository,
-    UserRepository,
-)
 from app.services.auth import AuthService
 from app.services.cache import CacheService
-from app.services.data_service import DataService
+from app.services.data import DataService
 from app.services.database_service import DatabaseService
 from app.services.error.error_service import ErrorService
+from app.services.file import FileService
+from app.services.file.storage.local import LocalStorage
 from app.services.logger import Logger
 from app.services.metrics import MetricsService
 from app.services.oauth import OAuthService
@@ -35,6 +32,21 @@ class Container(containers.DeclarativeContainer):
         modules=[
             "config",
             "app.services.logger",
+            "app.services.retry_service",
+            "app.services.metrics",
+            "app.services.tracing",
+            "app.services.sentry",
+            "app.services.data",
+            "app.services.database_service",
+            "app.services.cache",
+            "app.services.password_service",
+            "app.services.rbac",
+            "app.services.oauth",
+            "app.services.auth",
+            "app.services.session",
+            "app.services.error",
+            "app.services.file",
+            "app.core.class_store",
         ]
     )
 
@@ -76,47 +88,23 @@ class Container(containers.DeclarativeContainer):
     )
 
     # Services
+
+    # Database
     data_service: DataService = providers.Singleton(
         DataService, logger=logger, config=config
     )
 
-    # Database service - get from data_service
     database_service: DatabaseService = providers.Singleton(
-        lambda data_service: data_service.database_service,
-        data_service=data_service,
+        DatabaseService,
+        config=config,
+        logger=logger,
+        backend=data_service,
     )
 
     # Cache service - get from data_service
     cache_service: CacheService = providers.Singleton(
         lambda data_service: data_service.cache_service,
         data_service=data_service,
-    )
-
-    # Repositories
-    user_repository: UserRepository = providers.Singleton(
-        UserRepository,
-        database_service=database_service,
-        logger=logger,
-    )
-
-    session_repository: SessionRepository = providers.Singleton(
-        SessionRepository,
-        database_service=database_service,
-        cache_service=cache_service,
-        logger=logger,
-    )
-
-    rbac_repository: RBACRepository = providers.Singleton(
-        RBACRepository,
-        database_service=database_service,
-        cache_service=cache_service,
-        logger=logger,
-    )
-
-    oauth_repository: OAuthRepository = providers.Singleton(
-        OAuthRepository,
-        database_service=database_service,
-        logger=logger,
     )
 
     # Password service
@@ -131,7 +119,7 @@ class Container(containers.DeclarativeContainer):
         RBACService,
         config=config,
         logger=logger,
-        rbac_repository=rbac_repository,
+        data_service=data_service,
         cache_service=cache_service,
     )
 
@@ -140,8 +128,7 @@ class Container(containers.DeclarativeContainer):
         OAuthService,
         config=config,
         logger=logger,
-        oauth_repository=oauth_repository,
-        user_repository=user_repository,
+        data_service=data_service,
     )
 
     # Enhanced Auth service
@@ -149,8 +136,7 @@ class Container(containers.DeclarativeContainer):
         AuthService,
         logger=logger,
         config=config,
-        session_repository=session_repository,
-        user_repository=user_repository,
+        data_service=data_service,
         password_service=password_service,
         rbac_service=rbac_service,
     )
@@ -164,7 +150,24 @@ class Container(containers.DeclarativeContainer):
         ErrorService, logger=logger, config=config
     )
 
+    # Storage backend for files
+    storage_backend: LocalStorage = providers.Singleton(
+        LocalStorage,
+        logger=logger,
+        config=config,
+    )
+
+    # File service
+    file_service: FileService = providers.Singleton(
+        FileService,
+        logger=logger,
+        config=config,
+        data_service=data_service,
+        storage_backend=storage_backend,
+    )
+
     # ClassStore (soft dependencies)
+    # Use factory to set container reference after creation
     class_store: ClassStore = providers.Singleton(
         ClassStore, config=config, logger=logger
     )
@@ -175,18 +178,40 @@ class Container(containers.DeclarativeContainer):
         app_name=config.provided.app_title,
         config=config,
         logger=logger,
-        data_service=data_service,
         debug=config.provided.app_debug,
+        services={
+            "retry_service": retry_service,
+            "metrics_service": metrics_service,
+            "tracing_service": tracing_service,
+            "sentry_service": sentry_service,
+            "data_service": data_service,
+            "database_service": database_service,
+            "cache_service": cache_service,
+            "password_service": password_service,
+            "rbac_service": rbac_service,
+            "oauth_service": oauth_service,
+            "auth_service": auth_service,
+            "session_service": session_service,
+            "error_service": error_service,
+            "file_service": file_service,
+            "class_store": class_store,
+        },
     )
 
     # FastAPI application instance
     app: FastAPI = providers.Singleton(
         lambda factory: factory.create_app(
-            life_span=__import__("app.utils.uitls", fromlist=["lifespan"]).lifespan
+            life_span=__import__("app.utils.utils", fromlist=["lifespan"]).lifespan
         ),
         factory=app_factory,
     )
 
-    def init_app(self) -> None:
+    # TODO: user proper DI injection instead of this
+    def init_app(self: Container) -> None:
         """Discover and wire services after container is built."""
-        self.class_store().discover_services(["app.services", "app.api"])
+        class_store_instance = self.class_store()
+        # Set container reference for service access
+        class_store_instance._container = self
+        class_store_instance.discover_services(
+            ["app.services", "app.api", "app.classes"]
+        )

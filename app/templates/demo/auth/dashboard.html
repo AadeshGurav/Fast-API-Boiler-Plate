@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "demo/base.html" %}
 
 {% block title %}Dashboard{% endblock %}
 
@@ -18,7 +18,7 @@
                 <h3>{{ user.profile.first_name }} {{ user.profile.last_name }}</h3>
                 <p><strong>Username:</strong> {{ user.username }}</p>
                 <p><strong>Email:</strong> {{ user.profile.email }}</p>
-                <p><strong>Role:</strong> <span class="role-badge role-{{ user.role }}">{{ user.role|title }}</span></p>
+                <p><strong>Role:</strong> <span class="badge bg-primary">{{ user.role|upper }}</span></p>
                 <p><strong>Groups:</strong> 
                     {% for group in user.groups %}
                         <span class="group-badge">{{ group }}</span>
@@ -26,7 +26,7 @@
                 </p>
                 <p><strong>Status:</strong> <span class="status-{{ user.status }}">{{ user.status|title }}</span></p>
                 <p><strong>Last Login:</strong> {{ user.last_login or 'Never' }}</p>
-                <p><strong>Member Since:</strong> {{ user.created_at.strftime('%B %d, %Y') }}</p>
+                <p><strong>Member Since:</strong> {{ user.created_at or 'Unknown' }}</p>
             </div>
         </div>
         
@@ -74,6 +74,79 @@
     {% endif %}
     
     <div class="card">
+        <h2><i class="fas fa-desktop me-2"></i>Active Sessions</h2>
+        {% if user.sessions %}
+        <p class="text-muted">You have {{ user.sessions|length }} active session(s).</p>
+        <div class="sessions-summary">
+            {% for session in user.sessions[:3] %}
+            {% if session.is_active %}
+            <div class="session-summary-item">
+                <i class="fas fa-{{ 'desktop' if session.device_info.device_type == 'desktop' else 'mobile-alt' if session.device_info.device_type == 'mobile' else 'laptop' }} me-2"></i>
+                <span>{{ session.device_info.browser or 'Unknown Browser' }} on {{ session.device_info.platform or 'Unknown Platform' }}</span>
+                <small class="text-muted ms-2">{{ session.device_info.ip_address }}</small>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+        <div class="mt-3">
+            <a href="/demo/auth/sessions" class="btn btn-primary">
+                <i class="fas fa-desktop me-2"></i>Manage Sessions
+            </a>
+        </div>
+        {% else %}
+        <p class="text-muted">No active sessions found.</p>
+        <a href="/demo/auth/sessions" class="btn btn-primary">
+            <i class="fas fa-desktop me-2"></i>View Sessions
+        </a>
+        {% endif %}
+    </div>
+    
+    <div class="card">
+        <h2><i class="fas fa-history me-2"></i>Login Attempts</h2>
+        {% if user.login_attempts %}
+        <p class="text-muted">Recent login attempts and security events.</p>
+        <div class="login-attempts-summary">
+            {% for attempt in user.login_attempts[:5] %}
+            <div class="attempt-summary-item {% if attempt.success %}attempt-success{% else %}attempt-failed{% endif %}">
+                <i class="fas fa-{{ 'check-circle' if attempt.success else 'times-circle' }} me-2"></i>
+                <span>
+                    {% if attempt.timestamp %}
+                        {% if attempt.timestamp is string %}
+                            {{ attempt.timestamp }}
+                        {% else %}
+                            {{ attempt.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}
+                        {% endif %}
+                    {% else %}
+                        Unknown
+                    {% endif %}
+                </span>
+                <span class="ms-2">
+                    {% if attempt.success %}
+                    <span class="badge bg-success">Success</span>
+                    {% else %}
+                    <span class="badge bg-danger">Failed</span>
+                    {% endif %}
+                </span>
+                {% if attempt.reason %}
+                <small class="text-muted ms-2">- {{ attempt.reason }}</small>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        <div class="mt-3">
+            <a href="/demo/auth/login-attempts" class="btn btn-primary">
+                <i class="fas fa-history me-2"></i>View All Login Attempts
+            </a>
+        </div>
+        {% else %}
+        <p class="text-muted">No login attempts found.</p>
+        <a href="/demo/auth/login-attempts" class="btn btn-primary">
+            <i class="fas fa-history me-2"></i>View Login Attempts
+        </a>
+        {% endif %}
+    </div>
+    
+    <div class="card">
         <h2>Quick Actions</h2>
         <div class="quick-actions">
             <a href="/demo/api/info" class="btn btn-secondary">API Information</a>
@@ -84,48 +157,58 @@
             {% endif %}
         </div>
     </div>
-    
-    <div class="card">
-        <h2>Recent Activity</h2>
-        <div class="activity-list">
-            <div class="activity-item">
-                <span class="activity-icon">🔐</span>
-                <span class="activity-text">Logged in successfully</span>
-                <span class="activity-time">{{ current_time }}</span>
-            </div>
-            <div class="activity-item">
-                <span class="activity-icon">👤</span>
-                <span class="activity-text">Profile accessed</span>
-                <span class="activity-time">{{ current_time }}</span>
-            </div>
-        </div>
-    </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 // Client-load current user via /api/v1/auth/me
-(async function loadUser() {
-  try {
-    if (!window.DemoAuth.isAuthenticated()) {
-      window.location.href = '/demo/auth/login';
-      return;
+document.addEventListener('DOMContentLoaded', function() {
+  (async function loadUser() {
+    try {
+      // Wait for DemoAuth to be available
+      if (!window.DemoAuth) {
+        console.error('DemoAuth not loaded');
+        return;
+      }
+      
+      if (!window.DemoAuth.isAuthenticated()) {
+        window.location.href = '/demo/auth/login';
+        return;
+      }
+      
+      const res = await window.DemoAuth.fetch('/api/v1/auth/me');
+      if (res.status === 401) {
+        window.location.href = '/demo/auth/login';
+        return;
+      }
+      
+      if (!res.ok) {
+        console.error('Failed to fetch user:', res.status);
+        return;
+      }
+      
+      const user = await res.json();
+      
+      // Update UI with user data
+      const header = document.querySelector('h2 + .profile-info .avatar-circle');
+      if (header && user?.username) {
+        header.textContent = user.username.charAt(0).toUpperCase();
+      }
+      
+      // Update username in header
+      const usernameHeader = document.querySelector('.demo-header h1');
+      if (usernameHeader && user?.username) {
+        const subtitle = usernameHeader.nextElementSibling;
+        if (subtitle) {
+          subtitle.textContent = `Welcome, ${user.username}!`;
+        }
+      }
+    } catch (err) {
+      console.error('Error loading user:', err);
+      // Don't redirect on error, just log it
     }
-    const res = await window.DemoAuth.fetch('/api/v1/auth/me');
-    if (res.status === 401) {
-      window.location.href = '/demo/auth/login';
-      return;
-    }
-    const user = await res.json();
-    // Minimal UI updates without re-rendering template: set username/initial
-    const header = document.querySelector('h2 + .profile-info .avatar-circle');
-    if (header && user?.username) {
-      header.textContent = user.username.charAt(0).toUpperCase();
-    }
-  } catch (_) {
-    window.location.href = '/demo/auth/login';
-  }
-})();
+  })();
+});
 </script>
 {% endblock %}
 
@@ -310,6 +393,44 @@
     .activity-time {
         color: #666;
         font-size: 0.9em;
+    }
+    
+    .sessions-summary {
+        margin-top: 15px;
+    }
+    
+    .session-summary-item {
+        display: flex;
+        align-items: center;
+        padding: 10px;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+        margin-bottom: 8px;
+        border-left: 3px solid #3498db;
+    }
+    
+    .login-attempts-summary {
+        margin-top: 15px;
+    }
+    
+    .attempt-summary-item {
+        display: flex;
+        align-items: center;
+        padding: 8px 10px;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+        margin-bottom: 6px;
+        font-size: 0.9em;
+    }
+    
+    .attempt-summary-item.attempt-success {
+        border-left: 3px solid #27ae60;
+        background-color: #d4edda;
+    }
+    
+    .attempt-summary-item.attempt-failed {
+        border-left: 3px solid #e74c3c;
+        background-color: #f8d7da;
     }
 </style>
 {% endblock %}

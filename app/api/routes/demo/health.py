@@ -1,4 +1,5 @@
 """Health check endpoints for monitoring and orchestration."""
+
 from __future__ import annotations
 
 import os
@@ -9,7 +10,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, Response, status
 from prometheus_client import CONTENT_TYPE_LATEST
 
-from app.services.data_service import DataService
+from app.services.data import DataService
 from app.services.logger import Logger
 from app.services.metrics import MetricsService
 from config import Config

@@ -1,0 +1,279 @@
+/* Reusable component styles for demo pages */
+
+/* Buttons - Using design tokens */
+.btn {
+  display: inline-block;
+  padding: var(--button-padding-y-md) var(--button-padding-x-md);
+  font-size: var(--button-font-size-md);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-normal);
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  vertical-align: middle;
+  cursor: pointer;
+  user-select: none;
+  border: var(--button-border-width) solid transparent;
+  border-radius: var(--button-border-radius);
+  transition: var(--transition-base);
+  min-height: var(--button-height-md);
+}
+
+.btn:hover {
+  text-decoration: none;
+  transform: translateY(-2px);
+  box-shadow: var(--demo-shadow-md);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn-primary {
+  background-color: var(--button-primary-bg);
+  color: var(--button-primary-text);
+  border-color: var(--button-primary-bg);
+}
+
+.btn-primary:hover {
+  background-color: var(--button-primary-hover);
+  border-color: var(--button-primary-hover);
+  color: var(--button-primary-text);
+}
+
+.btn-secondary {
+  background-color: var(--demo-secondary);
+  color: var(--demo-text-light);
+  border-color: var(--demo-secondary);
+}
+
+.btn-success {
+  background-color: var(--demo-success);
+  color: var(--demo-text-light);
+  border-color: var(--demo-success);
+}
+
+.btn-danger {
+  background-color: var(--demo-danger);
+  color: var(--demo-text-light);
+  border-color: var(--demo-danger);
+}
+
+.btn-outline-primary {
+  background-color: transparent;
+  color: var(--demo-primary);
+  border-color: var(--demo-primary);
+}
+
+.btn-outline-primary:hover {
+  background-color: var(--demo-primary);
+  color: var(--demo-text-light);
+}
+
+.btn-sm {
+  padding: var(--button-padding-y-sm) var(--button-padding-x-sm);
+  font-size: var(--button-font-size-sm);
+  min-height: var(--button-height-sm);
+}
+
+.btn-lg {
+  padding: var(--button-padding-y-lg) var(--button-padding-x-lg);
+  font-size: var(--button-font-size-lg);
+  min-height: var(--button-height-lg);
+}
+
+/* Cards - Using design tokens */
+.card {
+  background-color: var(--card-bg);
+  border: var(--card-border-width) solid var(--card-border-color);
+  border-radius: var(--card-border-radius);
+  box-shadow: var(--card-elevation);
+  transition: var(--transition-base);
+  margin-bottom: var(--space-lg);
+}
+
+.card:hover {
+  box-shadow: var(--card-elevation-hover);
+  transform: translateY(-2px);
+}
+
+.card-body {
+  padding: var(--card-padding);
+}
+
+.card-title {
+  margin-bottom: var(--demo-spacing-md);
+  font-size: var(--demo-font-size-xl);
+  font-weight: var(--demo-font-weight-bold);
+}
+
+.card-text {
+  margin-bottom: var(--demo-spacing-md);
+  color: var(--demo-text-secondary);
+}
+
+/* Demo Cards */
+.demo-card {
+  background-color: var(--demo-bg-primary);
+  border: none;
+  border-radius: var(--demo-border-radius-lg);
+  box-shadow: var(--demo-shadow-md);
+  transition: var(--demo-transition-base);
+  margin-bottom: var(--demo-spacing-lg);
+}
+
+.demo-card:hover {
+  box-shadow: var(--demo-shadow-lg);
+  transform: translateY(-5px);
+}
+
+/* Feature Cards */
+.feature-card {
+  text-align: center;
+  padding: var(--demo-spacing-xl);
+  height: 100%;
+}
+
+.feature-icon {
+  font-size: 3rem;
+  margin-bottom: var(--demo-spacing-lg);
+  color: var(--demo-primary);
+}
+
+.feature-card h4 {
+  margin-bottom: var(--demo-spacing-md);
+}
+
+.feature-card p {
+  color: var(--demo-text-secondary);
+  margin-bottom: var(--demo-spacing-lg);
+}
+
+/* Forms - Using design tokens */
+.form-control {
+  display: block;
+  width: 100%;
+  padding: var(--input-padding-y) var(--input-padding-x);
+  font-size: var(--font-size-body-medium);
+  line-height: var(--line-height-normal);
+  color: var(--input-text);
+  background-color: var(--input-bg);
+  border: var(--input-border-width) solid var(--input-border-color);
+  border-radius: var(--input-border-radius);
+  transition: var(--transition-base);
+  min-height: var(--input-height-md);
+}
+
+.form-control:focus {
+  outline: none;
+  border-color: var(--input-border-color-focus);
+  box-shadow: 0 0 0 0.2rem rgba(147, 51, 234, 0.25);
+}
+
+.form-control:disabled {
+  background-color: var(--input-bg-disabled);
+  cursor: not-allowed;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: var(--label-margin-bottom);
+  font-size: var(--label-font-size);
+  font-weight: var(--label-font-weight);
+  color: var(--label-color);
+}
+
+.form-group {
+  margin-bottom: var(--demo-spacing-lg);
+}
+
+/* Badges - Using design tokens */
+.badge {
+  display: inline-block;
+  padding: var(--badge-padding-y) var(--badge-padding-x);
+  font-size: var(--badge-font-size);
+  font-weight: var(--badge-font-weight);
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+  vertical-align: baseline;
+  border-radius: var(--badge-border-radius);
+}
+
+.badge-primary {
+  background-color: var(--demo-primary);
+  color: var(--demo-text-light);
+}
+
+.badge-success {
+  background-color: var(--demo-success);
+  color: var(--demo-text-light);
+}
+
+.badge-danger {
+  background-color: var(--demo-danger);
+  color: var(--demo-text-light);
+}
+
+.badge-warning {
+  background-color: var(--demo-warning);
+  color: var(--demo-text-primary);
+}
+
+/* Loading States */
+.loading {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid var(--demo-border-color);
+  border-top-color: var(--demo-primary);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--demo-z-modal);
+}
+
+/* Toast Notifications */
+.toast {
+  position: fixed;
+  top: var(--demo-spacing-lg);
+  right: var(--demo-spacing-lg);
+  min-width: 300px;
+  padding: var(--demo-spacing-md);
+  background-color: var(--demo-bg-primary);
+  border: var(--demo-border-width) solid var(--demo-border-color);
+  border-radius: var(--demo-border-radius);
+  box-shadow: var(--demo-shadow-lg);
+  z-index: var(--demo-z-tooltip);
+  animation: slideIn 0.3s ease-out;
+}
+
+.toast-success {
+  border-left: 4px solid var(--demo-success);
+}
+
+.toast-error {
+  border-left: 4px solid var(--demo-danger);
+}
+
+.toast-info {
+  border-left: 4px solid var(--demo-info);
+}
+

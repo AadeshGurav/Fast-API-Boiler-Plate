@@ -2,6 +2,7 @@
 
 Supports sliding and fixed window algorithms using Redis Lua scripts.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -54,7 +55,7 @@ class RateLimiter(BaseMiddleware):
 
     def initialize(
         self: RateLimiter,
-        redis_client: Redis | None = None,
+        redis_client: Redis,
         **kwargs,
     ) -> None:
         """Initialize RateLimiter middleware configuration.
@@ -65,7 +66,7 @@ class RateLimiter(BaseMiddleware):
             kwargs: Additional keyword arguments
 
         """
-        self.redis_client = redis_client or getattr(self.app.state, "redis", None)
+        self.redis_client = redis_client
         self.requests_limit = self.config.get("rate_limit_requests", 100)
         self.window_seconds = self.config.get("rate_limit_window", 60)
         self.prefix = self.config.get("rate_limit_prefix", "rate_limit:")

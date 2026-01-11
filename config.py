@@ -17,7 +17,7 @@ class Config(dict):
     Supports global and local JSON files with priority handling.
     """
 
-    def __init__(self: "Config", config_dir: Path | str | None = None) -> None:
+    def __init__(self: Config, config_dir: Path | str | None = None) -> None:
         """Initialize the Config class.
 
         Args:
@@ -37,7 +37,7 @@ class Config(dict):
 
         self.reload()
 
-    def _update_gitignore(self: "Config") -> None:
+    def _update_gitignore(self: Config) -> None:
         """Add config.d/*-local.json to .gitignore if not present."""
         gitignore_path = Path.cwd() / ".gitignore"
         ignore_entry = "config.d/*-local.json"
@@ -51,7 +51,7 @@ class Config(dict):
                     f.write(f"{ignore_entry}\n")
                 logger.info(f"Added {ignore_entry} to .gitignore")
 
-    def _load_config(self: "Config") -> None:
+    def _load_config(self: Config) -> None:
         """Load all JSON configuration files with global/local priority."""
         global_configs: dict[str, Any] = {}
         local_configs: dict[str, Any] = {}
@@ -84,12 +84,12 @@ class Config(dict):
         if not self.data:
             logger.warning(f"No configuration files found in {self.config_dir}")
 
-    def reload(self: "Config") -> None:
+    def reload(self: Config) -> None:
         """Reload all configuration files."""
         self.data.clear()
         self._load_config()
 
-    def __getitem__(self: "Config", key: str) -> Any:
+    def __getitem__(self: Config, key: str) -> Any:
         """Return value for key, raise KeyError if missing.
 
         Args:
@@ -105,7 +105,7 @@ class Config(dict):
             return self.data[key]
         raise KeyError(f"Configuration key '{key}' not found")
 
-    def get(self: "Config", key: str, default: Any = None) -> Any:
+    def get(self: Config, key: str, default: Any = None) -> Any:
         """Return value for key, or default if missing.
 
         Args:
@@ -120,7 +120,7 @@ class Config(dict):
         """
         return self.data.get(key, default)
 
-    def __getattr__(self: "Config", name: str) -> Any:
+    def __getattr__(self: Config, name: str) -> Any:
         """Allow attribute-style access to config keys.
 
         Args:
@@ -140,7 +140,7 @@ class Config(dict):
         except AttributeError:
             return None
 
-    def hasattr(self: "Config", name: str) -> bool:
+    def hasattr(self: Config, name: str) -> bool:
         """Check if config key exists.
 
         Args:

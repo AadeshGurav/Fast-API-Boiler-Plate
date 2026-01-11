@@ -1,4 +1,5 @@
 """Dynamic configuration base class combining Pydantic validation with JSON flexibility."""
+
 from __future__ import annotations
 
 from typing import TypeVar
@@ -35,7 +36,9 @@ class DynamicConfig(BaseModel):
         data = config.get(config_key, {})
         return cls(**data)
 
-    def reload_from_config(self: DynamicConfig, config: Config, config_key: str) -> None:
+    def reload_from_config(
+        self: DynamicConfig, config: Config, config_key: str
+    ) -> None:
         """Hot-reload: update instance from Config without recreating.
 
         Args:

@@ -1,4 +1,5 @@
 """Models package initialization."""
+
 from __future__ import annotations
 
 from .auth import (

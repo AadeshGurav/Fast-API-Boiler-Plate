@@ -119,7 +119,40 @@ Cursor should:
 
 
 # UI / UX Design Principles
-(Keep same as before — omitted for brevity if not code-related.)
+### 1. Color (60/30/10 Rule — flexible)
+- 60% dominant (background/neutral), 30% secondary (surfaces), 10% accent (CTAs).
+- Use semantic tokens (bg-default, text-muted, accent-primary).
+- Never rely on color alone to convey meaning.
+
+### 2. Accessibility
+- Meet WCAG AA/AAA contrast requirements.
+- Always combine color with text/icons to convey status.
+- Test with accessibility tools & color-blind simulators.
+
+### 3. Shading & Consistency
+- Use tints/shades of base colors for hierarchy.
+- Limit the number of distinct hues.
+- Keep iconography and corner radius consistent.
+
+### 4. Grid & Spacing
+- Use the **8-point system** (multiples of 8px; 4px for fine adjustments).
+- Define spacing tokens (space-8, space-16, etc.).
+- Keep layouts aligned to a baseline grid.
+
+### 5. Typography
+- Limit to ~4 core sizes (display, heading, body, caption).
+- Use 2 primary weights (Regular + SemiBold).
+- Body text ≈ 16px, with proper line-height for legibility.
+
+### 6. Microcopy
+- Clear, concise, consistent.
+- Always use specific actions (“Save changes” vs “Submit”).
+- Avoid filler or designer-speak.
+
+### 7. Extra Rules
+- Store all design decisions as semantic tokens (colors, spacing, fonts).
+- Automate contrast checks in CI.
+- Document dos/don’ts with visuals for team alignment.
 
 # Architectural Mindset
 - Think in **systems**, not features.

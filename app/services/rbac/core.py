@@ -3,32 +3,40 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
+from app.services.base_service import BaseService
 
 if TYPE_CHECKING:
-    from app.database.repositories.rbac_repository import RBACRepository
+    from app.services.data import DataService
     from app.services.logger import Logger
     from config import Config
 
 
-class RBACCore:
+class RBACCore(BaseService):
     """Core RBAC functionality."""
 
     def __init__(
-        self: RBACCore, config: Config, rbac_repository: RBACRepository, logger: Logger
+        self: RBACCore,
+        config: Config,
+        data_service: DataService,
+        logger: Logger,
+        *args: dict[str, Any],
+        **kwargs: dict[str, Any],
     ) -> None:
         """Initialize RBAC core.
 
         Args:
         ----
             config: Configuration instance
-            rbac_repository: RBAC repository instance
+            data_service: Data service instance
             logger: Logger instance
+            *args: Additional arguments.
+            **kwargs: Additional keyword arguments.
 
         """
-        self.config: Config = config
-        self.rbac_repository: RBACRepository = rbac_repository
-        self.logger: Logger = logger
+        super().__init__(config, logger, *args, **kwargs)
+        self.data_service = data_service
 
         # In-memory cache for roles, permissions, groups
         self.roles_cache: dict[str, dict] = {}
@@ -40,17 +48,17 @@ class RBACCore:
         try:
             # Load roles from config
             roles_data: dict[str, dict] = self.config.get("rbac_roles", {})
-            await self.rbac_repository.sync_roles_to_db(roles_data)
+            await self.data_service.rbac.sync_roles_to_db(roles_data)
             self.roles_cache = roles_data
 
             # Load permissions from config
             permissions_data = self.config.get("rbac_permissions", {})
-            await self.rbac_repository.sync_permissions_to_db(permissions_data)
+            await self.data_service.rbac.sync_permissions_to_db(permissions_data)
             self.permissions_cache = permissions_data
 
             # Load groups from config
             groups_data = self.config.get("rbac_groups", {})
-            await self.rbac_repository.sync_groups_to_db(groups_data)
+            await self.data_service.rbac.sync_groups_to_db(groups_data)
             self.groups_cache = groups_data
 
             self.logger.info(
@@ -136,7 +144,7 @@ class RBACCore:
             # Get role from cache or database
             role = self.roles_cache.get(role_id)
             if not role:
-                role = await self.rbac_repository.get_role(role_id)
+                role = await self.data_service.rbac.get_role(role_id)
 
             if not role:
                 return
@@ -179,7 +187,7 @@ class RBACCore:
             List of active temporary permissions
 
         """
-        return await self.rbac_repository.get_active_temporary_permissions(
+        return await self.data_service.rbac.get_active_temporary_permissions(
             entity_type, entity_id
         )
 
@@ -195,7 +203,9 @@ class RBACCore:
             Temporary permission ID
 
         """
-        temp_perm_id = await self.rbac_repository.create_temporary_permission(temp_perm)
+        temp_perm_id = await self.data_service.rbac.create_temporary_permission(
+            temp_perm
+        )
         return temp_perm_id
 
     async def revoke_temporary_permission(self, temp_perm_id: str) -> bool:
@@ -210,7 +220,7 @@ class RBACCore:
             True if revoked successfully
 
         """
-        result = await self.rbac_repository.revoke_temporary_permission(temp_perm_id)
+        result = await self.data_service.rbac.revoke_temporary_permission(temp_perm_id)
 
         if result:
             self.logger.info(

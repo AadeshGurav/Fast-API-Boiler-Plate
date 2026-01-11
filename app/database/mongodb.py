@@ -1,7 +1,9 @@
 from __future__ import annotations
+
 import urllib.parse
 from typing import Any
 
+from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection
 from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
 
@@ -21,8 +23,8 @@ class MongoDB(DatabaseInterface):
             password = self.config.get("mongo_password")
             auth_source = self.config.get("mongo_auth_source", "admin")
 
+            # Build base connection string
             if username and password:
-                # URL encode username and password to handle special characters
                 encoded_username = urllib.parse.quote_plus(username)
                 encoded_password = urllib.parse.quote_plus(password)
                 connection_string = (
@@ -46,7 +48,7 @@ class MongoDB(DatabaseInterface):
                 connectTimeoutMS=5000,
                 socketTimeoutMS=5000,
                 # Performance settings
-                directConnection=False,  # Allow automatic failover
+                directConnection=self.config.get("mongo_direct_connection", False),
                 retryWrites=True,
                 retryReads=True,
                 # Monitoring
@@ -88,6 +90,7 @@ class MongoDB(DatabaseInterface):
                 "temporary_permissions",
                 "oauth_accounts",
                 "settings",
+                "files",
             ]
 
             for collection in required_collections:
@@ -142,6 +145,14 @@ class MongoDB(DatabaseInterface):
             # Settings collection indexes
             await self.db.settings.create_index("site_name", unique=True)
 
+            # Files collection indexes
+            await self.db.files.create_index("file_id", unique=True)
+            await self.db.files.create_index("user_id")
+            await self.db.files.create_index("hash")
+            await self.db.files.create_index([("created_at", -1)])
+            await self.db.files.create_index("tags")
+            await self.db.files.create_index("deleted_at", sparse=True)
+
             self.logger.info("MongoDB indexes created successfully")
         except Exception as e:
             self.logger.error(f"MongoDB index creation failed: {str(e)}")
@@ -160,6 +171,47 @@ class MongoDB(DatabaseInterface):
             raise RuntimeError("MongoDB connection not established")
         return self.db[collection_name]
 
+    def _normalize_filters(self, filters: dict[str, Any]) -> dict[str, Any]:
+        """Convert application filters to MongoDB format.
+
+        Args:
+        ----
+            filters: Application filter dictionary.
+
+        Returns:
+        -------
+            MongoDB-compatible filter dictionary.
+
+        """
+        normalized = filters.copy()
+        if "id" in normalized and "_id" not in normalized:
+            id_value = normalized["id"]
+            if isinstance(id_value, str) and len(id_value) == 24:
+                try:
+                    ObjectId(id_value)
+                    normalized["_id"] = ObjectId(normalized.pop("id"))
+                except (ValueError, TypeError):
+                    pass
+        return normalized
+
+    def _normalize_record(
+        self: MongoDB, record: dict[str, Any] | None
+    ) -> dict[str, Any] | None:
+        """Convert MongoDB record to application format.
+
+        Args:
+        ----
+            record: MongoDB record dictionary.
+
+        Returns:
+        -------
+            Application-compatible record dictionary.
+
+        """
+        from app.services.data.data_service import _normalize_record
+
+        return _normalize_record(record)
+
     async def execute_query(self, query: str, params: dict[str, Any]) -> Any:
         """Execute a raw query (not recommended for MongoDB)."""
         self.logger.warning(
@@ -173,9 +225,9 @@ class MongoDB(DatabaseInterface):
         """Fetch a single record with timeout."""
         try:
             coll = self.get_collection(collection)
-            # Add timeout to prevent hanging queries
-            result = await coll.find_one(filters, max_time_ms=5000)
-            return result
+            normalized_filters = self._normalize_filters(filters)
+            result = await coll.find_one(normalized_filters, max_time_ms=5000)
+            return self._normalize_record(result)
         except Exception as e:
             self.logger.error(f"Error fetching record from {collection}: {str(e)}")
             raise
@@ -184,10 +236,10 @@ class MongoDB(DatabaseInterface):
         """Fetch multiple records with timeout."""
         try:
             coll = self.get_collection(collection)
-            # Add timeout to prevent hanging queries
-            cursor = coll.find(filters, max_time_ms=5000)
+            normalized_filters = self._normalize_filters(filters)
+            cursor = coll.find(normalized_filters, max_time_ms=5000)
             result = await cursor.to_list(length=None)
-            return result
+            return [self._normalize_record(record) for record in result]
         except Exception as e:
             self.logger.error(f"Error fetching records from {collection}: {str(e)}")
             raise
@@ -211,7 +263,8 @@ class MongoDB(DatabaseInterface):
         """Update records in the collection."""
         try:
             coll = self.get_collection(collection)
-            result = await coll.update_one(filters, {"$set": data})
+            normalized_filters = self._normalize_filters(filters)
+            result = await coll.update_one(normalized_filters, {"$set": data})
             self.logger.debug(
                 f"Updated {result.modified_count} record(s) in {collection}"
             )
@@ -224,7 +277,8 @@ class MongoDB(DatabaseInterface):
         """Delete records from the collection."""
         try:
             coll = self.get_collection(collection)
-            result = await coll.delete_one(filters)
+            normalized_filters = self._normalize_filters(filters)
+            result = await coll.delete_one(normalized_filters)
             self.logger.debug(
                 f"Deleted {result.deleted_count} record(s) from {collection}"
             )
@@ -239,7 +293,10 @@ class MongoDB(DatabaseInterface):
         """Upsert (update or insert) a record in the collection."""
         try:
             coll = self.get_collection(collection)
-            result = await coll.update_one(filters, {"$set": data}, upsert=True)
+            normalized_filters = self._normalize_filters(filters)
+            result = await coll.update_one(
+                normalized_filters, {"$set": data}, upsert=True
+            )
             self.logger.debug(
                 f"Upserted record in {collection}: "
                 f"matched={result.matched_count}, "

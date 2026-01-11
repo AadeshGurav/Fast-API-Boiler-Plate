@@ -3,6 +3,7 @@
 The circuit breaker prevents cascading failures by monitoring service health
 and temporarily blocking calls to failing services.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -323,12 +324,11 @@ class CircuitBreakerMiddleware(BaseMiddleware):
         """
         should_monitor = not self.monitored_routes
         settings = {
-            "failure_threshold": self.default_failure_threshold,
-            "success_threshold": self.default_success_threshold,
-            "timeout": self.default_timeout,
-            "half_open_requests": self.default_half_open_requests,
+            "failure_threshold": self.failure_threshold,
+            "success_threshold": self.success_threshold,
+            "timeout": self.timeout,
+            "half_open_requests": self.half_open_requests,
             "logger": self.logger,
-            "config": self.config,
         }
 
         for pattern, route_settings in self.monitored_routes.items():

@@ -23,7 +23,7 @@ class CacheService(BaseService):
         config: Config,
         logger: Logger,
         redis_client: Redis,
-        *args: Any,
+        *args: dict[str, Any],
         **kwargs: dict[str, Any],
     ) -> None:
         """Initialize the CacheService.
@@ -83,7 +83,7 @@ class CacheService(BaseService):
             """Decorator for caching function results."""
 
             @functools.wraps(func)
-            async def wrapper(*args: Any, **kwargs: Any) -> Any:
+            async def wrapper(*args: dict[str, Any], **kwargs: dict[str, Any]) -> Any:
                 """Wrapper for caching function results."""
                 # Generate a cache key based on function name and arguments
                 key_parts = [func.__module__, func.__name__]

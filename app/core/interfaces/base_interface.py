@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from abc import ABC
 from typing import TYPE_CHECKING, Any, Dict, Optional, Type
 
@@ -13,16 +14,16 @@ class BaseInterface(ABC):
     instance sharing between different interface implementations.
     """
 
-    _instances: Dict[Type, Optional["BaseInterface"]] = {}
+    _instances: Dict[Type, Optional[BaseInterface]] = {}
 
-    def __init_subclass__(cls: type["BaseInterface"], **kwargs: dict[str, Any]) -> None:
+    def __init_subclass__(cls: type[BaseInterface], **kwargs: dict[str, Any]) -> None:
         """Initialize per-subclass singleton storage."""
         super().__init_subclass__(**kwargs)
         cls._instances[cls] = None
 
     def __new__(
-        cls: type["BaseInterface"], *args: Any, **kwargs: Any
-    ) -> "BaseInterface":
+        cls: type[BaseInterface], *args: dict[str, Any], **kwargs: dict[str, Any]
+    ) -> BaseInterface:
         """Create or return existing instance for the specific subclass."""
         # Ensure the subclass has its own instance storage
         if cls not in cls._instances:
@@ -35,7 +36,11 @@ class BaseInterface(ABC):
         return cls._instances[cls]
 
     def __init__(
-        self: "BaseInterface", logger: "Logger", config: dict, *args: Any, **kwargs: Any
+        self: BaseInterface,
+        logger: Logger,
+        config: dict,
+        *args: dict[str, Any],
+        **kwargs: dict[str, Any],
     ) -> None:
         """Initialize only once per subclass instance."""
         # Prevent re-initialization of existing instances

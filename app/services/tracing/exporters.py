@@ -1,4 +1,5 @@
 """Tracing exporters and instrumentation."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -47,11 +48,22 @@ class TracingExporters:
                 excluded_urls="/health,/ready,/metrics",
             )
             HTTPXClientInstrumentor().instrument()
-            PymongoInstrumentor().instrument()
+            # Optionally instrument PyMongo; default disabled to avoid attribute type issues
+            if app.state.config.get("tracing_pymongo_enabled", False):
+                try:
+                    PymongoInstrumentor().instrument()
+                except Exception as pymongo_instr_error:  # noqa: BLE001
+                    # Log but don't fail - PyMongo instrumentation may have attribute type issues
+                    self.logger.warning(
+                        f"PyMongo instrumentation failed (non-critical): {pymongo_instr_error}. "
+                        "Continuing without PyMongo tracing."
+                    )
             RedisInstrumentor().instrument()
             self.logger.info("Application successfully instrumented for tracing")
         except Exception as e:  # noqa: BLE001
             self.logger.error(f"Failed to instrument application: {str(e)}")
+            # If instrumentation fails, log but don't crash
+            self.logger.warning("Continuing without full tracing instrumentation")
 
     def add_event(self, name: str, attributes: dict[str, Any] | None = None) -> None:
         """Add an event to the current span.

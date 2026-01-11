@@ -1,11 +1,11 @@
 """Main OAuth service combining all OAuth functionality."""
+
 from __future__ import annotations
 
-from app.core.interfaces.oauth_repository_interface import OAuthRepositoryInterface
 from app.core.interfaces.oauth_service_interface import OAuthServiceInterface
-from app.core.interfaces.user_repository_interface import UserRepositoryInterface
 from app.models.oauth import OAuthProvider, OAuthToken, OAuthUserInfo
 from app.models.user import User
+from app.services.data import DataService
 from app.services.logger import Logger
 from app.services.oauth.base import OAuthBase
 from app.services.oauth.providers import AppleOAuthProvider, GoogleOAuthProvider
@@ -19,19 +19,18 @@ class OAuthService(OAuthServiceInterface, OAuthBase):
         self,
         config: Config,
         logger: Logger,
-        oauth_repository: OAuthRepositoryInterface,
-        user_repository: UserRepositoryInterface,
+        data_service: DataService,
     ):
         """Initialize OAuth service.
 
         Args:
+        ----
             config: Configuration instance
             logger: Logger instance
-            oauth_repository: OAuth repository interface
-            user_repository: User repository interface
+            data_service: Data service instance
 
         """
-        OAuthBase.__init__(self, config, logger, oauth_repository, user_repository)
+        OAuthBase.__init__(self, config, logger, data_service)
 
         # Initialize provider-specific implementations
         self.google_provider = GoogleOAuthProvider(logger)
@@ -54,13 +53,16 @@ class OAuthService(OAuthServiceInterface, OAuthBase):
         """Get user information from OAuth provider.
 
         Args:
+        ----
             provider: OAuth provider
             access_token: OAuth access token
 
         Returns:
+        -------
             User information from provider
 
         Raises:
+        ------
             ValueError: If provider is not configured
             httpx.HTTPError: If user info request fails
 

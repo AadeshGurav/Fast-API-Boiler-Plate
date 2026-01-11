@@ -1,34 +1,149 @@
 """Permission utilities and decorators for FastAPI routes."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
 from functools import wraps
 
 from fastapi import Depends, HTTPException, Request, status
-from fastapi.security import HTTPBearer
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from app.core.container import Container
+from app import container
 from app.core.interfaces.rbac_service_interface import RBACServiceInterface
 from app.models.auth import TokenPayload
 from app.services.auth import AuthService
 from app.services.logger import Logger
+from config import Config
 
 # Security scheme for JWT tokens
 security = HTTPBearer()
 
 
-async def get_current_user(
-    request: Request,
-    token: str = Depends(security),
-    auth_service: AuthService = Depends(lambda: Container.auth_service()),
-) -> TokenPayload:
-    """Get current authenticated user from JWT token.
+def get_token_cookie_names() -> tuple[str, str]:
+    """Get access and refresh token cookie names from config.
+
+    Returns
+    -------
+        Tuple of (access_token_key, refresh_token_key)
+
+    """
+    config: Config = container.config()
+    app_title = config.get("app_title", "app")
+    app_title_safe = app_title.lower().replace(" ", "_")
+    access_token_key = f"{app_title_safe}_access_token"
+    refresh_token_key = f"{app_title_safe}_refresh_token"
+    return access_token_key, refresh_token_key
+
+
+def get_auth_service() -> AuthService:
+    """Dependency function to get AuthService instance.
+
+    Returns
+    -------
+        AuthService instance from container
+
+    """
+    return container.auth_service()
+
+
+def _extract_token_from_request(request: Request) -> str | None:
+    """Extract token from request cookies or Authorization header.
 
     Args:
     ----
         request: FastAPI request object
-        token: JWT token from Authorization header
+
+    Returns:
+    -------
+        Token string or None if not found
+
+    """
+    access_token_key, _ = get_token_cookie_names()
+    token = request.cookies.get(access_token_key) or request.cookies.get("auth_token")
+    if token:
+        return token
+
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        return auth_header.removeprefix("Bearer ").strip()
+
+    return None
+
+
+def _extract_refresh_token_from_request(request: Request) -> str | None:
+    """Extract refresh token from request cookies.
+
+    Args:
+    ----
+        request: FastAPI request object
+
+    Returns:
+    -------
+        Refresh token string or None if not found
+
+    """
+    _, refresh_token_key = get_token_cookie_names()
+    return request.cookies.get(refresh_token_key)
+
+
+async def _attempt_token_refresh(
+    request: Request, auth_service: AuthService
+) -> TokenPayload | None:
+    """Attempt to refresh expired access token using refresh token.
+
+    Args:
+    ----
+        request: FastAPI request object
         auth_service: Auth service instance
+
+    Returns:
+    -------
+        New token payload if refresh successful, None otherwise
+
+    """
+    from app.utils.utils import extract_device_info
+
+    try:
+        refresh_token = _extract_refresh_token_from_request(request)
+        if not refresh_token:
+            return None
+
+        device_info = extract_device_info(request)
+        token_pair = await auth_service.refresh_tokens(refresh_token, device_info)
+
+        if not token_pair or not token_pair.access_token:
+            return None
+
+        payload = auth_service.verify_token(token_pair.access_token, "access")
+        if not payload:
+            return None
+
+        request.state.token_refreshed = True
+        request.state.new_access_token = token_pair.access_token
+        request.state.new_refresh_token = token_pair.refresh_token
+        request.state.token_expires_in = token_pair.expires_in
+
+        return payload
+
+    except Exception:
+        return None
+
+
+async def get_current_user(
+    request: Request,
+    token: HTTPAuthorizationCredentials | None = Depends(security),
+    auth_service: AuthService | None = Depends(get_auth_service),
+) -> TokenPayload:
+    """Get current authenticated user from JWT token with automatic refresh.
+
+    Automatically attempts to refresh expired access tokens using refresh token
+    from cookies. Works both as a FastAPI dependency and when called directly.
+
+    Args:
+    ----
+        request: FastAPI request object
+        token: HTTPAuthorizationCredentials from Authorization header (when used as dependency)
+        auth_service: Auth service instance (when used as dependency)
 
     Returns:
     -------
@@ -40,13 +155,67 @@ async def get_current_user(
 
     """
     try:
-        payload = auth_service.decode_token(token.credentials)
+        # Handle direct calls (not as dependency) - extract token and auth_service manually
+        # When called directly, token will be a Depends object, not HTTPAuthorizationCredentials
+        if not isinstance(token, HTTPAuthorizationCredentials):
+            token_str = _extract_token_from_request(request)
+            if not token_str:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Authentication required",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            token_credentials = token_str
+        else:
+            token_credentials = token.credentials
+
+        # When called directly, auth_service will be a Depends object, not AuthService
+        if not isinstance(auth_service, AuthService):
+            auth_service = container.auth_service()
+
+        payload = auth_service.verify_token(token_credentials, "access")
+
         if not payload:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid authentication token",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+            from datetime import datetime, timezone
+
+            import jwt
+
+            token_expired = False
+            try:
+                decoded = jwt.decode(
+                    token_credentials,
+                    auth_service.jwt_secret,
+                    algorithms=[auth_service.jwt_algorithm],
+                    options={"verify_signature": False, "verify_exp": False},
+                )
+                exp_timestamp = decoded.get("exp")
+                if exp_timestamp:
+                    exp_datetime = datetime.fromtimestamp(
+                        exp_timestamp, tz=timezone.utc
+                    )
+                    if exp_datetime < datetime.now(timezone.utc):
+                        token_expired = True
+            except jwt.ExpiredSignatureError:
+                token_expired = True
+            except Exception:
+                pass
+
+            if token_expired:
+                refreshed_payload = await _attempt_token_refresh(request, auth_service)
+                if refreshed_payload:
+                    payload = refreshed_payload
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Token expired and refresh failed",
+                        headers={"WWW-Authenticate": "Bearer"},
+                    )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid authentication token",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
 
         # Attach user info to request state for logging
         request.state.user_id = payload.user_id
@@ -54,6 +223,8 @@ async def get_current_user(
 
         return payload
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -89,7 +260,7 @@ def require_permission(permission: str):
                 )
 
             # Get RBAC service
-            rbac_service: RBACServiceInterface = Container.rbac_service()
+            rbac_service: RBACServiceInterface = container.rbac_service()
 
             # Check permission
             has_permission = await rbac_service.check_permission(
@@ -98,7 +269,7 @@ def require_permission(permission: str):
 
             if not has_permission:
                 # Log denied access
-                logger: Logger = Container.logger()
+                logger: Logger = container.logger()
                 logger.warning(
                     f"Permission denied: user={current_user.user_id}, permission={permission}, path={request.url.path}",
                     extra={
@@ -153,7 +324,7 @@ def require_role(role: str):
             # Check if user has the required role
             if role not in current_user.roles:
                 # Log denied access
-                logger: Logger = Container.logger()
+                logger: Logger = container.logger()
                 logger.warning(
                     f"Role access denied: user={current_user.user_id}, role={role}, path={request.url.path}",
                     extra={
@@ -206,7 +377,7 @@ def require_any_permission(permissions: list[str]):
                 )
 
             # Get RBAC service
-            rbac_service: RBACServiceInterface = Container.rbac_service()
+            rbac_service: RBACServiceInterface = container.rbac_service()
 
             # Check if user has any of the required permissions
             has_any_permission = False
@@ -219,7 +390,7 @@ def require_any_permission(permissions: list[str]):
 
             if not has_any_permission:
                 # Log denied access
-                logger: Logger = Container.logger()
+                logger: Logger = container.logger()
                 logger.warning(
                     f"Permission denied: user={current_user.user_id}, permissions={permissions}, path={request.url.path}",  # noqa: E501
                     extra={
@@ -281,7 +452,7 @@ def require_manager_or_admin():
             # Check if user has manager or admin role
             if not any(role in current_user.roles for role in ["admin", "manager"]):
                 # Log denied access
-                logger: Logger = Container.logger()
+                logger: Logger = container.logger()
                 logger.warning(
                     f"Role access denied: user={current_user.user_id}, required=manager_or_admin, path={request.url.path}",  # noqa: E501
                     extra={

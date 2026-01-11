@@ -12,10 +12,7 @@ from app.models.auth import TokenPair, TokenPayload
 if TYPE_CHECKING:
     from app.core.interfaces.password_service_interface import PasswordServiceInterface
     from app.core.interfaces.rbac_service_interface import RBACServiceInterface
-    from app.core.interfaces.session_repository_interface import (
-        SessionRepositoryInterface,
-    )
-    from app.core.interfaces.user_repository_interface import UserRepositoryInterface
+    from app.services.data import DataService
     from app.services.logger import Logger
     from config import Config
 
@@ -27,8 +24,7 @@ class AuthCoreMixin:
         self: AuthCoreMixin,
         logger: Logger,
         config: Config,
-        session_repository: SessionRepositoryInterface | None = None,
-        user_repository: UserRepositoryInterface | None = None,
+        data_service: DataService | None = None,
         password_service: PasswordServiceInterface | None = None,
         rbac_service: RBACServiceInterface | None = None,
     ) -> None:
@@ -38,8 +34,7 @@ class AuthCoreMixin:
         ----
             logger: The logger to use.
             config: The configuration to use.
-            session_repository: Session repository interface.
-            user_repository: User repository interface.
+            data_service: Data service instance.
             password_service: Password service interface.
             rbac_service: RBAC service interface.
 
@@ -50,8 +45,7 @@ class AuthCoreMixin:
         """
         self.logger = logger
         self.config = config
-        self.session_repository = session_repository
-        self.user_repository = user_repository
+        self.data_service = data_service
         self.password_service = password_service
         self.rbac_service = rbac_service
 
@@ -232,8 +226,10 @@ class AuthCoreMixin:
             TokenPair with access and refresh tokens.
 
         """
-        access_token = self.create_access_token(user_id, username, roles, permissions)
-        refresh_token = self.create_refresh_token(user_id)
+        access_token = AuthCoreMixin.create_access_token(
+            self, user_id, username, roles, permissions
+        )
+        refresh_token = AuthCoreMixin.create_refresh_token(self, user_id)
 
         token_pair = TokenPair(
             access_token=access_token,

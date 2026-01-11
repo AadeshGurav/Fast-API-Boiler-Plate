@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "demo/base.html" %}
 
 {% block title %}API Demo{% endblock %}
 
@@ -8,27 +8,20 @@
 {% block content %}
     <div class="card">
         <h2>API Authentication Status</h2>
-        <div class="auth-status">
-            {% if false %}
-                <div class="status-indicator authenticated">
-                    <span class="status-icon">✓</span>
-                    <span class="status-text">Authenticated</span>
-                </div>
-                <div class="auth-details">
-                    <p><strong>Role:</strong> </p>
-                    <p><strong>Permissions:</strong> </p>
-                    <p><strong>Token:</strong> <code>Present</code></p>
-                </div>
-            {% else %}
-                <div class="status-indicator not-authenticated">
-                    <span class="status-icon">✗</span>
-                    <span class="status-text">Not authenticated</span>
-                </div>
-                <div class="auth-actions">
-                    <a href="/demo/auth/login" class="btn btn-primary">Login</a>
-                    <a href="/demo/auth/register" class="btn btn-secondary">Register</a>
-                </div>
-            {% endif %}
+        <div class="auth-status" id="auth-status">
+            <div class="status-indicator not-authenticated" id="auth-status-indicator">
+                <span class="status-icon">✗</span>
+                <span class="status-text">Checking...</span>
+            </div>
+            <div class="auth-details" id="auth-details" style="display: none;">
+                <p><strong>Role:</strong> <span id="auth-role">-</span></p>
+                <p><strong>Permissions:</strong> <span id="auth-permissions">-</span></p>
+                <p><strong>Token:</strong> <code id="auth-token-status">-</code></p>
+            </div>
+            <div class="auth-actions" id="auth-actions" style="display: none;">
+                <a href="/demo/auth/login" class="btn btn-primary">Login</a>
+                <a href="/demo/auth/register" class="btn btn-secondary">Register</a>
+            </div>
         </div>
     </div>
     
@@ -51,7 +44,7 @@
                     <div class="endpoint-item">
                         <span class="method get">GET</span>
                         <span class="path">/auth/logout</span>
-                        <button class="btn btn-sm btn-primary" onclick="window.location.href='/demo/auth/logout'">Go</button>
+                        <button class="btn btn-sm btn-primary" onclick="window.location.href='/demo/auth/logout'">Test</button>
                     </div>
                     <div class="endpoint-item">
                         <span class="method get">GET</span>
@@ -437,9 +430,71 @@ Authorization: Bearer &lt;your-token&gt;</code></pre>
 <script>
     let testCount = 0;
     
+    // Check authentication status on page load
+    document.addEventListener('DOMContentLoaded', async function() {
+        await updateAuthStatus();
+    });
+    
+    async function updateAuthStatus() {
+        const statusIndicator = document.getElementById('auth-status-indicator');
+        const authDetails = document.getElementById('auth-details');
+        const authActions = document.getElementById('auth-actions');
+        
+        if (!window.DemoAuth) {
+            statusIndicator.className = 'status-indicator not-authenticated';
+            statusIndicator.querySelector('.status-text').textContent = 'Not authenticated';
+            authDetails.style.display = 'none';
+            authActions.style.display = 'block';
+            return;
+        }
+        
+        const isAuth = window.DemoAuth.isAuthenticated();
+        
+        if (isAuth) {
+            try {
+                // Try to fetch user info to verify token
+                const res = await window.DemoAuth.fetch('/api/v1/auth/me');
+                if (res.ok) {
+                    const userData = await res.json();
+                    statusIndicator.className = 'status-indicator authenticated';
+                    statusIndicator.querySelector('.status-icon').textContent = '✓';
+                    statusIndicator.querySelector('.status-text').textContent = 'Authenticated';
+                    
+                    document.getElementById('auth-role').textContent = userData.roles?.[0] || 'user';
+                    document.getElementById('auth-permissions').textContent = userData.permissions?.length || 0;
+                    document.getElementById('auth-token-status').textContent = 'Present';
+                    
+                    authDetails.style.display = 'block';
+                    authActions.style.display = 'none';
+                } else {
+                    // Token invalid
+                    statusIndicator.className = 'status-indicator not-authenticated';
+                    statusIndicator.querySelector('.status-icon').textContent = '✗';
+                    statusIndicator.querySelector('.status-text').textContent = 'Not authenticated';
+                    authDetails.style.display = 'none';
+                    authActions.style.display = 'block';
+                    window.DemoAuth.logout();
+                }
+            } catch (err) {
+                console.error('Error checking auth status:', err);
+                statusIndicator.className = 'status-indicator not-authenticated';
+                statusIndicator.querySelector('.status-icon').textContent = '✗';
+                statusIndicator.querySelector('.status-text').textContent = 'Not authenticated';
+                authDetails.style.display = 'none';
+                authActions.style.display = 'block';
+            }
+        } else {
+            statusIndicator.className = 'status-indicator not-authenticated';
+            statusIndicator.querySelector('.status-icon').textContent = '✗';
+            statusIndicator.querySelector('.status-text').textContent = 'Not authenticated';
+            authDetails.style.display = 'none';
+            authActions.style.display = 'block';
+        }
+    }
+    
     async function ensureAuthHeader(options) {
         const opts = options || {};
-        const token = window.DemoAuth.getAccessToken();
+        const token = window.DemoAuth?.getAccessToken();
         if (token) {
             opts.headers = { ...(opts.headers || {}), 'Authorization': `Bearer ${token}` };
         }

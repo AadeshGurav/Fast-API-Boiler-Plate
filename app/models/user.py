@@ -42,6 +42,12 @@ class User(DynamicConfig):
     metadata: dict[str, Any] = Field(
         default_factory=dict, description="Additional user metadata"
     )
+    sessions: list[dict[str, Any]] = Field(
+        default_factory=list, description="User session references (max 10)"
+    )
+    login_attempts: list[dict[str, Any]] = Field(
+        default_factory=list, description="Login attempt history (max 50)"
+    )
     created_at: datetime = Field(
         default_factory=datetime.utcnow, description="Creation timestamp"
     )
@@ -58,6 +64,9 @@ class UserCreate(DynamicConfig):
     password: str = Field(..., min_length=8, description="Plain text password")
     roles: list[str] = Field(default_factory=list, description="Initial roles")
     groups: list[str] = Field(default_factory=list, description="Initial groups")
+    metadata: dict[str, Any] = Field(
+        default_factory=dict, description="Additional user metadata"
+    )
 
 
 class UserUpdate(DynamicConfig):

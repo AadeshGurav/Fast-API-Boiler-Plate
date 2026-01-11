@@ -1,33 +1,22 @@
-// Lightweight client-side auth helper for demo pages
-// Stores tokens in localStorage and provides authFetch with automatic refresh
+// Lightweight client-side auth helper for demo pages - cookies only (no localStorage)
 
-const AUTH_STORAGE_KEY = "demo_auth_tokens";
-
-function getStoredTokens() {
-  try {
-    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch (_) {
-    return null;
-  }
-}
-
-function setStoredTokens(tokens) {
-  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(tokens));
-}
-
-function clearStoredTokens() {
-  localStorage.removeItem(AUTH_STORAGE_KEY);
+function getCookie(name) {
+  const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+    const [key, value] = cookie.trim().split('=');
+    acc[key] = value;
+    return acc;
+  }, {});
+  return cookies[name] || null;
 }
 
 function getAccessToken() {
-  const tokens = getStoredTokens();
-  return tokens?.access_token || null;
+  const accessTokenKey = (window.APP_CONFIG && window.APP_CONFIG.accessTokenCookie) || 'access_token';
+  return getCookie(accessTokenKey) || getCookie('access_token');
 }
 
 function getRefreshToken() {
-  const tokens = getStoredTokens();
-  return tokens?.refresh_token || null;
+  const refreshTokenKey = (window.APP_CONFIG && window.APP_CONFIG.refreshTokenCookie) || 'refresh_token';
+  return getCookie(refreshTokenKey) || getCookie('refresh_token');
 }
 
 async function demoLogin(username, password) {
@@ -40,15 +29,12 @@ async function demoLogin(username, password) {
     const text = await res.text();
     throw new Error(text || `Login failed (${res.status})`);
   }
-  const data = await res.json();
-  if (!data?.tokens?.access_token || !data?.tokens?.refresh_token) {
-    throw new Error("Invalid login response");
-  }
-  setStoredTokens({
-    access_token: data.tokens.access_token,
-    refresh_token: data.tokens.refresh_token,
-  });
-  return data;
+  
+  // Server sets cookies automatically via CookieManager
+  // Cookies will be available on subsequent requests
+  // No need to verify immediately - browser handles cookie persistence
+  
+  return await res.json();
 }
 
 async function demoRefresh() {
@@ -60,32 +46,36 @@ async function demoRefresh() {
     body: JSON.stringify({ refresh_token: refreshToken }),
   });
   if (!res.ok) throw new Error("Token refresh failed");
-  const data = await res.json();
-  if (!data?.access_token || !data?.refresh_token) throw new Error("Invalid refresh response");
-  setStoredTokens({ access_token: data.access_token, refresh_token: data.refresh_token });
-  return data;
+  
+  // Server sets cookies automatically via CookieManager
+  // Cookies will be available on subsequent requests
+  // No need to verify immediately - browser handles cookie persistence
+  
+  return await res.json();
 }
 
 async function authFetch(url, options = {}) {
   const opts = { ...options, headers: { ...(options.headers || {}) } };
+  
+  // Cookies are automatically sent by browser
+  // Optionally add Authorization header as fallback for API clients
   const token = getAccessToken();
   if (token) {
     opts.headers["Authorization"] = `Bearer ${token}`;
   }
+  
   let res = await fetch(url, opts);
   if (res.status === 401) {
     try {
       await demoRefresh();
-      const refreshed = getAccessToken();
-      if (refreshed) {
-        opts.headers["Authorization"] = `Bearer ${refreshed}`;
-        res = await fetch(url, opts);
-      }
+      // Retry request - cookies are automatically sent
+      res = await fetch(url, opts);
     } catch (_) {
-      // refresh failed, clear tokens
-      clearStoredTokens();
+      // refresh failed
+      return res;
     }
   }
+  
   return res;
 }
 
@@ -94,7 +84,8 @@ function isAuthenticated() {
 }
 
 function demoLogout() {
-  clearStoredTokens();
+  // Server handles cookie clearing via /demo/auth/logout route
+  window.location.href = '/demo/auth/logout';
 }
 
 window.DemoAuth = {
@@ -105,5 +96,3 @@ window.DemoAuth = {
   isAuthenticated,
   getAccessToken,
 };
-
-

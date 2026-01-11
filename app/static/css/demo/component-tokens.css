@@ -1,0 +1,164 @@
+/* Component-Specific Design Tokens
+ * Tokens for specific UI components following Material Design 3
+ */
+
+:root {
+  /* ============================================
+     BUTTON TOKENS
+     ============================================ */
+  /* Button Sizes */
+  --button-height-sm: 2rem; /* 32px */
+  --button-height-md: 2.5rem; /* 40px */
+  --button-height-lg: 3rem; /* 48px */
+
+  --button-padding-x-sm: var(--space-3);
+  --button-padding-x-md: var(--space-4);
+  --button-padding-x-lg: var(--space-6);
+
+  --button-padding-y-sm: var(--space-1);
+  --button-padding-y-md: var(--space-2);
+  --button-padding-y-lg: var(--space-3);
+
+  --button-font-size-sm: var(--font-size-body-small);
+  --button-font-size-md: var(--font-size-body-medium);
+  --button-font-size-lg: var(--font-size-body-large);
+
+  --button-border-radius: var(--border-radius-md);
+  --button-border-width: var(--border-width-1);
+
+  /* Button Variants */
+  --button-primary-bg: var(--color-primary);
+  --button-primary-text: var(--color-text-on-primary);
+  --button-primary-hover: var(--color-primary-dark);
+
+  --button-secondary-bg: var(--color-secondary);
+  --button-secondary-text: var(--color-text-on-primary);
+  --button-secondary-hover: var(--color-secondary-700);
+
+  --button-outline-border: var(--color-primary);
+  --button-outline-text: var(--color-primary);
+  --button-outline-hover-bg: var(--color-primary);
+  --button-outline-hover-text: var(--color-text-on-primary);
+
+  --button-text-color: var(--color-primary);
+  --button-text-hover-bg: var(--color-hover-overlay);
+
+  /* ============================================
+     CARD TOKENS
+     ============================================ */
+  --card-padding: var(--space-6);
+  --card-padding-sm: var(--space-4);
+  --card-padding-lg: var(--space-8);
+
+  --card-border-radius: var(--border-radius-lg);
+  --card-border-width: var(--border-width-1);
+  --card-border-color: var(--border-color-light);
+
+  --card-elevation: var(--shadow-elevation-1);
+  --card-elevation-hover: var(--shadow-elevation-2);
+
+  --card-bg: var(--color-surface);
+  --card-bg-variant: var(--color-surface-variant);
+
+  /* ============================================
+     FORM TOKENS
+     ============================================ */
+  --input-height-sm: 2rem; /* 32px */
+  --input-height-md: 2.5rem; /* 40px */
+  --input-height-lg: 3rem; /* 48px */
+
+  --input-padding-x: var(--space-3);
+  --input-padding-y: var(--space-2);
+
+  --input-border-width: var(--border-width-1);
+  --input-border-radius: var(--border-radius-md);
+  --input-border-color: var(--border-color);
+  --input-border-color-focus: var(--color-primary);
+  --input-border-color-error: var(--color-error);
+
+  --input-bg: var(--color-surface);
+  --input-bg-disabled: var(--color-surface-variant);
+  --input-text: var(--color-text-primary);
+  --input-text-placeholder: var(--color-text-muted);
+
+  --label-font-size: var(--font-size-body-small);
+  --label-font-weight: var(--font-weight-medium);
+  --label-color: var(--color-text-primary);
+  --label-margin-bottom: var(--space-1);
+
+  --error-text-color: var(--color-error);
+  --error-text-size: var(--font-size-caption-small);
+  --error-margin-top: var(--space-1);
+
+  /* ============================================
+     NAVIGATION TOKENS
+     ============================================ */
+  --nav-height: 3.5rem; /* 56px */
+  --nav-padding-x: var(--space-4);
+  --nav-padding-y: var(--space-2);
+
+  --nav-link-padding-x: var(--space-3);
+  --nav-link-padding-y: var(--space-2);
+  --nav-link-border-radius: var(--border-radius-md);
+
+  --nav-link-color: var(--color-text-secondary);
+  --nav-link-color-active: var(--color-primary);
+  --nav-link-color-hover: var(--color-text-primary);
+
+  --nav-link-bg-active: var(--color-hover-overlay);
+  --nav-link-bg-hover: var(--color-hover-overlay);
+
+  /* ============================================
+     HEADER TOKENS
+     ============================================ */
+  --header-height: 5rem; /* 80px */
+  --header-padding-x: var(--space-4);
+  --header-padding-y: var(--space-4);
+
+  --header-bg: var(--gradient-primary);
+  --header-text-color: var(--color-text-on-primary);
+
+  /* ============================================
+     MODAL TOKENS
+     ============================================ */
+  --modal-backdrop-bg: rgba(0, 0, 0, 0.5);
+  --modal-border-radius: var(--border-radius-lg);
+  --modal-padding: var(--space-6);
+  --modal-max-width-sm: 24rem; /* 384px */
+  --modal-max-width-md: 32rem; /* 512px */
+  --modal-max-width-lg: 48rem; /* 768px */
+
+  /* ============================================
+     BADGE TOKENS
+     ============================================ */
+  --badge-padding-x: var(--space-2);
+  --badge-padding-y: var(--space-1);
+  --badge-border-radius: var(--border-radius-full);
+  --badge-font-size: var(--font-size-caption-small);
+  --badge-font-weight: var(--font-weight-medium);
+  --badge-bg-primary: var(--color-primary);
+  --badge-bg-success: var(--color-success);
+  --badge-bg-error: var(--color-error);
+  --badge-bg-warning: var(--color-warning);
+  --badge-bg-info: var(--color-info);
+
+  /* ============================================
+     DROPDOWN TOKENS
+     ============================================ */
+  --dropdown-menu-bg: var(--color-surface);
+  --dropdown-menu-border-radius: var(--border-radius-md);
+  --dropdown-menu-padding: var(--space-1);
+  --dropdown-menu-shadow: var(--shadow-elevation-3);
+  --dropdown-item-padding: var(--space-2) var(--space-3);
+  --dropdown-item-border-radius: var(--border-radius-sm);
+
+  /* ============================================
+     BREADCRUMB TOKENS
+     ============================================ */
+  --breadcrumb-font-size: var(--font-size-body-small);
+  --breadcrumb-color: var(--color-text-secondary);
+  --breadcrumb-color-active: var(--color-text-primary);
+  --breadcrumb-separator: "/";
+  --breadcrumb-separator-color: var(--color-text-muted);
+}
+

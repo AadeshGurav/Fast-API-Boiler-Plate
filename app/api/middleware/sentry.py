@@ -1,4 +1,5 @@
 """Sentry integration middleware for FastAPI using BaseMiddleware."""
+
 from __future__ import annotations
 
 import time
@@ -7,7 +8,6 @@ from collections.abc import Callable
 from fastapi import Request, Response
 
 from app.services.logger import create_log_context
-from app.services.sentry import SentryService
 
 from .base import BaseMiddleware
 
@@ -34,9 +34,6 @@ class SentryMiddleware(BaseMiddleware):
             kwargs: Additional keyword arguments.
 
         """
-        self.sentry_service: SentryService | None = getattr(
-            self.app.state, "sentry_service", None
-        )
         self.capture_exceptions = self.config.get("capture_exceptions", True)
         self.capture_requests = self.config.get("capture_requests", True)
         self.set_user_context = self.config.get("set_user_context", True)

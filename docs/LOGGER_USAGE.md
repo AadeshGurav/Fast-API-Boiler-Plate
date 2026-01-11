@@ -141,7 +141,7 @@ logger.info("Database query executed")  # Includes: request_id, trace_id
 The logger automatically enables async mode during FastAPI startup:
 
 ```python
-# In app/utils/uitls.py lifespan function
+# In app/utils/utils.py lifespan function
 logger.enable_async()  # Automatically called
 ```
 
@@ -149,7 +149,7 @@ logger.enable_async()  # Automatically called
 The logger gracefully shuts down during application shutdown:
 
 ```python
-# In app/utils/uitls.py lifespan function
+# In app/utils/utils.py lifespan function
 await logger.shutdown()  # Automatically called
 ```
 

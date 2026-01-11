@@ -1,4 +1,5 @@
 """Authentication service package initialization."""
+
 from __future__ import annotations
 
 from app.services.auth.core import AuthCoreMixin

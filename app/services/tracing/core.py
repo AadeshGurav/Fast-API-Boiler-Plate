@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
@@ -10,23 +11,33 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 
-from app.services.base_service import BaseService
-from app.services.logger import Logger
+if TYPE_CHECKING:
+    from app.services.logger import Logger
+    from config import Config
 
 
-class TracingCore(BaseService):
+class TracingCore:
     """Core tracing functionality using OpenTelemetry."""
 
-    def __init__(self: TracingCore, logger: Logger, config: dict) -> None:
+    def __init__(
+        self: TracingCore,
+        config: Config,
+        logger: Logger,
+        *args: dict[str, Any],
+        **kwargs: dict[str, Any],
+    ) -> None:
         """Initialize tracing core.
 
         Args:
         ----
+            config: Configuration object.
             logger: Logger instance.
-            config: Configuration dictionary.
+            *args: Additional arguments.
+            **kwargs: Additional keyword arguments.
 
         """
-        super().__init__(config, logger)
+        self.config = config
+        self.logger = logger
         self.enabled = config.get("tracing_enabled", True)
         self.service_name = config.get("app_title", "fastapi-app")
         self.environment = config.get("environment", "development")

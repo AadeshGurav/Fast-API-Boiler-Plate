@@ -5,7 +5,6 @@ from collections.abc import Callable
 from fastapi import Request, Response
 from starlette.datastructures import MutableHeaders
 
-from app.core.interfaces.rbac_service_interface import RBACServiceInterface
 from app.services.error.exceptions import UserFacingExceptionError
 from app.services.logger import create_log_context
 
@@ -26,9 +25,6 @@ class RBACMiddleware(BaseMiddleware):
             kwargs: Additional keyword arguments.
 
         """
-        self.rbac_service: RBACServiceInterface | None = getattr(
-            self.app.state, "rbac_service", None
-        )
         self.public_paths: list[str] = self.config.get(
             "public_paths",
             [
@@ -96,10 +92,8 @@ class RBACMiddleware(BaseMiddleware):
                     "method": method,
                 },
             )
-            error_service = getattr(self.app.state, "error_service", None)
-            if error_service is None:
-                raise RuntimeError("Error service is not initialized")
-            return error_service.http_response(
+
+            return self.error_service.http_response(
                 UserFacingExceptionError("Authentication required", status_code=401),
                 status_code=401,
             )
@@ -135,10 +129,8 @@ class RBACMiddleware(BaseMiddleware):
                             "result": "denied",
                         },
                     )
-                    error_service = getattr(self.app.state, "error_service", None)
-                    if error_service is None:
-                        raise RuntimeError("Error service is not initialized")
-                    return error_service.http_response(
+
+                    return self.error_service.http_response(
                         UserFacingExceptionError(
                             "Admin access required", status_code=403
                         ),
@@ -167,10 +159,8 @@ class RBACMiddleware(BaseMiddleware):
                             result="denied",
                         ),
                     )
-                    error_service = getattr(self.app.state, "error_service", None)
-                    if error_service is None:
-                        raise RuntimeError("Error service is not initialized")
-                    return error_service.http_response(
+
+                    return self.error_service.http_response(
                         UserFacingExceptionError(
                             f"Permission denied: {permission}",
                             status_code=403,
@@ -219,12 +209,8 @@ class RBACMiddleware(BaseMiddleware):
                     "error": str(e),
                 },
             )
-            error_service = getattr(self.app.state, "error_service", None)
-            if error_service is None:
-                raise RuntimeError("Error service is not initialized")
-            error_service.logger = getattr(self, "logger", None)
-            error_service.log_exception(e)
-            return error_service.http_response(
+
+            return self.error_service.http_response(
                 UserFacingExceptionError(
                     f"Authentication failed: {str(e)}", status_code=401
                 ),
@@ -247,7 +233,12 @@ class RBACMiddleware(BaseMiddleware):
             The token from the request.
 
         """
-        token = request.cookies.get("access_token") or request.cookies.get("auth_token")
+        from app.utils.permissions import get_token_cookie_names
+
+        access_token_key, _ = get_token_cookie_names()
+        token = request.cookies.get(access_token_key) or request.cookies.get(
+            "auth_token"
+        )
         if token:
             return token
 

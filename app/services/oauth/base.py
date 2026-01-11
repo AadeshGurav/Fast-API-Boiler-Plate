@@ -4,41 +4,44 @@ from __future__ import annotations
 
 import secrets
 import urllib.parse
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
-from app.core.interfaces.oauth_repository_interface import OAuthRepositoryInterface
-from app.core.interfaces.user_repository_interface import UserRepositoryInterface
 from app.models.oauth import OAuthAccount, OAuthProvider, OAuthToken, OAuthUserInfo
 from app.models.user import User, UserCreate, UserRole
-from app.services.logger import Logger
-from config import Config
+from app.services.base_service import BaseService
+
+if TYPE_CHECKING:
+    from app.services.data import DataService
+    from app.services.logger import Logger
+    from config import Config
 
 
-class OAuthBase:
+class OAuthBase(BaseService):
     """Base OAuth functionality."""
 
     def __init__(
         self: OAuthBase,
         config: Config,
         logger: Logger,
-        oauth_repository: OAuthRepositoryInterface,
-        user_repository: UserRepositoryInterface,
-    ):
+        data_service: DataService,
+        *args: dict[str, Any],
+        **kwargs: dict[str, Any],
+    ) -> None:
         """Initialize OAuth base.
 
         Args:
         ----
             config: Configuration instance
             logger: Logger instance
-            oauth_repository: OAuth repository interface
-            user_repository: User repository interface
+            data_service: Data service instance
+            *args: Additional arguments.
+            **kwargs: Additional keyword arguments.
 
         """
-        self.config = config
-        self.logger = logger
-        self.oauth_repository = oauth_repository
-        self.user_repository = user_repository
+        super().__init__(config, logger, *args, **kwargs)
+        self.data_service = data_service
 
         # Load OAuth provider configurations
         self.providers = self.config.get("oauth_providers", {})
@@ -199,13 +202,15 @@ class OAuthBase:
 
         """
         # Check if OAuth account already exists
-        existing_oauth = await self.oauth_repository.get_oauth_account(
+        existing_oauth = await self.data_service.oauth.get_oauth_account(
             provider.value, oauth_user_info.provider_user_id
         )
 
         if existing_oauth:
             # Link exists, get the user
-            user = await self.user_repository.get_user_by_id(existing_oauth["user_id"])
+            user = await self.data_service.users.get_user_by_id(
+                existing_oauth["user_id"]
+            )
             if user:
                 self.logger.info(
                     f"Existing OAuth account linked: {provider.value}",
@@ -222,7 +227,7 @@ class OAuthBase:
         # Check if user exists by email
         existing_user = None
         if oauth_user_info.email:
-            existing_user = await self.user_repository.get_user_by_email(
+            existing_user = await self.data_service.users.get_user_by_email(
                 oauth_user_info.email
             )
 
@@ -236,7 +241,7 @@ class OAuthBase:
                 refresh_token=None,
             )
 
-            await self.oauth_repository.link_oauth_account(oauth_account.dict())
+            await self.data_service.oauth.link_oauth_account(oauth_account.dict())
 
             self.logger.info(
                 f"OAuth account linked to existing user: {provider.value}",
@@ -249,7 +254,23 @@ class OAuthBase:
                 },
             )
 
-            return User(**existing_user)
+            # Normalize user data before creating User object
+            # Handle login_attempts - convert from int to list if needed
+            normalized_user = existing_user.copy()
+            if "login_attempts" in normalized_user and isinstance(
+                normalized_user["login_attempts"], int
+            ):
+                normalized_user["login_attempts"] = []
+            if (
+                "login_attempts_history" in normalized_user
+                and "login_attempts" not in normalized_user
+            ):
+                normalized_user["login_attempts"] = normalized_user.pop(
+                    "login_attempts_history"
+                )
+            if "sessions" not in normalized_user:
+                normalized_user["sessions"] = []
+            return User(**normalized_user)
 
         # Create new user
         username = (
@@ -261,7 +282,7 @@ class OAuthBase:
         # Ensure username is unique
         counter = 1
         original_username = username
-        while await self.user_repository.get_user_by_username(username):
+        while await self.data_service.users.get_user_by_username(username):
             username = f"{original_username}_{counter}"
             counter += 1
 
@@ -273,8 +294,26 @@ class OAuthBase:
             groups=[],
         )
 
-        user_data = await self.user_repository.create_user(user_create.dict())
-        user = User(**user_data)
+        user_dict = user_create.dict()
+        user_id = await self.data_service.users.create_user(user_dict)
+        user_data = await self.data_service.users.get_user_by_id(user_id)
+        # Normalize user data before creating User object
+        # Handle login_attempts - convert from int to list if needed
+        normalized_user = user_data.copy()
+        if "login_attempts" in normalized_user and isinstance(
+            normalized_user["login_attempts"], int
+        ):
+            normalized_user["login_attempts"] = []
+        if (
+            "login_attempts_history" in normalized_user
+            and "login_attempts" not in normalized_user
+        ):
+            normalized_user["login_attempts"] = normalized_user.pop(
+                "login_attempts_history"
+            )
+        if "sessions" not in normalized_user:
+            normalized_user["sessions"] = []
+        user = User(**normalized_user)
 
         # Link OAuth account
         oauth_account = OAuthAccount(
@@ -285,7 +324,7 @@ class OAuthBase:
             refresh_token=None,
         )
 
-        await self.oauth_repository.link_oauth_account(oauth_account.dict())
+        await self.data_service.oauth.link_oauth_account(oauth_account.dict())
 
         self.logger.info(
             f"New user created and OAuth account linked: {provider.value}",
@@ -314,7 +353,7 @@ class OAuthBase:
             True if successfully unlinked
 
         """
-        result = await self.oauth_repository.unlink_oauth_account(
+        result = await self.data_service.oauth.unlink_oauth_account(
             user_id, provider.value
         )
 
@@ -347,7 +386,7 @@ class OAuthBase:
             True if successfully updated
 
         """
-        result = await self.oauth_repository.update_oauth_tokens(
+        result = await self.data_service.oauth.update_oauth_tokens(
             user_id, provider.value, tokens.dict()
         )
 

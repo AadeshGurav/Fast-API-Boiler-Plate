@@ -1,0 +1,210 @@
+{% extends "demo/base.html" %}
+
+{% block title %}Sessions{% endblock %}
+
+{% block content %}
+    <div class="card">
+        <h2><i class="fas fa-desktop me-2"></i>Active Sessions</h2>
+        <p class="text-muted">Manage your active sessions across different devices.</p>
+        
+        {% if user.sessions %}
+        <div class="sessions-list">
+            {% for session in user.sessions %}
+            <div class="session-item {% if not session.is_active %}session-revoked{% endif %}">
+                <div class="session-header">
+                    <div class="session-info">
+                        <h4>
+                            <i class="fas fa-{{ 'desktop' if session.device_info.device_type == 'desktop' else 'mobile-alt' if session.device_info.device_type == 'mobile' else 'laptop' }} me-2"></i>
+                            {{ session.device_info.browser or 'Unknown Browser' }} on {{ session.device_info.platform or 'Unknown Platform' }}
+                        </h4>
+                        <p class="text-muted mb-0">
+                            <i class="fas fa-map-marker-alt me-1"></i>{{ session.device_info.ip_address }}
+                            {% if session.device_info.geo_location %}
+                            - {{ session.device_info.geo_location.city or '' }}, {{ session.device_info.geo_location.country or '' }}
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="session-status">
+                        {% if session.is_active %}
+                        <span class="badge bg-success">Active</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Revoked</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="session-details">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>User Agent:</strong> <small>{{ session.device_info.user_agent[:80] }}{% if session.device_info.user_agent|length > 80 %}...{% endif %}</small></p>
+                            <p><strong>Device Type:</strong> {{ session.device_info.device_type or 'Unknown' }}</p>
+                            <p><strong>OS:</strong> {{ session.device_info.os_version or 'Unknown' }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Created:</strong> {{ session.created_at.strftime('%Y-%m-%d %H:%M:%S') if session.created_at else 'Unknown' }}</p>
+                            <p><strong>Expires:</strong> {{ session.expires_at.strftime('%Y-%m-%d %H:%M:%S') if session.expires_at else 'Unknown' }}</p>
+                            {% if session.revoked_at %}
+                            <p><strong>Revoked:</strong> {{ session.revoked_at.strftime('%Y-%m-%d %H:%M:%S') if session.revoked_at else 'Unknown' }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% if session.is_active %}
+                <div class="session-actions">
+                    <button class="btn btn-sm btn-danger" onclick="revokeSession('{{ session.id }}')">
+                        <i class="fas fa-ban me-1"></i>Revoke Session
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>No active sessions found.
+        </div>
+        {% endif %}
+        
+        <div class="mt-3">
+            <button class="btn btn-danger" onclick="revokeAllSessions()">
+                <i class="fas fa-ban me-2"></i>Revoke All Sessions
+            </button>
+            <a href="/demo/auth/dashboard" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+            </a>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function revokeSession(sessionId) {
+    if (!confirm('Are you sure you want to revoke this session?')) {
+        return;
+    }
+    
+    try {
+        const accessTokenKey = (window.APP_CONFIG && window.APP_CONFIG.accessTokenCookie) || 'access_token';
+        const token = localStorage.getItem('access_token') || 
+                      document.cookie.split('; ').find(row => row.startsWith(accessTokenKey + '='))?.split('=')[1] ||
+                      document.cookie.split('; ').find(row => row.startsWith('access_token='))?.split('=')[1];
+        if (!token) {
+            alert('Not authenticated');
+            window.location.href = '/demo/auth/login';
+            return;
+        }
+        
+        const res = await fetch(`/api/v1/sessions/${sessionId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (res.ok) {
+            alert('Session revoked successfully');
+            location.reload();
+        } else {
+            const error = await res.json();
+            alert(`Failed to revoke session: ${error.detail || 'Unknown error'}`);
+        }
+    } catch (err) {
+        console.error('Error revoking session:', err);
+        alert('Failed to revoke session');
+    }
+}
+
+async function revokeAllSessions() {
+    if (!confirm('Are you sure you want to revoke all sessions? You will be logged out from all devices.')) {
+        return;
+    }
+    
+    try {
+        const accessTokenKey = (window.APP_CONFIG && window.APP_CONFIG.accessTokenCookie) || 'access_token';
+        const token = localStorage.getItem('access_token') || 
+                      document.cookie.split('; ').find(row => row.startsWith(accessTokenKey + '='))?.split('=')[1] ||
+                      document.cookie.split('; ').find(row => row.startsWith('access_token='))?.split('=')[1];
+        if (!token) {
+            alert('Not authenticated');
+            window.location.href = '/demo/auth/login';
+            return;
+        }
+        
+        const res = await fetch('/api/v1/sessions/all', {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (res.ok) {
+            alert('All sessions revoked successfully');
+            window.location.href = '/demo/auth/login';
+        } else {
+            const error = await res.json();
+            alert(`Failed to revoke sessions: ${error.detail || 'Unknown error'}`);
+        }
+    } catch (err) {
+        console.error('Error revoking sessions:', err);
+        alert('Failed to revoke sessions');
+    }
+}
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .sessions-list {
+        margin-top: 20px;
+    }
+    
+    .session-item {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 15px;
+        background: #fff;
+        transition: box-shadow 0.2s;
+    }
+    
+    .session-item:hover {
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .session-item.session-revoked {
+        opacity: 0.6;
+        background: #f8f9fa;
+    }
+    
+    .session-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        margin-bottom: 10px;
+    }
+    
+    .session-info h4 {
+        margin: 0 0 5px 0;
+        font-size: 1.1em;
+    }
+    
+    .session-details {
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid #dee2e6;
+    }
+    
+    .session-details p {
+        margin: 5px 0;
+        font-size: 0.9em;
+    }
+    
+    .session-actions {
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid #dee2e6;
+    }
+</style>
+{% endblock %}
+

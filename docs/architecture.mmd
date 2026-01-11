@@ -1,0 +1,208 @@
+%% One-Conf Application Architecture Diagram
+%% This diagram shows the complete system architecture including:
+%% - Configuration management
+%% - Dependency injection container
+%% - Service layer organization
+%% - Request flow through middleware
+%% - Database and cache layers
+%% - API routes and models
+
+graph TB
+    %% Entry Point
+    Main[main.py<br/>Entry Point<br/>Uvicorn Server Startup]
+    
+    %% Configuration Layer
+    ConfigClass[config.py<br/>Config Class]
+    ConfigDir[config.d/<br/>JSON Config Files]
+    ConfigDir -->|Loads| ConfigClass
+    ConfigClass -->|Provides| Main
+    
+    %% Application Initialization
+    AppInit[app/__init__.py<br/>Application Bootstrap]
+    Container[app/core/container.py<br/>Dependency Injection Container]
+    AppInit -->|Creates| Container
+    ConfigClass -->|Injected| Container
+    
+    %% Container Services
+    Container -->|Provides| Logger[Logger Service]
+    Container -->|Provides| RetryService[Retry Service]
+    Container -->|Provides| MetricsService[Metrics Service]
+    Container -->|Provides| TracingService[Tracing Service]
+    Container -->|Provides| SentryService[Sentry Service]
+    Container -->|Provides| DataService[Data Service]
+    Container -->|Provides| DatabaseService[Database Service]
+    Container -->|Provides| CacheService[Cache Service]
+    Container -->|Provides| PasswordService[Password Service]
+    Container -->|Provides| RBACService[RBAC Service]
+    Container -->|Provides| OAuthSerMermaidvice[OAuth Service]
+    Container -->|Provides| AuthService[Auth Service]
+    Container -->|Provides| SessionService[Session Service]
+    Container -->|Provides| ErrorService[Error Service]
+    Container -->|Provides| ClassStore[Class Store]
+    
+    %% Service Dependencies
+    DataService -->|Uses| DatabaseService
+    DataService -->|Uses| CacheService
+    DatabaseService -->|Uses| DataService
+    RBACService -->|Uses| DataService
+    RBACService -->|Uses| CacheService
+    OAuthService -->|Uses| DataService
+    AuthService -->|Uses| DataService
+    AuthService -->|Uses| PasswordService
+    AuthService -->|Uses| RBACService
+    SessionService -->|Uses| DataService
+    
+    %% App Factory
+    AppFactory[app/api/app.py<br/>AppFactory]
+    Container -->|Creates| AppFactory
+    AppFactory -->|Creates| FastAPIApp[FastAPI Application]
+    
+    %% Middleware Stack
+    FastAPIApp -->|Middleware Stack| Middleware1[ErrorHandlerMiddleware]
+    Middleware1 -->|Next| Middleware2[SentryMiddleware]
+    Middleware2 -->|Next| Middleware3[CORSMiddleware]
+    Middleware3 -->|Next| Middleware4[RequestIDMiddleware]
+    Middleware4 -->|Next| Middleware5[SecurityHeadersMiddleware]
+    Middleware5 -->|Next| Middleware6[TimeoutMiddleware]
+    Middleware6 -->|Next| Middleware7[CircuitBreakerMiddleware]
+    Middleware7 -->|Next| Middleware8[RateLimiter]
+    Middleware8 -->|Next| Middleware9[SessionMiddleware]
+    Middleware9 -->|Next| Middleware10[SerializationMiddleware]
+    Middleware10 -->|Next| Middleware11[TemplateContextMiddleware]
+    Middleware11 -->|Next| Middleware12[RBACMiddleware]
+    
+    %% Routes
+    Middleware12 -->|Routes| Routes[API Routes]
+    Routes -->|Auth Routes| AuthRoutes[app/api/routes/auth/<br/>Login, Registration,<br/>Password, Session]
+    Routes -->|OAuth Routes| OAuthRoutes[app/api/routes/oauth.py<br/>OAuth Provider Routes]
+    Routes -->|RBAC Routes| RBACRoutes[app/api/routes/rbac.py<br/>Role/Permission Management]
+    Routes -->|Session Routes| SessionRoutes[app/api/routes/sessions.py<br/>Session Management]
+    Routes -->|Demo Routes| DemoRoutes[app/api/routes/demo/<br/>Health, Library,<br/>Unified Demo]
+    
+    %% Route Dependencies
+    AuthRoutes -->|Uses| AuthService
+    AuthRoutes -->|Uses| DataService
+    OAuthRoutes -->|Uses| OAuthService
+    RBACRoutes -->|Uses| RBACService
+    SessionRoutes -->|Uses| DataService
+    
+    %% Data Layer
+    DataService -->|Operations| UsersOps[app/services/data/users_ops.py<br/>User Operations]
+    DataService -->|Operations| SessionsOps[app/services/data/sessions_ops.py<br/>Session Operations]
+    DataService -->|Operations| RBACOps[app/services/data/rbac_ops.py<br/>RBAC Operations]
+    DataService -->|Operations| OAuthOps[app/services/data/oauth_ops.py<br/>OAuth Operations]
+    DataService -->|Operations| Policies[app/services/data/policies.py<br/>Cache Policies]
+    
+    %% Database Layer
+    DatabaseService -->|Implements| DatabaseInterface[app/core/interfaces/<br/>database_interface.py]
+    DatabaseInterface -->|MongoDB| MongoDBImpl[app/database/mongodb.py<br/>MongoDB Implementation]
+    DatabaseInterface -->|Redis| RedisImpl[app/database/redis.py<br/>Redis Implementation]
+    
+    %% Database Collections
+    MongoDBImpl -->|Collections| MongoCollections[users, sessions,<br/>roles, permissions,<br/>groups, oauth_accounts]
+    
+    %% Cache Layer
+    CacheService -->|Uses| RedisImpl
+    RedisImpl -->|Cache Operations| CacheOps[Key-Value Storage,<br/>Session Storage,<br/>Rate Limiting]
+    
+    %% Models
+    Models[app/models/<br/>Data Models]
+    Models -->|User Model| UserModel[app/models/user.py]
+    Models -->|Auth Model| AuthModel[app/models/auth.py]
+    Models -->|Session Model| SessionModel[app/models/session.py]
+    Models -->|Role Model| RoleModel[app/models/role.py]
+    Models -->|OAuth Model| OAuthModel[app/models/oauth.py]
+    
+    %% Models Used By
+    AuthRoutes -->|Uses| UserModel
+    AuthRoutes -->|Uses| AuthModel
+    SessionRoutes -->|Uses| SessionModel
+    RBACRoutes -->|Uses| RoleModel
+    OAuthRoutes -->|Uses| OAuthModel
+    
+    %% Service Implementations
+    AuthService -->|Composed Of| AuthCore[app/services/auth/core.py<br/>Auth Core Logic]
+    AuthService -->|Composed Of| UserManagement[app/services/auth/user_management.py<br/>User Management]
+    AuthService -->|Composed Of| SessionManagement[app/services/auth/session_management.py<br/>Session Management]
+    
+    RBACService -->|Composed Of| RBACCore[app/services/rbac/core.py<br/>RBAC Core Logic]
+    RBACService -->|Composed Of| RBACPermissions[app/services/rbac/permissions.py<br/>Permission Logic]
+    RBACService -->|Composed Of| RBACCache[app/services/rbac/cache.py<br/>RBAC Caching]
+    
+    OAuthService -->|Composed Of| OAuthBase[app/services/oauth/base.py<br/>OAuth Base]
+    OAuthService -->|Composed Of| GoogleProvider[app/services/oauth/providers/google.py<br/>Google Provider]
+    OAuthService -->|Composed Of| AppleProvider[app/services/oauth/providers/apple.py<br/>Apple Provider]
+    
+    %% Interfaces
+    Interfaces[app/core/interfaces/<br/>Service Interfaces]
+    Interfaces -->|Auth Interface| AuthInterface[app/core/interfaces/<br/>auth_service_interface.py]
+    Interfaces -->|OAuth Interface| OAuthInterface[app/core/interfaces/<br/>oauth_service_interface.py]
+    Interfaces -->|Password Interface| PasswordInterface[app/core/interfaces/<br/>password_service_interface.py]
+    Interfaces -->|RBAC Interface| RBACInterface[app/core/interfaces/<br/>rbac_service_interface.py]
+    Interfaces -->|Database Interface| DatabaseInterface
+    
+    %% Core Components
+    CoreComponents[app/core/<br/>Core Components]
+    CoreComponents -->|Class Store| ClassStore
+    CoreComponents -->|Dynamic Config| DynamicConfig[app/core/dynamic_config.py]
+    
+    %% Utilities
+    Utils[app/utils/<br/>Utilities]
+    Utils -->|Permissions| PermissionsUtil[app/utils/permissions.py]
+    Utils -->|Demo Context| DemoContext[app/utils/demo_context.py]
+    
+    %% Templates & Static Files
+    FastAPIApp -->|Serves| Templates[app/templates/<br/>Jinja2 Templates]
+    FastAPIApp -->|Serves| StaticFiles[app/static/<br/>CSS, JS Files]
+    
+    %% Classes
+    Classes[app/classes/<br/>Business Logic Classes]
+    Classes -->|Demo Classes| DemoClasses[app/classes/demo/<br/>Demo Implementations]
+    Classes -->|Student| StudentClass[app/classes/student.py]
+    ClassStore -->|Discovers| Classes
+    
+    %% Uvicorn Server
+    Main -->|Starts| UvicornServer[Uvicorn ASGI Server]
+    UvicornServer -->|Loads| AppInit
+    UvicornServer -->|Serves| FastAPIApp
+    
+    %% External Dependencies
+    MongoDBImpl -.->|Connects| MongoDB[(MongoDB<br/>Database)]
+    RedisImpl -.->|Connects| Redis[(Redis<br/>Cache)]
+    SentryService -.->|Reports To| SentryExternal[(Sentry<br/>Error Tracking)]
+    TracingService -.->|Exports To| TracingBackend[(Tracing<br/>Backend)]
+    
+    %% Configuration Files Detail
+    ConfigDir -->|Contains| AppConfig[app-config-global.json<br/>App Settings]
+    ConfigDir -->|Contains| MongoConfig[mongodb-config-global.json<br/>MongoDB Settings]
+    ConfigDir -->|Contains| RedisConfig[redis-config-global.json<br/>Redis Settings]
+    ConfigDir -->|Contains| OAuthConfig[oauth-config-global.json<br/>OAuth Settings]
+    ConfigDir -->|Contains| AuthConfig[auth-config-global.json<br/>Auth Settings]
+    ConfigDir -->|Contains| RBACConfig[rbac-*-global.json<br/>RBAC Settings]
+    ConfigDir -->|Contains| SecurityConfig[security-config-global.json<br/>Security Settings]
+    ConfigDir -->|Contains| RateLimitConfig[rate-limit-config-global.json<br/>Rate Limiting]
+    ConfigDir -->|Contains| SessionConfig[session-config-global.json<br/>Session Settings]
+    ConfigDir -->|Contains| LogsConfig[app-logs-config-global.json<br/>Logging Settings]
+    ConfigDir -->|Contains| SentryConfig[sentry-config-global.json<br/>Sentry Settings]
+    
+    %% Styling
+    classDef entryPoint fill:#e1f5ff,stroke:#01579b,stroke-width:3px
+    classDef config fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef container fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef service fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    classDef database fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    classDef route fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+    classDef middleware fill:#e0f2f1,stroke:#004d40,stroke-width:2px
+    classDef model fill:#f1f8e9,stroke:#33691e,stroke-width:2px
+    classDef external fill:#ffebee,stroke:#b71c1c,stroke-width:2px,stroke-dasharray: 5 5
+    
+    class Main entryPoint
+    class ConfigClass,ConfigDir,AppConfig,MongoConfig,RedisConfig,OAuthConfig,AuthConfig,RBACConfig,SecurityConfig,RateLimitConfig,SessionConfig,LogsConfig,SentryConfig config
+    class Container,AppFactory,AppInit container
+    class Logger,RetryService,MetricsService,TracingService,SentryService,DataService,DatabaseService,CacheService,PasswordService,RBACService,OAuthService,AuthService,SessionService,ErrorService,ClassStore service
+    class DatabaseService,MongoDBImpl,RedisImpl,MongoCollections,CacheOps database
+    class Routes,AuthRoutes,OAuthRoutes,RBACRoutes,SessionRoutes,DemoRoutes route
+    class Middleware1,Middleware2,Middleware3,Middleware4,Middleware5,Middleware6,Middleware7,Middleware8,Middleware9,Middleware10,Middleware11,Middleware12 middleware
+    class Models,UserModel,AuthModel,SessionModel,RoleModel,OAuthModel model
+    class MongoDB,Redis,SentryExternal,TracingBackend external
+

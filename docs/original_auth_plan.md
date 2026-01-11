@@ -491,7 +491,7 @@ Update `app/core/container.py`:
 
 ### 6.2 Update Startup Logic
 
-Update `app/utils/uitls.py` lifespan function:
+Update `app/utils/utils.py` lifespan function:
 
 - On startup:
   - Initialize RBAC: `rbac_service.load_rbac_config()`

@@ -1,24 +1,26 @@
 """RBAC permission resolution functionality."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from app.database.repositories.rbac_repository import RBACRepository
+from app.services.data import DataService
 from app.services.logger import Logger
 
 
 class RBACPermissions:
     """RBAC permission resolution functionality."""
 
-    def __init__(self, rbac_repository: RBACRepository, logger: Logger):
+    def __init__(self, data_service: DataService, logger: Logger):
         """Initialize RBAC permissions.
 
         Args:
-            rbac_repository: RBAC repository instance
+        ----
+            data_service: Data service instance
             logger: Logger instance
 
         """
-        self.rbac_repository = rbac_repository
+        self.data_service = data_service
         self.logger = logger
 
     async def resolve_user_permissions(
@@ -31,12 +33,14 @@ class RBACPermissions:
         """Resolve all permissions for a user.
 
         Args:
+        ----
             user_id: User identifier
             user_roles: User roles
             user_groups: User groups
             core: RBAC core instance
 
         Returns:
+        -------
             List of resolved permissions
 
         """
@@ -49,15 +53,17 @@ class RBACPermissions:
 
         # Add permissions from groups
         for group_id in user_groups:
-            group = await self.rbac_repository.get_group(group_id)
+            group = await self.data_service.rbac.get_group(group_id)
             if group:
                 for role_id in group.get("roles", []):
                     role_permissions = await core.resolve_role_inheritance(role_id)
                     permissions.update(role_permissions)
 
         # Add temporary permissions
-        temp_permissions = await self.rbac_repository.get_active_temporary_permissions(
-            "user", user_id
+        temp_permissions = (
+            await self.data_service.rbac.get_active_temporary_permissions(
+                "user", user_id
+            )
         )
         for temp_perm in temp_permissions:
             permissions.add(temp_perm["permission_id"])
@@ -82,10 +88,12 @@ class RBACPermissions:
         """Check if user has permission.
 
         Args:
+        ----
             user_permissions: User's resolved permissions
             permission: Permission to check
 
         Returns:
+        -------
             True if user has permission
 
         """

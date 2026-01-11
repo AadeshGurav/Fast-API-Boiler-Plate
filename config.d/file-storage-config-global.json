@@ -1,0 +1,17 @@
+{
+  "file_storage_enabled": true,
+  "file_storage_backend": "local",
+  "file_storage_base_path": "uploads",
+  "file_max_size": 1073741824,
+  "file_chunk_size": 5242880,
+  "file_allowed_types": ["image/*", "application/pdf", "text/*", "application/x-yaml", "application/yaml", "application/xml", "application/json", "application/zip", "application/x-zip-compressed", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.oasis.opendocument.spreadsheet", "application/vnd.oasis.opendocument.spreadsheet-template", "text/csv"],
+  "file_versioning_enabled": true,
+  "file_image_processing_enabled": true,
+  "file_thumbnail_sizes": [150, 300, 600],
+  "file_deduplication_enabled": true,
+  "file_upload_ttl": 3600,
+  "file_spreadsheet_processing_enabled": true,
+  "file_libreoffice_path": "libreoffice",
+  "file_spreadsheet_temp_dir": null,
+  "file_spreadsheet_timeout": 300
+}

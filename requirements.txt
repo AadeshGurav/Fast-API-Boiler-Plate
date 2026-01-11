@@ -75,12 +75,14 @@ flake8==6.1.0
 mypy==1.7.1
 ruff==0.5.3
 pre-commit==3.5.0
+debugpy==1.8.17
 
 # Perf Testing
 locust==2.17.0
 
 # Additional Utilities
 typing-extensions==4.8.0
+Pillow==10.1.0
 
 # Prod Extras
 gunicorn==21.2.0

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from fastapi import Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.utils.uitls import extract_device_info
+from app.utils.utils import extract_device_info
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -24,13 +24,10 @@ class BaseMiddleware(BaseHTTPMiddleware):
     def __init__(
         self: BaseMiddleware,
         app: ASGIApp,
-        config: Config | None = None,
-        logger: Logger | None = None,
-        exclude_paths: list[str] | None = None,
-        public_paths: list[str] | None = None,
-        admin_only_paths: list[str] | None = None,
-        role_permissions: dict[str, list[str]] | None = None,
-        **kwargs,
+        config: Config,
+        logger: Logger,
+        *args: dict[str, Any],
+        **kwargs: dict[str, Any],
     ) -> None:
         """Initialize the base middleware.
 
@@ -51,24 +48,31 @@ class BaseMiddleware(BaseHTTPMiddleware):
 
         """
         super().__init__(app)
-        self.exclude_paths = exclude_paths or []
+
+        self.exclude_paths = []
         self.kwargs = kwargs
 
         self.config = config
         self.logger = logger
 
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+        for arg in args:
+            setattr(self, arg, arg)
+
         # Common paths and permissions
-        self.public_paths = public_paths or self.config.get(
+        self.public_paths = self.config.get(
             "public_paths",
             ["/", "/docs", "/redoc", "/openapi.json"],
         )
 
-        self.admin_only_paths = admin_only_paths or self.config.get(
+        self.admin_only_paths = self.config.get(
             "admin_only_paths",
             ["/admin", "/users/list", "/users/{id}/permissions", "/users/{id}/role"],
         )
 
-        self.role_permissions = role_permissions or self.config.get(
+        self.role_permissions = self.config.get(
             "role_permissions",
             {
                 "admin": ["*"],

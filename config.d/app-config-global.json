@@ -1,6 +1,6 @@
 {
   "app_title": "One Conf",
-  "app_host": "127.0.0.1",
+  "app_host": "0.0.0.0",
   "app_port": 8000,
   "app_debug": true,
   "app_reload": false,
@@ -9,6 +9,8 @@
   "app_version": "1.0.0",
   "app_database": "oneconf",
   "app_description": "Production-ready FastAPI application",
+  "app_database_provider": "mongodb",
+  "app_cache_provider": "redis",
   "log_uvicorn": true,
   "uvicorn_log_level": "info",
   "environment": "development",

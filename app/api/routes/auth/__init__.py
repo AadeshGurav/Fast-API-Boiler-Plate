@@ -1,4 +1,5 @@
 """Main authentication routes combining all auth route modules."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter

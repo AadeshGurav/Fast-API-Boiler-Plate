@@ -1,4 +1,5 @@
 """Authentication session management routes."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -6,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app import container as app_container
 from app.models.user import UserPublic
 from app.services.auth import AuthService
+from app.services.data import DataService
 from app.utils.permissions import get_current_user
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -13,14 +15,14 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 @router.get("/me", response_model=UserPublic)
 async def get_current_user_info(
-    current_user: dict = Depends(get_current_user),
+    current_user=Depends(get_current_user),
     auth_service: AuthService = Depends(lambda: app_container.auth_service()),
 ) -> UserPublic:
     """Get current user information with resolved permissions.
 
     Args:
     ----
-        current_user: Current authenticated user
+        current_user: Current authenticated user (TokenPayload)
         auth_service: Auth service instance
 
     Returns:
@@ -33,9 +35,14 @@ async def get_current_user_info(
 
     """
     try:
-        # Get user from repository
-        user_repository = app_container.user_repository()
-        user_data = await user_repository.get_user_by_id(current_user["user_id"])
+        # Get user from data service
+        data_service: DataService = app_container.data_service()
+        user_id = (
+            current_user.user_id
+            if hasattr(current_user, "user_id")
+            else current_user["user_id"]
+        )
+        user_data = await data_service.users.get_user_by_id(user_id)
 
         if not user_data:
             raise HTTPException(

@@ -3,9 +3,11 @@
 Provides comprehensive error tracking, performance monitoring, and session tracking
 using Sentry SDK with FastAPI integration.
 """
+
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Optional
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
@@ -14,10 +16,15 @@ from sentry_sdk.integrations.pymongo import PyMongoIntegration
 from sentry_sdk.integrations.redis import RedisIntegration
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
+from app.services.base_service import BaseService
 from app.services.logger import Logger
 
+if TYPE_CHECKING:
+    from app.services.logger import Logger
+    from config import Config
 
-class SentryService:
+
+class SentryService(BaseService):
     """Service for Sentry error tracking and performance monitoring.
 
     Features:
@@ -29,26 +36,43 @@ class SentryService:
     - Environment-specific configuration
     """
 
-    def __init__(self, logger: Logger, config: dict):
-        self.logger = logger
-        self.config = config
-        self.enabled = bool(config.get("sentry_dsn"))
-        self.dsn = config.get("sentry_dsn")
-        self.environment = config.get("sentry_environment", "development")
-        self.traces_sample_rate = config.get("sentry_traces_sample_rate", 1.0)
-        self.profiles_sample_rate = config.get("sentry_profiles_sample_rate", 1.0)
-        self.enable_performance_monitoring = config.get(
+    def __init__(
+        self: SentryService,
+        config: Config,
+        logger: Logger,
+        *args: dict[str, Any],
+        **kwargs: dict[str, Any],
+    ) -> None:
+        """Initialize the SentryService.
+
+        Args:
+        ----
+            logger: The logger to use.
+            config: The configuration to use.
+            *args: Additional arguments.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+        -------
+            None
+
+        """
+        super().__init__(config, logger, *args, **kwargs)
+
+        self.enabled: bool = bool(config.get("sentry_dsn"))
+        self.dsn: str = config.get("sentry_dsn")
+        self.environment: str = config.get("sentry_environment", "development")
+        self.traces_sample_rate: float = config.get("sentry_traces_sample_rate", 1.0)
+        self.profiles_sample_rate: float = config.get(
+            "sentry_profiles_sample_rate", 1.0
+        )
+        self.enable_performance_monitoring: bool = config.get(
             "sentry_enable_performance_monitoring", True
         )
-        self.enable_session_tracking = config.get(
+        self.enable_session_tracking: bool = config.get(
             "sentry_enable_session_tracking", True
         )
-        self.before_send_function = config.get("sentry_before_send")
-
-        if self.enabled:
-            self._initialize_sentry()
-        else:
-            self.logger.info("Sentry disabled - no DSN provided")
+        self.before_send_function: Callable | None = config.get("sentry_before_send")
 
     def _initialize_sentry(self) -> None:
         """Initialize Sentry SDK with configuration."""
@@ -96,7 +120,7 @@ class SentryService:
             self.logger.error(f"Failed to initialize Sentry: {str(e)}")
             self.enabled = False
 
-    def _get_before_send_function(self) -> Optional[Callable]:
+    def _get_before_send_function(self) -> Callable | None:
         """Get the before_send function if specified in config."""
         if not self.before_send_function:
             return None
@@ -130,7 +154,7 @@ class SentryService:
 
         return "***masked***"
 
-    def capture_exception(self, exception: Exception, **kwargs) -> Optional[str]:
+    def capture_exception(self, exception: Exception, **kwargs) -> str | None:
         """Capture an exception in Sentry."""
         if not self.enabled:
             return None
@@ -143,7 +167,7 @@ class SentryService:
 
     def capture_message(
         self, message: str, level: str = "info", **kwargs
-    ) -> Optional[str]:
+    ) -> str | None:
         """Capture a message in Sentry."""
         if not self.enabled:
             return None
@@ -157,8 +181,8 @@ class SentryService:
     def set_user(
         self,
         user_id: str,
-        email: Optional[str] = None,
-        username: Optional[str] = None,
+        email: str | None = None,
+        username: str | None = None,
         **kwargs,
     ) -> None:
         """Set user context for Sentry."""
@@ -182,7 +206,7 @@ class SentryService:
         except Exception as e:
             self.logger.error(f"Failed to set tag in Sentry: {e}")
 
-    def set_context(self, name: str, data: Dict[str, Any]) -> None:
+    def set_context(self, name: str, data: dict[str, Any]) -> None:
         """Set context data in Sentry."""
         if not self.enabled:
             return
@@ -231,7 +255,7 @@ class SentryService:
         except Exception as e:
             self.logger.error(f"Failed to set extra in Sentry: {e}")
 
-    def flush(self, timeout: Optional[float] = None) -> None:
+    def flush(self, timeout: float | None = None) -> None:
         """Flush Sentry events."""
         if not self.enabled:
             return

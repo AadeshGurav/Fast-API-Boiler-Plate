@@ -56,7 +56,7 @@ class MetricsDecorators:
             func: Callable[..., T],
         ) -> Callable[[Callable[..., T]], Callable[..., T]]:
             @wraps(func)
-            def wrapper(*args: Any, **kwargs: Any) -> T:
+            def wrapper(*args: dict[str, Any], **kwargs: dict[str, Any]) -> T:
                 if not self.metrics_service.enabled:
                     return func(*args, **kwargs)
 
@@ -119,7 +119,7 @@ class MetricsDecorators:
             func: Callable[..., T],
         ) -> Callable[[Callable[..., T]], Callable[..., T]]:
             @wraps(func)
-            def wrapper(*args: Any, **kwargs: Any) -> T:
+            def wrapper(*args: dict[str, Any], **kwargs: dict[str, Any]) -> T:
                 if not self.metrics_service.enabled:
                     return func(*args, **kwargs)
 
@@ -178,7 +178,7 @@ class MetricsDecorators:
             func: Callable[..., T],
         ) -> Callable[[Callable[..., T]], Callable[..., T]]:
             @wraps(func)
-            def wrapper(*args: Any, **kwargs: Any) -> T:
+            def wrapper(*args: dict[str, Any], **kwargs: dict[str, Any]) -> T:
                 if not self.metrics_service.enabled:
                     return func(*args, **kwargs)
 

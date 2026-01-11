@@ -1,4 +1,5 @@
 """RBAC management API routes for role/group/permission assignment."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status

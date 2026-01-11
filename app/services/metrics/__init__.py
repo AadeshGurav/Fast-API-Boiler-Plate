@@ -1,4 +1,5 @@
 """Metrics service package initialization."""
+
 from __future__ import annotations
 
 from app.services.metrics.base import ActiveRequestContext, MetricsService

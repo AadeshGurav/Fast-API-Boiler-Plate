@@ -1,4 +1,5 @@
 """OAuth providers package initialization."""
+
 from __future__ import annotations
 
 from app.services.oauth.providers.apple import AppleOAuthProvider

@@ -8,6 +8,7 @@ import time
 from functools import wraps
 from typing import TYPE_CHECKING, Any
 
+from app.services.base_service import BaseService
 from app.services.error.exceptions import RetryExhaustedError
 
 if TYPE_CHECKING:
@@ -17,24 +18,31 @@ if TYPE_CHECKING:
     from config import Config
 
 
-class RetryService:
+class RetryService(BaseService):
     """Service for retries with exponential backoff and optional jitter."""
 
-    def __init__(self: RetryService, logger: Logger, config: Config) -> None:
+    def __init__(
+        self: RetryService,
+        logger: Logger,
+        config: Config,
+        *args: dict[str, Any],
+        **kwargs: dict[str, Any],
+    ) -> None:
         """Initialize the RetryService.
 
         Args:
         ----
             logger: The logger to use.
             config: The configuration to use.
+            *args: Additional arguments.
+            **kwargs: Additional keyword arguments.
 
         Returns:
         -------
             None
 
         """
-        self.logger = logger
-        self.config = config
+        super().__init__(config, logger, *args, **kwargs)
 
         # Configurable defaults
         self.default_max_retries: int = config.get("retry_max_attempts", 3)

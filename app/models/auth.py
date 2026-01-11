@@ -3,16 +3,14 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING
 
 from pydantic import Field
 
 from app.core.dynamic_config import DynamicConfig
 
-if TYPE_CHECKING:
-    # Type-only imports to avoid runtime import cost and cycles
-    from app.models.session import DeviceInfo
-    from app.models.user import UserPublic
+# Import at runtime so Pydantic can resolve annotations during schema generation
+from app.models.session import DeviceInfo
+from app.models.user import UserPublic
 
 
 class TokenPair(DynamicConfig):
@@ -45,7 +43,9 @@ class LoginRequest(DynamicConfig):
 
     username: str = Field(..., description="Username")
     password: str = Field(..., description="Password")
-    device_info: DeviceInfo = Field(..., description="Device information")
+    device_info: DeviceInfo | None = Field(
+        None, description="Device information (added server-side)"
+    )
 
 
 class RegisterRequest(DynamicConfig):
@@ -71,7 +71,9 @@ class RefreshRequest(DynamicConfig):
     """Token refresh request model."""
 
     refresh_token: str = Field(..., description="Refresh token")
-    device_info: DeviceInfo = Field(..., description="Device information")
+    device_info: DeviceInfo | None = Field(
+        None, description="Device information (added server-side)"
+    )
 
 
 class PasswordResetRequest(DynamicConfig):

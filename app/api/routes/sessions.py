@@ -1,10 +1,11 @@
 """Session management API routes for viewing and revoking sessions."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.core.container import Container
-from app.core.interfaces.session_repository_interface import SessionRepositoryInterface
+from app.services.data import DataService
 from app.utils.permissions import get_current_user
 
 router = APIRouter(prefix="/sessions", tags=["Session Management"])
@@ -13,16 +14,14 @@ router = APIRouter(prefix="/sessions", tags=["Session Management"])
 @router.get("/active")
 async def list_active_sessions(
     current_user: dict = Depends(get_current_user),
-    session_repository: SessionRepositoryInterface = Depends(
-        lambda: Container.session_repository()
-    ),
+    data_service: DataService = Depends(lambda: Container.data_service()),
 ) -> dict[str, list[dict]]:
     """List active sessions for current user.
 
     Args:
     ----
         current_user: Current authenticated user
-        session_repository: Session repository instance
+        data_service: Data service instance
 
     Returns:
     -------
@@ -35,7 +34,9 @@ async def list_active_sessions(
     """
     try:
         # Get user sessions
-        sessions = await session_repository.get_user_sessions(current_user["user_id"])
+        sessions = await data_service.sessions.get_user_sessions(
+            current_user["user_id"]
+        )
 
         # Filter out revoked sessions
         active_sessions = [
@@ -67,9 +68,7 @@ async def list_active_sessions(
 async def revoke_session(
     session_id: str,
     current_user: dict = Depends(get_current_user),
-    session_repository: SessionRepositoryInterface = Depends(
-        lambda: Container.session_repository()
-    ),
+    data_service: DataService = Depends(lambda: Container.data_service()),
 ):
     """Revoke specific session.
 
@@ -77,7 +76,7 @@ async def revoke_session(
     ----
         session_id: Session ID to revoke
         current_user: Current authenticated user
-        session_repository: Session repository instance
+        data_service: Data service instance
 
     Returns:
     -------
@@ -90,7 +89,7 @@ async def revoke_session(
     """
     try:
         # Get session to verify ownership
-        session = await session_repository.get_session(session_id)
+        session = await data_service.sessions.get_session(session_id)
 
         if not session:
             raise HTTPException(
@@ -105,7 +104,7 @@ async def revoke_session(
             )
 
         # Revoke session
-        success = await session_repository.revoke_session(session_id)
+        success = await data_service.sessions.revoke_session(session_id)
 
         if not success:
             raise HTTPException(
@@ -127,16 +126,14 @@ async def revoke_session(
 @router.delete("/all")
 async def revoke_all_sessions(
     current_user: dict = Depends(get_current_user),
-    session_repository: SessionRepositoryInterface = Depends(
-        lambda: Container.session_repository()
-    ),
+    data_service: DataService = Depends(lambda: Container.data_service()),
 ):
     """Revoke all sessions for current user.
 
     Args:
     ----
         current_user: Current authenticated user
-        session_repository: Session repository instance
+        data_service: Data service instance
 
     Returns:
     -------
@@ -149,7 +146,7 @@ async def revoke_all_sessions(
     """
     try:
         # Revoke all user sessions
-        revoked_count = await session_repository.revoke_user_sessions(
+        revoked_count = await data_service.sessions.revoke_user_sessions(
             current_user["user_id"]
         )
 
@@ -169,9 +166,7 @@ async def revoke_all_sessions(
 async def get_session_details(
     session_id: str,
     current_user: dict = Depends(get_current_user),
-    session_repository: SessionRepositoryInterface = Depends(
-        lambda: Container.session_repository()
-    ),
+    data_service: DataService = Depends(lambda: Container.data_service()),
 ):
     """Get details of specific session.
 
@@ -179,7 +174,7 @@ async def get_session_details(
     ----
         session_id: Session ID
         current_user: Current authenticated user
-        session_repository: Session repository instance
+        data_service: Data service instance
 
     Returns:
     -------
@@ -192,7 +187,7 @@ async def get_session_details(
     """
     try:
         # Get session
-        session = await session_repository.get_session(session_id)
+        session = await data_service.sessions.get_session(session_id)
 
         if not session:
             raise HTTPException(

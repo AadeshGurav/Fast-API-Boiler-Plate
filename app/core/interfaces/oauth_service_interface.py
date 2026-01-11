@@ -1,4 +1,5 @@
 """OAuth service interface for platform-agnostic OAuth operations."""
+
 from __future__ import annotations
 
 from abc import abstractmethod

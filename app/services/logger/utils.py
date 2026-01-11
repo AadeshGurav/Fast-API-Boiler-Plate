@@ -1,4 +1,5 @@
 """Utility functions for logger."""
+
 from __future__ import annotations
 
 import contextvars
@@ -8,7 +9,7 @@ if TYPE_CHECKING:
     from app.services.logger.core import Logger
 
 
-def create_log_context(**kwargs: Any) -> dict[str, Any]:
+def create_log_context(**kwargs: dict[str, Any]) -> dict[str, Any]:
     """Create standardized log context dict.
 
     Args:
@@ -23,7 +24,7 @@ def create_log_context(**kwargs: Any) -> dict[str, Any]:
     return {k: v for k, v in kwargs.items() if v is not None}
 
 
-request_id_var: contextvars.ContextVar["Logger", str | None] = contextvars.ContextVar(
+request_id_var: contextvars.ContextVar[Logger, str | None] = contextvars.ContextVar(
     "request_id", default=None
 )
 

@@ -21,7 +21,13 @@ if TYPE_CHECKING:
 class PasswordService(BaseService, PasswordServiceInterface):
     """Password service using Argon2 for secure password handling."""
 
-    def __init__(self: PasswordService, config: Config, logger: Logger, *args: Any, **kwargs: Any) -> None:
+    def __init__(
+        self: PasswordService,
+        config: Config,
+        logger: Logger,
+        *args: dict[str, Any],
+        **kwargs: dict[str, Any],
+    ) -> None:
         """Initialize the PasswordService.
 
         Args:

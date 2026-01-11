@@ -3,12 +3,12 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
-from app.core.interfaces.database_interface import DatabaseInterface
 from app.services.base_service import BaseService
 
 if TYPE_CHECKING:
     from app.services.logger import Logger
     from config import Config
+
 
 class DatabaseService(BaseService):
     """Unified database service that wraps a DatabaseInterface backend (MongoDB, PostgreSQL, SQLite, etc.).
@@ -16,7 +16,11 @@ class DatabaseService(BaseService):
     """
 
     def __init__(
-        self: DatabaseService, config: Config, logger: Logger, backend: DatabaseInterface, *args: Any, **kwargs: Any
+        self: DatabaseService,
+        config: Config,
+        logger: Logger,
+        *args: dict[str, Any],
+        **kwargs: dict[str, Any],
     ) -> None:
         """Initialize the DatabaseService.
 
@@ -24,13 +28,14 @@ class DatabaseService(BaseService):
         ----
             config: The configuration to use.
             logger: The logger to use.
-            backend: The database backend to use.
             *args: Additional arguments.
             **kwargs: Additional keyword arguments.
 
         """
         super().__init__(config, logger, *args, **kwargs)
-        self.logger.info("DatabaseService initialized", extra={"service": "DatabaseService"})
+        self.logger.info(
+            "DatabaseService initialized", extra={"service": "DatabaseService"}
+        )
 
     async def get_record(
         self: DatabaseService, collection: str, filters: dict[str, Any]

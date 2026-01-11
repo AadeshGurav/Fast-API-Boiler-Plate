@@ -1,0 +1,276 @@
+/* Design Tokens - Material Design 3 Inspired
+ * Comprehensive design token system following global standards
+ * Base unit: 8px system for spacing
+ */
+
+:root {
+  /* ============================================
+     COLOR SYSTEM - Primary Palette (Purple Theme)
+     ============================================ */
+  --color-primary-50: #f3e8ff;
+  --color-primary-100: #e9d5ff;
+  --color-primary-200: #d8b4fe;
+  --color-primary-300: #c084fc;
+  --color-primary-400: #a855f7;
+  --color-primary-500: #9333ea;
+  --color-primary-600: #7e22ce;
+  --color-primary-700: #6b21a8;
+  --color-primary-800: #581c87;
+  --color-primary-900: #4c1d95;
+
+  /* Primary semantic colors */
+  --color-primary: var(--color-primary-600);
+  --color-primary-dark: var(--color-primary-700);
+  --color-primary-light: var(--color-primary-400);
+
+  /* Secondary palette (complementary purple) */
+  --color-secondary-50: #faf5ff;
+  --color-secondary-100: #f3e8ff;
+  --color-secondary-200: #e9d5ff;
+  --color-secondary-300: #d8b4fe;
+  --color-secondary-400: #c084fc;
+  --color-secondary-500: #a855f7;
+  --color-secondary-600: #9333ea;
+  --color-secondary-700: #7e22ce;
+  --color-secondary-800: #6b21a8;
+  --color-secondary-900: #581c87;
+
+  --color-secondary: var(--color-secondary-600);
+
+  /* ============================================
+     SEMANTIC COLORS
+     ============================================ */
+  /* Success */
+  --color-success-50: #f0fdf4;
+  --color-success-100: #dcfce7;
+  --color-success-200: #bbf7d0;
+  --color-success-300: #86efac;
+  --color-success-400: #4ade80;
+  --color-success-500: #22c55e;
+  --color-success-600: #16a34a;
+  --color-success-700: #15803d;
+  --color-success-800: #166534;
+  --color-success-900: #14532d;
+
+  --color-success: var(--color-success-600);
+
+  /* Error */
+  --color-error-50: #fef2f2;
+  --color-error-100: #fee2e2;
+  --color-error-200: #fecaca;
+  --color-error-300: #fca5a5;
+  --color-error-400: #f87171;
+  --color-error-500: #ef4444;
+  --color-error-600: #dc2626;
+  --color-error-700: #b91c1c;
+  --color-error-800: #991b1b;
+  --color-error-900: #7f1d1d;
+
+  --color-error: var(--color-error-600);
+
+  /* Warning */
+  --color-warning-50: #fffbeb;
+  --color-warning-100: #fef3c7;
+  --color-warning-200: #fde68a;
+  --color-warning-300: #fcd34d;
+  --color-warning-400: #fbbf24;
+  --color-warning-500: #f59e0b;
+  --color-warning-600: #d97706;
+  --color-warning-700: #b45309;
+  --color-warning-800: #92400e;
+  --color-warning-900: #78350f;
+
+  --color-warning: var(--color-warning-600);
+
+  /* Info */
+  --color-info-50: #eff6ff;
+  --color-info-100: #dbeafe;
+  --color-info-200: #bfdbfe;
+  --color-info-300: #93c5fd;
+  --color-info-400: #60a5fa;
+  --color-info-500: #3b82f6;
+  --color-info-600: #2563eb;
+  --color-info-700: #1d4ed8;
+  --color-info-800: #1e40af;
+  --color-info-900: #1e3a8a;
+
+  --color-info: var(--color-info-600);
+
+  /* ============================================
+     SURFACE COLORS
+     ============================================ */
+  --color-surface: #ffffff;
+  --color-surface-variant: #f8f9fa;
+  --color-surface-container: #ffffff;
+  --color-surface-container-high: #f0f0f0;
+  --color-surface-container-highest: #e0e0e0;
+  --color-background: #ffffff;
+  --color-background-secondary: #f8f9fa;
+
+  /* ============================================
+     TEXT COLORS
+     ============================================ */
+  --color-text-primary: #212529;
+  --color-text-secondary: #6c757d;
+  --color-text-muted: #868e96;
+  --color-text-disabled: #adb5bd;
+  --color-text-on-primary: #ffffff;
+  --color-text-on-surface: #212529;
+  --color-text-on-error: #ffffff;
+  --color-text-on-success: #ffffff;
+  --color-text-on-warning: #212529;
+  --color-text-on-info: #ffffff;
+
+  /* ============================================
+     STATE COLORS
+     ============================================ */
+  --color-hover-overlay: rgba(0, 0, 0, 0.04);
+  --color-focus-overlay: rgba(0, 0, 0, 0.12);
+  --color-pressed-overlay: rgba(0, 0, 0, 0.16);
+  --color-disabled-overlay: rgba(0, 0, 0, 0.38);
+  --color-ripple: rgba(0, 0, 0, 0.12);
+
+  /* ============================================
+     SPACING SYSTEM (8px base unit)
+     ============================================ */
+  --space-0: 0;
+  --space-1: 0.25rem; /* 4px */
+  --space-2: 0.5rem; /* 8px */
+  --space-3: 0.75rem; /* 12px */
+  --space-4: 1rem; /* 16px */
+  --space-5: 1.25rem; /* 20px */
+  --space-6: 1.5rem; /* 24px */
+  --space-8: 2rem; /* 32px */
+  --space-10: 2.5rem; /* 40px */
+  --space-12: 3rem; /* 48px */
+  --space-16: 4rem; /* 64px */
+
+  /* Semantic spacing tokens */
+  --space-xs: var(--space-1);
+  --space-sm: var(--space-2);
+  --space-md: var(--space-4);
+  --space-lg: var(--space-6);
+  --space-xl: var(--space-8);
+  --space-2xl: var(--space-12);
+  --space-3xl: var(--space-16);
+
+  /* ============================================
+     TYPOGRAPHY SYSTEM
+     ============================================ */
+  /* Font Families */
+  --font-family-primary: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  --font-family-monospace: "Courier New", Courier, monospace;
+
+  /* Font Sizes - Display */
+  --font-size-display-large: 3.5rem; /* 56px */
+  --font-size-display-medium: 2.8125rem; /* 45px */
+  --font-size-display-small: 2.25rem; /* 36px */
+
+  /* Font Sizes - Heading */
+  --font-size-heading-1: 2rem; /* 32px */
+  --font-size-heading-2: 1.75rem; /* 28px */
+  --font-size-heading-3: 1.5rem; /* 24px */
+  --font-size-heading-4: 1.25rem; /* 20px */
+  --font-size-heading-5: 1.125rem; /* 18px */
+  --font-size-heading-6: 1rem; /* 16px */
+
+  /* Font Sizes - Body */
+  --font-size-body-large: 1rem; /* 16px */
+  --font-size-body-medium: 0.875rem; /* 14px */
+  --font-size-body-small: 0.75rem; /* 12px */
+
+  /* Font Sizes - Caption */
+  --font-size-caption-large: 0.875rem; /* 14px */
+  --font-size-caption-small: 0.75rem; /* 12px */
+
+  /* Font Weights */
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* Line Heights */
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.75;
+
+  /* Letter Spacing */
+  --letter-spacing-tight: -0.02em;
+  --letter-spacing-normal: 0;
+  --letter-spacing-wide: 0.02em;
+
+  /* ============================================
+     BORDER & RADIUS
+     ============================================ */
+  --border-width-1: 1px;
+  --border-width-2: 2px;
+  --border-width-4: 4px;
+
+  --border-radius-xs: 0.25rem; /* 4px */
+  --border-radius-sm: 0.5rem; /* 8px */
+  --border-radius-md: 0.75rem; /* 12px */
+  --border-radius-lg: 1rem; /* 16px */
+  --border-radius-xl: 1.5rem; /* 24px */
+  --border-radius-full: 9999px;
+
+  --border-color: #dee2e6;
+  --border-color-light: #e9ecef;
+  --border-color-dark: #adb5bd;
+
+  /* ============================================
+     SHADOWS (Material Design Elevation)
+     ============================================ */
+  --shadow-elevation-0: none;
+  --shadow-elevation-1: 0 1px 3px rgba(0, 0, 0, 0.12),
+    0 1px 2px rgba(0, 0, 0, 0.24);
+  --shadow-elevation-2: 0 3px 6px rgba(0, 0, 0, 0.16),
+    0 3px 6px rgba(0, 0, 0, 0.23);
+  --shadow-elevation-3: 0 10px 20px rgba(0, 0, 0, 0.19),
+    0 6px 6px rgba(0, 0, 0, 0.23);
+  --shadow-elevation-4: 0 14px 28px rgba(0, 0, 0, 0.25),
+    0 10px 10px rgba(0, 0, 0, 0.22);
+  --shadow-elevation-5: 0 19px 38px rgba(0, 0, 0, 0.3),
+    0 15px 12px rgba(0, 0, 0, 0.22);
+
+  /* Legacy shadow tokens (for backward compatibility) */
+  --shadow-sm: var(--shadow-elevation-1);
+  --shadow-md: var(--shadow-elevation-2);
+  --shadow-lg: var(--shadow-elevation-3);
+
+  /* ============================================
+     TRANSITIONS
+     ============================================ */
+  --transition-duration-fast: 150ms;
+  --transition-duration-base: 200ms;
+  --transition-duration-slow: 300ms;
+
+  --transition-easing-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-easing-emphasized: cubic-bezier(0.2, 0, 0, 1);
+  --transition-easing-decelerated: cubic-bezier(0, 0, 0.2, 1);
+  --transition-easing-accelerated: cubic-bezier(0.4, 0, 1, 1);
+
+  --transition-base: all var(--transition-duration-base)
+    var(--transition-easing-standard);
+  --transition-fast: all var(--transition-duration-fast)
+    var(--transition-easing-standard);
+  --transition-slow: all var(--transition-duration-slow)
+    var(--transition-easing-standard);
+
+  /* ============================================
+     Z-INDEX SCALE
+     ============================================ */
+  --z-index-base: 0;
+  --z-index-dropdown: 1000;
+  --z-index-sticky: 1020;
+  --z-index-fixed: 1030;
+  --z-index-modal-backdrop: 1040;
+  --z-index-modal: 1050;
+  --z-index-popover: 1060;
+  --z-index-tooltip: 1070;
+
+  /* ============================================
+     GRADIENT (Purple Theme)
+     ============================================ */
+  --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+

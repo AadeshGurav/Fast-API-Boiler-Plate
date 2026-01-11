@@ -1,4 +1,5 @@
 """RBAC service interface for platform-agnostic role-based access control operations."""
+
 from __future__ import annotations
 
 from abc import abstractmethod

@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "demo/base.html" %}
 
 {% block title %}Login{% endblock %}
 
@@ -44,7 +44,7 @@
             
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary">Login</button>
-                <a href="/demo/auth/register" class="btn btn-secondary">Create Account</a>
+                <a href="/demo/auth/register" class="btn btn-secondary">Register</a>
             </div>
         </form>
         
@@ -185,21 +185,78 @@
 
 {% block scripts %}
 <script>
-document.getElementById('login-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const username = document.getElementById('username').value.trim();
-  const password = document.getElementById('password').value;
-
-  const alertContainer = document.createElement('div');
-  try {
-    await window.DemoAuth.login(username, password);
-    window.location.href = '/demo/auth/dashboard';
-  } catch (err) {
-    alertContainer.className = 'alert alert-error';
-    alertContainer.innerHTML = `<strong>Error:</strong> ${err.message || 'Login failed'}`;
-    const form = document.getElementById('login-form');
-    form.parentNode.insertBefore(alertContainer, form);
+document.addEventListener('DOMContentLoaded', function() {
+  const form = document.getElementById('login-form');
+  if (!form) {
+    console.error('Login form not found');
+    return;
   }
+
+  // Ensure DemoAuth is available (auth.js should be loaded by demo/base.html)
+  if (!window.DemoAuth) {
+    console.error('DemoAuth not loaded. auth.js may not have loaded correctly.');
+    alert('Authentication script failed to load. Please refresh the page.');
+    return;
+  }
+
+  form.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    
+    if (!username || !password) {
+      showError('Please enter both username and password');
+      return;
+    }
+
+    // Remove any existing alerts
+    const existingAlert = form.parentNode.querySelector('.alert');
+    if (existingAlert) {
+      existingAlert.remove();
+    }
+
+    const alertContainer = document.createElement('div');
+    alertContainer.className = 'alert';
+    
+    try {
+      // Disable form during submission
+      const submitButton = form.querySelector('button[type="submit"]');
+      const originalText = submitButton.textContent;
+      submitButton.disabled = true;
+      submitButton.textContent = 'Logging in...';
+
+      await window.DemoAuth.login(username, password);
+      console.log('Login successful');
+      // Success - redirect
+      window.location.href = '/demo/auth/dashboard';
+    } catch (err) {
+      // Re-enable form
+      const submitButton = form.querySelector('button[type="submit"]');
+      submitButton.disabled = false;
+      submitButton.textContent = 'Login';
+      
+      // Show error
+      alertContainer.className = 'alert alert-error';
+      alertContainer.innerHTML = `<strong>Error:</strong> ${err.message || 'Login failed. Please check your credentials.'}`;
+      form.parentNode.insertBefore(alertContainer, form);
+    }
+  });
 });
+
+function showError(message) {
+  const form = document.getElementById('login-form');
+  if (!form) return;
+  
+  const existingAlert = form.parentNode.querySelector('.alert');
+  if (existingAlert) {
+    existingAlert.remove();
+  }
+  
+  const alertContainer = document.createElement('div');
+  alertContainer.className = 'alert alert-error';
+  alertContainer.innerHTML = `<strong>Error:</strong> ${message}`;
+  form.parentNode.insertBefore(alertContainer, form);
+}
 </script>
 {% endblock %}

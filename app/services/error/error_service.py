@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING, Any
 from fastapi import status
 from starlette.responses import JSONResponse
 
+from app.services.base_service import BaseService
+
 if TYPE_CHECKING:
     from fastapi import HTTPException
 
@@ -16,24 +18,31 @@ if TYPE_CHECKING:
     from config import Config
 
 
-class ErrorService:
+class ErrorService(BaseService):
     """Service to handle exceptions and provide consistent logging and HTTP responses."""
 
-    def __init__(self: ErrorService, logger: Logger, config: Config) -> None:
+    def __init__(
+        self: ErrorService,
+        logger: Logger,
+        config: Config,
+        *args: dict[str, Any],
+        **kwargs: dict[str, Any],
+    ) -> None:
         """Initialize the ErrorService.
 
         Args:
         ----
-        logger: Logger instance for error logging.
-        config: Application configuration.
+            logger: Logger instance for error logging.
+            config: Application configuration.
+            *args: Additional arguments.
+            **kwargs: Additional keyword arguments.
 
         Returns:
         -------
             None
 
         """
-        self.logger = logger
-        self.config = config
+        super().__init__(config, logger, *args, **kwargs)
         self.debug = config.get("app_debug", False)
 
     def log_exception(

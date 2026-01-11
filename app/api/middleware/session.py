@@ -7,22 +7,18 @@ from uuid import uuid4
 from fastapi import Request, Response
 from starlette.datastructures import MutableHeaders
 
-from app.core.interfaces.session_repository_interface import SessionRepositoryInterface
-from app.database.repositories.session_repository import SessionRepository
 from app.models.session import DeviceInfo
-from app.services.cache import CacheService
-from app.services.database_service import DatabaseService
+from app.services.data import DataService
 
 from .base import BaseMiddleware
 
 
 class SessionMiddleware(BaseMiddleware):
-    """Enhanced session middleware using session repository with device tracking."""
+    """Enhanced session middleware using DataService with device tracking."""
 
     def initialize(
         self: SessionMiddleware,
-        cache_service: CacheService,
-        database_service: DatabaseService,
+        data_service: DataService,
         **kwargs,
     ) -> None:
         """Initialize the enhanced SessionMiddleware.
@@ -34,11 +30,7 @@ class SessionMiddleware(BaseMiddleware):
             kwargs: Additional keyword arguments.
 
         """
-        self.session_repository: SessionRepositoryInterface = SessionRepository(
-            cache_service,
-            database_service,
-            self.logger,
-        )
+        self.data_service: DataService = data_service
         self.cookie_name = self.config.get("session_cookie_name", "session")
         self.max_age = self.config.get("session_max_age", 14 * 24 * 60 * 60)
         self.path = self.config.get("session_cookie_path", "/")
@@ -55,14 +47,13 @@ class SessionMiddleware(BaseMiddleware):
                 "max_age": self.max_age,
                 "extend_on_activity": self.extend_on_activity,
                 "track_device_info": self.track_device_info,
-                "session_repository_available": self.session_repository is not None,
             },
         )
 
     async def process_request(
         self: SessionMiddleware, request: Request, call_next: Callable
     ) -> Response:
-        """Process the request using session repository with device tracking.
+        """Process the request using DataService with device tracking.
 
         Args:
         ----
@@ -87,10 +78,10 @@ class SessionMiddleware(BaseMiddleware):
         session_id = request.cookies.get(self.cookie_name)
         session_data = None
 
-        if session_id and self.session_repository:
+        if session_id and self.data_service:
             try:
-                # Get session from repository (hybrid MongoDB + Redis)
-                session_data = await self.session_repository.get_session(session_id)
+                # Get session from DataService (hybrid MongoDB + Redis)
+                session_data = await self.data_service.sessions.get_session(session_id)
 
                 if session_data:
                     self.logger.debug(
@@ -146,10 +137,10 @@ class SessionMiddleware(BaseMiddleware):
                 device_info = self._extract_device_info(request)
                 session_data["device_info"] = device_info.dict()
 
-            # Store new session in repository
-            if self.session_repository:
+            # Store new session in DataService
+            if self.data_service:
                 try:
-                    await self.session_repository.create_session(session_data)
+                    await self.data_service.sessions.create_session(session_data)
                     self.logger.info(
                         f"Created new session: {session_id}",
                         extra={
@@ -179,6 +170,44 @@ class SessionMiddleware(BaseMiddleware):
 
         # Set session cookie
         self._set_cookie(response, session_id)
+
+        # Set refreshed tokens in cookies if they were refreshed
+        if hasattr(request.state, "token_refreshed") and request.state.token_refreshed:
+            from app.models.auth import TokenPair
+            from app.utils.cookie_manager import CookieManager
+
+            access_token = (
+                request.state.new_access_token
+                if hasattr(request.state, "new_access_token")
+                else None
+            )
+            refresh_token = (
+                request.state.new_refresh_token
+                if hasattr(request.state, "new_refresh_token")
+                else None
+            )
+            expires_in = (
+                request.state.token_expires_in
+                if hasattr(request.state, "token_expires_in")
+                else 3600
+            )
+
+            if access_token and refresh_token:
+                token_pair = TokenPair(
+                    access_token=access_token,
+                    refresh_token=refresh_token,
+                    expires_in=expires_in,
+                )
+                CookieManager.set_auth_cookies(response, token_pair)
+
+            self.logger.info(
+                "Tokens refreshed and set in cookies",
+                extra={
+                    "middleware": "SessionMiddleware",
+                    "action": "token_refresh",
+                    "path": request.url.path,
+                },
+            )
 
         self.logger.debug(
             f"Completed request processing: {request.method} {request.url.path}",
@@ -233,11 +262,11 @@ class SessionMiddleware(BaseMiddleware):
             device_info: The device information.
 
         """
-        if not self.session_repository:
+        if not self.data_service:
             return
 
         try:
-            await self.session_repository.update_session(
+            await self.data_service.sessions.update_session(
                 session_id,
                 {
                     "device_info": device_info.dict(),
@@ -275,11 +304,11 @@ class SessionMiddleware(BaseMiddleware):
             session_id: The session ID.
 
         """
-        if not self.session_repository:
+        if not self.data_service:
             return
 
         try:
-            await self.session_repository.update_session(
+            await self.data_service.sessions.update_session(
                 session_id,
                 {
                     "last_used_at": datetime.now(timezone.utc),

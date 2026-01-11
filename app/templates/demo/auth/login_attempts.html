@@ -1,0 +1,115 @@
+{% extends "demo/base.html" %}
+
+{% block title %}Login Attempts{% endblock %}
+
+{% block content %}
+    <div class="card">
+        <h2><i class="fas fa-history me-2"></i>Login Attempts History</h2>
+        <p class="text-muted">View your recent login attempts and security events.</p>
+        
+        {% if user.login_attempts %}
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>Status</th>
+                        <th>IP Address</th>
+                        <th>Device</th>
+                        <th>Browser</th>
+                        <th>Reason</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for attempt in user.login_attempts %}
+                    <tr class="{% if attempt.success %}table-success{% else %}table-danger{% endif %}">
+                        <td>
+                            {% if attempt.timestamp %}
+                                {% if attempt.timestamp is string %}
+                                    {{ attempt.timestamp }}
+                                {% else %}
+                                    {{ attempt.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}
+                                {% endif %}
+                            {% else %}
+                                Unknown
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if attempt.success %}
+                            <span class="badge bg-success">
+                                <i class="fas fa-check me-1"></i>Success
+                            </span>
+                            {% else %}
+                            <span class="badge bg-danger">
+                                <i class="fas fa-times me-1"></i>Failed
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td>{{ attempt.ip_address or 'Unknown' }}</td>
+                        <td>
+                            {% if attempt.device_info %}
+                                {{ attempt.device_info.device_type or 'Unknown' }}
+                                {% if attempt.device_info.platform %}
+                                    ({{ attempt.device_info.platform }})
+                                {% endif %}
+                            {% else %}
+                                Unknown
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if attempt.device_info %}
+                                {{ attempt.device_info.browser or 'Unknown' }}
+                                {% if attempt.device_info.browser_version %}
+                                    {{ attempt.device_info.browser_version }}
+                                {% endif %}
+                            {% else %}
+                                Unknown
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if attempt.reason %}
+                            <span class="text-danger">{{ attempt.reason }}</span>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>No login attempts found.
+        </div>
+        {% endif %}
+        
+        <div class="mt-3">
+            <a href="/demo/auth/dashboard" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+            </a>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .table-responsive {
+        margin-top: 20px;
+    }
+    
+    .table th {
+        background-color: #f8f9fa;
+        font-weight: 600;
+    }
+    
+    .table-success {
+        background-color: #d1e7dd !important;
+    }
+    
+    .table-danger {
+        background-color: #f8d7da !important;
+    }
+</style>
+{% endblock %}
+

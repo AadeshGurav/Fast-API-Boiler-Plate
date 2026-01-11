@@ -1,13 +1,37 @@
 from __future__ import annotations
+
 import json
+from datetime import datetime
 from typing import Any
 
 import redis.asyncio as redis
+from bson import ObjectId
 from redis.asyncio.connection import ConnectionPool
 from redis.exceptions import ConnectionError, TimeoutError
 
 from app.core.interfaces.database_interface import DatabaseInterface
 from app.services.logger import Logger
+
+
+def _json_serializer(obj: Any) -> Any:
+    """Custom JSON serializer for non-serializable types.
+
+    Args:
+    ----
+        obj: Object to serialize.
+
+    Returns:
+    -------
+        Serialized object.
+
+    """
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    if isinstance(obj, ObjectId):
+        return str(obj)
+    if hasattr(obj, "__dict__"):
+        return obj.__dict__
+    raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
 
 class Redis(DatabaseInterface):
@@ -225,6 +249,7 @@ class Redis(DatabaseInterface):
         """Set a value in Redis with optional expiration and conditions.
 
         Args:
+        ----
             key: Redis key
             value: Value to store (will be JSON serialized if not string)
             expire: Expiration time in seconds
@@ -238,7 +263,7 @@ class Redis(DatabaseInterface):
         try:
             # Serialize non-string values to JSON
             if not isinstance(value, (str, bytes, memoryview)):
-                value = json.dumps(value)
+                value = json.dumps(value, default=_json_serializer)
 
             return await self.client.set(key, value, ex=expire, nx=nx, xx=xx)
         except Exception as e:
@@ -342,7 +367,7 @@ class Redis(DatabaseInterface):
             serialized = {}
             for key, value in mapping.items():
                 if not isinstance(value, (str, bytes, memoryview)):
-                    serialized[key] = json.dumps(value)
+                    serialized[key] = json.dumps(value, default=_json_serializer)
                 else:
                     serialized[key] = value
 

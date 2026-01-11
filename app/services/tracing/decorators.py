@@ -1,4 +1,5 @@
 """Tracing decorators and context managers."""
+
 from __future__ import annotations
 
 import time

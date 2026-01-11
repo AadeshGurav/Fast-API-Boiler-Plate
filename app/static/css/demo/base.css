@@ -1,0 +1,187 @@
+/* Base styles using design tokens
+ * Tokens are imported from tokens.css and component-tokens.css
+ * Legacy variable names maintained for backward compatibility
+ */
+
+:root {
+  /* Legacy compatibility variables - map to design tokens */
+  --demo-primary: var(--color-primary);
+  --demo-primary-dark: var(--color-primary-dark);
+  --demo-secondary: var(--color-secondary);
+  --demo-success: var(--color-success);
+  --demo-danger: var(--color-error);
+  --demo-warning: var(--color-warning);
+  --demo-info: var(--color-info);
+  --demo-light: var(--color-surface-variant);
+  --demo-dark: var(--color-text-primary);
+
+  --demo-text-primary: var(--color-text-primary);
+  --demo-text-secondary: var(--color-text-secondary);
+  --demo-text-muted: var(--color-text-muted);
+  --demo-text-light: var(--color-text-on-primary);
+
+  --demo-bg-primary: var(--color-background);
+  --demo-bg-secondary: var(--color-background-secondary);
+  --demo-bg-dark: var(--color-text-primary);
+  --demo-bg-gradient: var(--gradient-primary);
+
+  --demo-spacing-xs: var(--space-xs);
+  --demo-spacing-sm: var(--space-sm);
+  --demo-spacing-md: var(--space-md);
+  --demo-spacing-lg: var(--space-lg);
+  --demo-spacing-xl: var(--space-xl);
+  --demo-spacing-xxl: var(--space-2xl);
+
+  --demo-font-family: var(--font-family-primary);
+  --demo-font-size-base: var(--font-size-body-large);
+  --demo-font-size-sm: var(--font-size-body-small);
+  --demo-font-size-lg: var(--font-size-body-large);
+  --demo-font-size-xl: var(--font-size-heading-5);
+  --demo-font-size-xxl: var(--font-size-heading-3);
+  --demo-font-weight-normal: var(--font-weight-regular);
+  --demo-font-weight-medium: var(--font-weight-medium);
+  --demo-font-weight-bold: var(--font-weight-bold);
+  --demo-line-height-base: var(--line-height-normal);
+
+  --demo-border-radius: var(--border-radius-md);
+  --demo-border-radius-lg: var(--border-radius-lg);
+  --demo-border-width: var(--border-width-1);
+  --demo-border-color: var(--border-color);
+
+  --demo-shadow-sm: var(--shadow-elevation-1);
+  --demo-shadow-md: var(--shadow-elevation-2);
+  --demo-shadow-lg: var(--shadow-elevation-3);
+
+  --demo-transition-base: var(--transition-base);
+  --demo-transition-fast: var(--transition-fast);
+  --demo-transition-slow: var(--transition-slow);
+
+  --demo-z-dropdown: var(--z-index-dropdown);
+  --demo-z-sticky: var(--z-index-sticky);
+  --demo-z-fixed: var(--z-index-fixed);
+  --demo-z-modal-backdrop: var(--z-index-modal-backdrop);
+  --demo-z-modal: var(--z-index-modal);
+  --demo-z-popover: var(--z-index-popover);
+  --demo-z-tooltip: var(--z-index-tooltip);
+}
+
+/* Reset and base styles */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--demo-font-family);
+  font-size: var(--demo-font-size-base);
+  line-height: var(--demo-line-height-base);
+  color: var(--demo-text-primary);
+  background-color: var(--demo-bg-primary);
+  margin: 0;
+  padding: 0;
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+  margin-top: 0;
+  margin-bottom: var(--demo-spacing-md);
+  font-weight: var(--demo-font-weight-bold);
+  line-height: 1.2;
+}
+
+h1 {
+  font-size: 2.5rem;
+}
+
+h2 {
+  font-size: 2rem;
+}
+
+h3 {
+  font-size: 1.75rem;
+}
+
+h4 {
+  font-size: 1.5rem;
+}
+
+h5 {
+  font-size: 1.25rem;
+}
+
+h6 {
+  font-size: 1rem;
+}
+
+p {
+  margin-top: 0;
+  margin-bottom: var(--demo-spacing-md);
+}
+
+a {
+  color: var(--demo-primary);
+  text-decoration: none;
+  transition: var(--demo-transition-base);
+}
+
+a:hover {
+  color: var(--demo-primary-dark);
+  text-decoration: underline;
+}
+
+/* Lists */
+ul, ol {
+  margin-top: 0;
+  margin-bottom: var(--demo-spacing-md);
+  padding-left: var(--demo-spacing-xl);
+}
+
+/* Images */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+.slide-in {
+  animation: slideIn 0.3s ease-out;
+}
+
+.slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+

@@ -14,26 +14,23 @@ services:
     ports:
       - "8000:8000"
     networks:
-      - ag-network
+      - boiler-plate-network
 
   mongodb:
-    image: bitnami/mongodb:8.0.9
-    container_name: mongodb
+    image: bitnami/mongodb:latest
+    container_name: boiler-plate-mongodb
     restart: always
     networks:
-      - ag-network
+      - boiler-plate-network
     ports:
-      - "27017:27017"
+      - "18001:27017"
     volumes:
       - mongodb_data:/bitnami/mongodb
     environment:
-      MONGODB_EXTRA_FLAGS: "--oplogSize=1024"
+      MONGODB_ROOT_PASSWORD: "boiler-plate"
       MONGODB_ENABLE_DIRECTORY_PER_DB: "yes"
       MONGODB_ENABLE_IPV6: "no"
-      MONGODB_REPLICA_SET_MODE: "primary"
-      MONGODB_REPLICA_SET_NAME: "boiler_plate"
-      MONGODB_ROOT_PASSWORD: "ag"
-      MONGODB_REPLICA_SET_KEY: "D49JCXRupmVfXduUR4TCCjZXUDjWtSq7"
+      MONGODB_EXTRA_FLAGS: "--oplogSize=1024"
     deploy:
       resources:
         limits:
@@ -42,7 +39,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "mongosh --quiet -u root -p 'ag' --eval 'quit(db.runCommand({ ping: 1 }).ok ? 0 : 2)' || exit 1"
+          "mongosh --quiet -u root -p 'boiler-plate' --eval 'quit(db.runCommand({ ping: 1 }).ok ? 0 : 2)' || exit 1"
         ]
       interval: 30s
       timeout: 5s
@@ -56,20 +53,20 @@ services:
       - ALL
 
   redis:
-    image: redis:7.2-alpine
-    container_name: redis
+    image: redis:8.2.3-alpine
+    container_name: boiler-plate-redis
     restart: always
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     networks:
-      - ag-network
+      - boiler-plate-network
 
 volumes:
   mongodb_data:
   redis_data:
 
 networks:
-  ag-network:
+  boiler-plate-network:
     driver: bridge

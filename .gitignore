@@ -15,3 +15,5 @@ output.tex
 logs/*
 .logs/*
 *-local.json
+.cursor/plans/*
+uploads/*

@@ -26,10 +26,12 @@ def calculate_workers(config_workers: int | str, development: bool) -> int:
     """Determine the optimal number of Uvicorn workers.
 
     Args:
+    ----
         config_workers: The number of workers to use.
         development: Whether the application is in development mode.
 
     Returns:
+    -------
         The number of workers to use.
 
     """
@@ -67,11 +69,13 @@ def set_process_title(
     """Set the process title for system process lists.
 
     Args:
+    ----
         config: The configuration.
         process_type: The type of process.
         worker_id: The ID of the worker.
 
     Returns:
+    -------
         None
 
     """
@@ -100,9 +104,11 @@ def validate_critical_config(config: Config) -> None:
     """Validate critical application configuration.
 
     Args:
+    ----
         config: The configuration.
 
     Returns:
+    -------
         None
 
     """

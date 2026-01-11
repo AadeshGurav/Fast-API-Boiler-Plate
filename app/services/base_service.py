@@ -29,15 +29,15 @@ class BaseService:
 
         """
         if cls._instance is None:
-            cls._instance: cls = super().__new__(cls, *args, **kwargs)
+            cls._instance: cls = super().__new__(cls)
         return cls._instance
 
     def __init__(
         self: BaseService,
         config: Config,
         logger: Logger,
-        *args: Any,
-        **kwargs: Any,
+        *args: dict[str, Any],
+        **kwargs: dict[str, Any],
     ) -> None:
         """Initialize BaseService.
 
@@ -60,4 +60,5 @@ class BaseService:
 
         for arg in args:
             setattr(self, arg, arg)
+
         self._initialized = True

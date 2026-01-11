@@ -1,0 +1,248 @@
+{% extends "demo/base.html" %}
+
+{% block title %}{{ title or "File Management - FastAPI Demo" }}{% endblock %}
+
+{% block extra_css %}
+<link href="/static/css/demo/files.css" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="display-5 mb-3">
+            <i class="fas fa-cloud-upload-alt text-primary me-2"></i>
+            File Management
+        </h1>
+        <p class="lead">Upload, manage, and preview your files</p>
+        <a href="/demo/files/play" class="btn btn-outline-primary">
+            <i class="fas fa-cogs me-2"></i>Process & Transform Files
+        </a>
+    </div>
+</div>
+
+{% if user %}
+<!-- Upload Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-upload me-2"></i>Upload Files
+                </h5>
+                <div class="upload-area" id="upload-area">
+                    <div class="upload-content">
+                        <i class="fas fa-cloud-upload-alt fa-3x mb-3 text-muted"></i>
+                        <p class="mb-2">Drag and drop files here or click to browse</p>
+                        <p class="text-muted small">Supports single and chunked uploads for large files</p>
+                        <input type="file" id="file-input" multiple style="display: none;">
+                        <button class="btn btn-primary mt-3" onclick="document.getElementById('file-input').click()">
+                            <i class="fas fa-folder-open me-2"></i>Select Files
+                        </button>
+                    </div>
+                </div>
+                <div id="upload-progress" class="mt-3" style="display: none;">
+                    <div class="progress">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <p class="text-center mt-2 mb-0">
+                        <span id="upload-status">Uploading...</span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- View Controls -->
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h5 class="mb-0">
+                    <i class="fas fa-file me-2"></i>My Files
+                    <span class="badge bg-secondary ms-2" id="file-count">0</span>
+                </h5>
+            </div>
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-outline-primary active" id="list-view-btn" onclick="toggleView('list')">
+                    <i class="fas fa-list me-2"></i>List
+                </button>
+                <button type="button" class="btn btn-outline-primary" id="grid-view-btn" onclick="toggleView('grid')">
+                    <i class="fas fa-th me-2"></i>Grid
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- File Display Area -->
+<div class="row">
+    <div class="col-12">
+        <div id="files-container">
+            <div class="text-center py-5">
+                <i class="fas fa-spinner fa-spin fa-2x text-muted mb-3"></i>
+                <p class="text-muted">Loading files...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- File Preview Modal -->
+<div class="modal fade" id="preview-modal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="preview-title">File Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="preview-body">
+                <div class="text-center">
+                    <i class="fas fa-spinner fa-spin fa-2x"></i>
+                    <p>Loading preview...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <a href="#" id="download-link" class="btn btn-primary" download>
+                    <i class="fas fa-download me-2"></i>Download
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- File Details Modal -->
+<div class="modal fade" id="details-modal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">File Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="details-body">
+                <div class="text-center">
+                    <i class="fas fa-spinner fa-spin fa-2x"></i>
+                    <p>Loading details...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="update-metadata-btn">
+                    <i class="fas fa-save me-2"></i>Update Metadata
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-warning">
+    <i class="fas fa-exclamation-triangle me-2"></i>
+    Please <a href="/demo/auth/login">login</a> to manage files.
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/demo/files.js"></script>
+<script>
+    // Check authentication on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        if (window.DemoAuth && !window.DemoAuth.isAuthenticated()) {
+            // Try to refresh token if refresh token exists
+            const refreshToken = window.DemoAuth.getRefreshToken();
+            if (refreshToken) {
+                window.DemoAuth.refresh().catch(() => {
+                    window.location.href = '/demo/auth/login';
+                });
+            } else {
+                window.location.href = '/demo/auth/login';
+            }
+        }
+    });
+    
+    let currentView = 'list';
+    let currentFiles = [];
+    
+    function toggleView(viewType) {
+        currentView = viewType;
+        
+        const listBtn = document.getElementById('list-view-btn');
+        const gridBtn = document.getElementById('grid-view-btn');
+        
+        if (viewType === 'list') {
+            listBtn.classList.add('active');
+            gridBtn.classList.remove('active');
+            DemoFiles.renderFileList(currentFiles);
+        } else {
+            gridBtn.classList.add('active');
+            listBtn.classList.remove('active');
+            DemoFiles.renderFileGrid(currentFiles);
+        }
+    }
+    
+    {% if user %}
+    // Upload area drag and drop
+    const uploadArea = document.getElementById('upload-area');
+    const fileInput = document.getElementById('file-input');
+    
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.classList.add('drag-over');
+    });
+    
+    uploadArea.addEventListener('dragleave', () => {
+        uploadArea.classList.remove('drag-over');
+    });
+    
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('drag-over');
+        const files = e.dataTransfer.files;
+        handleFiles(files);
+    });
+    
+    fileInput.addEventListener('change', (e) => {
+        handleFiles(e.target.files);
+    });
+    
+    async function handleFiles(files) {
+        for (const file of files) {
+            console.log('Uploading file:', file.name);
+            await DemoFiles.uploadFile(file);
+        }
+        await loadFiles();
+    }
+    
+    async function loadFiles() {
+        try {
+            const files = await DemoFiles.loadFiles();
+            currentFiles = files;
+            updateFileCount(files.length);
+            
+            if (currentView === 'list') {
+                DemoFiles.renderFileList(files);
+            } else {
+                DemoFiles.renderFileGrid(files);
+            }
+        } catch (error) {
+            console.error('Failed to load files:', error);
+            document.getElementById('files-container').innerHTML = 
+                '<div class="alert alert-danger">Failed to load files</div>';
+        }
+    }
+    
+    function updateFileCount(count) {
+        document.getElementById('file-count').textContent = count;
+    }
+    
+    window.toggleView = toggleView;
+    window.loadFiles = loadFiles;
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        loadFiles();
+    });
+    {% endif %}
+</script>
+{% endblock %}
+

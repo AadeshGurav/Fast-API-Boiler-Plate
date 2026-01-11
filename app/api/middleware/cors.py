@@ -2,6 +2,7 @@
 
 Handles cross-origin requests and token-based user authentication.
 """
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -73,7 +74,10 @@ class CORSMiddleware(BaseMiddleware):
         )
 
         if not is_public:
-            access_token = request.cookies.get("access_token")
+            from app.utils.permissions import get_token_cookie_names
+
+            access_token_key, _ = get_token_cookie_names()
+            access_token = request.cookies.get(access_token_key)
             if not access_token:
                 self.logger.warning(
                     f"Missing access token for protected route '{path}'",

@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import re
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from prometheus_client import REGISTRY, Counter, Gauge, Histogram, Info, generate_latest
+
+from app.services.base_service import BaseService
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -81,7 +83,7 @@ class ActiveRequestContext:
         )
 
 
-class MetricsService:
+class MetricsService(BaseService):
     """Service for collecting and exposing application metrics.
 
     Features:
@@ -92,19 +94,29 @@ class MetricsService:
         - Full structured logging for all actions
     """
 
-    def __init__(self: MetricsService, logger: Logger, config: dict) -> None:
+    def __init__(
+        self: MetricsService,
+        config: Config,
+        logger: Logger,
+        *args: dict[str, Any],
+        **kwargs: dict[str, Any],
+    ) -> None:
         """Initialize the MetricsService.
 
         Args:
         ----
             logger: The logger to use.
             config: The configuration to use.
+            *args: Additional arguments.
+            **kwargs: Additional keyword arguments.
 
         Returns:
         -------
             None
 
         """
+        super().__init__(config, logger, *args, **kwargs)
+
         self.enabled: bool = config.get("metrics_enabled", True)
 
         if not self.enabled:
@@ -112,9 +124,6 @@ class MetricsService:
                 "Metrics collection disabled", extra={"service": "MetricsService"}
             )
             return
-
-        self.logger: Logger = logger
-        self.config: Config = config
 
         # Use custom registry to avoid conflicts
         self.registry = REGISTRY

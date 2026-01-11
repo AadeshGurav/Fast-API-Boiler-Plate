@@ -10,25 +10,24 @@ from app.models.user import UserPublic
 from app.services.auth.core import AuthCoreMixin
 from app.services.auth.session_management import SessionManagementMixin
 from app.services.auth.user_management import UserManagementMixin
+from app.services.base_service import BaseService
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from app.core.interfaces.password_service_interface import PasswordServiceInterface
     from app.core.interfaces.rbac_service_interface import RBACServiceInterface
-    from app.core.interfaces.session_repository_interface import (
-        SessionRepositoryInterface,
-    )
-    from app.core.interfaces.user_repository_interface import UserRepositoryInterface
     from app.models.auth import TokenPair
     from app.models.session import DeviceInfo
     from app.models.user import UserCreate
+    from app.services.data import DataService
     from app.services.logger import Logger
     from config import Config
 
 
 class AuthService(
     AuthServiceInterface,
+    BaseService,
     AuthCoreMixin,
     UserManagementMixin,
     SessionManagementMixin,
@@ -39,10 +38,11 @@ class AuthService(
         self: AuthService,
         logger: Logger,
         config: Config,
-        session_repository: SessionRepositoryInterface = None,
-        user_repository: UserRepositoryInterface = None,
+        data_service: DataService = None,
         password_service: PasswordServiceInterface = None,
         rbac_service: RBACServiceInterface = None,
+        *args: dict[str, Any],
+        **kwargs: dict[str, Any],
     ) -> None:
         """Initialize authentication service.
 
@@ -50,24 +50,26 @@ class AuthService(
         ----
             logger: The logger to use.
             config: The configuration to use.
-            session_repository: Session repository interface.
-            user_repository: User repository interface.
+            data_service: Data service instance.
             password_service: Password service interface.
             rbac_service: RBAC service interface.
+            *args: Additional arguments.
+            **kwargs: Additional keyword arguments.
 
         """
+        super().__init__(config, logger, *args, **kwargs)
+
         # Initialize all mixins
         AuthCoreMixin.__init__(
             self,
             logger,
             config,
-            session_repository,
-            user_repository,
+            data_service,
             password_service,
             rbac_service,
         )
-        UserManagementMixin.__init__(self, logger, user_repository, password_service)
-        SessionManagementMixin.__init__(self, logger, session_repository)
+        UserManagementMixin.__init__(self, logger, data_service, password_service)
+        SessionManagementMixin.__init__(self, logger, data_service)
 
     # Interface implementation methods
     def create_tokens(
@@ -90,8 +92,10 @@ class AuthService(
         roles = data.get("roles", [user_role])
         permissions = data.get("permissions", [])
 
-        access_token = self.create_access_token(user_id, username, roles, permissions)
-        refresh_token = self.create_refresh_token(user_id)
+        access_token = super().create_access_token(
+            user_id, username, roles, permissions
+        )
+        refresh_token = super().create_refresh_token(user_id)
 
         return access_token, refresh_token
 
@@ -112,7 +116,7 @@ class AuthService(
         roles = data.get("roles", [])
         permissions = data.get("permissions", [])
 
-        return self.create_access_token(user_id, username, roles, permissions)
+        return super().create_access_token(user_id, username, roles, permissions)
 
     def create_refresh_token(self: AuthService, data: dict[str, Any]) -> str:
         """Create a JWT refresh token.
@@ -127,7 +131,7 @@ class AuthService(
 
         """
         user_id = data.get("user_id", "")
-        return self.create_refresh_token(user_id)
+        return super().create_refresh_token(user_id)
 
     def decode_token(
         self: AuthService, token: str, verify_type: str | None = None
@@ -266,10 +270,48 @@ class AuthService(
                     "username": username,
                 },
             )
+            # Track failed login attempt (user not found)
+            # Note: We can't track this in user object since user doesn't exist
             raise ValueError("Invalid credentials")
 
-        # Verify password
-        if not self.password_service.verify_password(password, user.password_hash):
+        # Track login attempt before password verification
+        login_reason = None
+
+        # Verify password - handle both password and password_hash fields
+        password_hash = getattr(user, "password_hash", None) or getattr(
+            user, "password", None
+        )
+        if not password_hash:
+            self.logger.warning(
+                "User has no password hash",
+                extra={
+                    "service": "AuthService",
+                    "username": username,
+                    "user_id": user.id,
+                },
+            )
+            login_reason = "User has no password hash"
+            # Track failed login attempt
+            if hasattr(self, "_add_login_attempt"):
+                try:
+                    await self._add_login_attempt(
+                        user_id=user.id,
+                        success=False,
+                        device_info=device_info.dict(),
+                        reason=login_reason,
+                    )
+                except Exception as e:  # noqa: BLE001
+                    self.logger.warning(
+                        "Failed to track login attempt",
+                        extra={
+                            "service": "AuthService",
+                            "user_id": user.id,
+                            "error": str(e),
+                        },
+                    )
+            raise ValueError("Invalid credentials")
+
+        if not self.password_service.verify_password(password, password_hash):
             self.logger.warning(
                 "Login attempt with invalid password",
                 extra={
@@ -278,7 +320,28 @@ class AuthService(
                     "user_id": user.id,
                 },
             )
+            login_reason = "Invalid credentials"
+            # Track failed login attempt
+            if hasattr(self, "_add_login_attempt"):
+                try:
+                    await self._add_login_attempt(
+                        user_id=user.id,
+                        success=False,
+                        device_info=device_info.dict(),
+                        reason=login_reason,
+                    )
+                except Exception as e:  # noqa: BLE001
+                    self.logger.warning(
+                        "Failed to track login attempt",
+                        extra={
+                            "service": "AuthService",
+                            "user_id": user.id,
+                            "error": str(e),
+                        },
+                    )
             raise ValueError("Invalid credentials")
+
+        # Password verified successfully - continue with login
 
         # Resolve user permissions
         permissions = await self.rbac_service.resolve_user_permissions(user.id)
@@ -286,10 +349,32 @@ class AuthService(
         # Create session
         session_id = await self.create_session(user.id, device_info)
 
+        # Get roles - handle both role (string) and roles (array) fields
+        roles = getattr(user, "roles", None) or [getattr(user, "role", "user")]
+        if isinstance(roles, str):
+            roles = [roles]
+
         # Create tokens
-        token_pair = self.create_token_pair(
-            user.id, user.username, user.roles, permissions
-        )
+        token_pair = self.create_token_pair(user.id, user.username, roles, permissions)
+
+        # Track successful login attempt
+        if hasattr(self, "_add_login_attempt"):
+            try:
+                await self._add_login_attempt(
+                    user_id=user.id,
+                    success=True,
+                    device_info=device_info.dict(),
+                    reason=None,
+                )
+            except Exception as e:  # noqa: BLE001
+                self.logger.warning(
+                    "Failed to track login attempt",
+                    extra={
+                        "service": "AuthService",
+                        "user_id": user.id,
+                        "error": str(e),
+                    },
+                )
 
         # Log successful login
         self.logger.info(
@@ -303,8 +388,23 @@ class AuthService(
             },
         )
 
+        # Convert User to UserPublic - only include fields that UserPublic accepts
+        user_dict = user.dict()
+        # Remove fields that UserPublic doesn't have
+        user_public_dict = {
+            "id": user_dict.get("id"),
+            "username": user_dict.get("username"),
+            "email": user_dict.get("email"),
+            "roles": user_dict.get("roles", []),
+            "groups": user_dict.get("groups", []),
+            "status": user_dict.get("status", "active"),
+            "metadata": user_dict.get("metadata", {}),
+            "created_at": user_dict.get("created_at"),
+            "updated_at": user_dict.get("updated_at"),
+        }
+
         return LoginResponse(
-            user=UserPublic(**user.dict()),
+            user=UserPublic(**user_public_dict),
             tokens=token_pair,
             permissions=permissions,
         )
@@ -337,9 +437,14 @@ class AuthService(
         # Resolve permissions
         permissions = await self.rbac_service.resolve_user_permissions(user.id)
 
+        # Get roles - handle both role (string) and roles (array) fields
+        roles = getattr(user, "roles", None) or [getattr(user, "role", "user")]
+        if isinstance(roles, str):
+            roles = [roles]
+
         # Create new token pair
         new_token_pair = self.create_token_pair(
-            user.id, user.username, user.roles, permissions
+            user.id, user.username, roles, permissions
         )
 
         # Log token refresh

@@ -56,6 +56,7 @@ standalone with default settings.
 It ensures reliable, structured logging in both async and sync Python
 applications with minimal setup.
 """
+
 from __future__ import annotations
 
 # ruff: isort: skip_file

@@ -1,0 +1,155 @@
+{% extends "demo/base.html" %}
+
+{% block title %}{{ title or "Library Management - FastAPI Demo" }}{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="display-5 mb-3">
+            <i class="fas fa-book text-primary me-2"></i>
+            Library Management
+        </h1>
+        <p class="lead">Manage books, checkouts, and returns</p>
+    </div>
+</div>
+
+{% if user %}
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-user me-2"></i>My Borrowed Books
+                </h5>
+                <div id="my-books-list">
+                    <p class="text-muted">Loading...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-plus-circle me-2"></i>Add New Book
+                </h5>
+                <form id="add-book-form">
+                    <div class="form-group">
+                        <label for="book-title" class="form-label">Title</label>
+                        <input type="text" class="form-control" id="book-title" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="book-author" class="form-label">Author</label>
+                        <input type="text" class="form-control" id="book-author" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="book-isbn" class="form-label">ISBN</label>
+                        <input type="text" class="form-control" id="book-isbn">
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Add Book
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="search-box">
+                    <h5 class="card-title mb-3">
+                        <i class="fas fa-search me-2"></i>Search Books
+                    </h5>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="search-query" placeholder="Search by title or author...">
+                        <button class="btn btn-outline-primary" type="button" id="search-btn">
+                            <i class="fas fa-search me-2"></i>Search
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <h4 class="mb-3">
+            <i class="fas fa-list me-2"></i>All Books
+        </h4>
+        <div id="books-list">
+            <p class="text-muted">Loading books...</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/demo/library.js"></script>
+<script>
+    // Library page specific JavaScript
+    async function loadBooks() {
+        try {
+            const books = await DemoLibrary.loadBooks();
+            const container = document.getElementById('books-list');
+            DemoLibrary.displayBooks(books, container);
+        } catch (error) {
+            console.error('Failed to load books:', error);
+            document.getElementById('books-list').innerHTML = 
+                '<div class="alert alert-danger">Failed to load books</div>';
+        }
+    }
+    
+    {% if user %}
+    async function loadMyBooks() {
+        try {
+            const userId = window.DEMO_USER?.id;
+            if (!userId) return;
+            
+            const books = await DemoLibrary.loadMyBooks(userId);
+            const container = document.getElementById('my-books-list');
+            DemoLibrary.displayMyBooks(books, container);
+        } catch (error) {
+            console.error('Failed to load my books:', error);
+            document.getElementById('my-books-list').innerHTML = 
+                '<p class="text-muted">Failed to load your books</p>';
+        }
+    }
+    
+    // Add book form handler
+    document.getElementById('add-book-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const bookData = {
+            title: document.getElementById('book-title').value,
+            author: document.getElementById('book-author').value,
+            isbn: document.getElementById('book-isbn').value
+        };
+        
+        const success = await DemoLibrary.addBook(bookData);
+        if (success) {
+            document.getElementById('add-book-form').reset();
+            loadBooks();
+        }
+    });
+    {% endif %}
+    
+    // Make functions globally available for library.js
+    window.loadBooks = loadBooks;
+    {% if user %}
+    window.loadMyBooks = loadMyBooks;
+    {% endif %}
+    
+    // Load books on page load
+    document.addEventListener('DOMContentLoaded', () => {
+        loadBooks();
+        {% if user %}
+        loadMyBooks();
+        {% endif %}
+    });
+</script>
+{% endblock %}

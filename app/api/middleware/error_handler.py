@@ -2,6 +2,7 @@
 
 Handles exceptions, logs them with context, and generates proper HTTP responses.
 """
+
 from __future__ import annotations
 
 import traceback
@@ -11,6 +12,7 @@ from fastapi import Request, Response
 from fastapi.responses import JSONResponse
 
 from app.api.middleware.base import BaseMiddleware
+from app.api.middleware.serialization import JSONEncoder
 from app.services.error.error_service import ErrorService
 from app.services.logger import create_log_context
 
@@ -39,9 +41,9 @@ class ErrorHandlerMiddleware(BaseMiddleware):
         # Try to import a centralized error service if available
         try:
             self.error_service = self.app.state.error_service
-        except ImportError:
+        except AttributeError as e:
             self.logger.warning(
-                "Error service not found",
+                f"Error service not found: {e}",
                 extra={"middleware": "ErrorHandlerMiddleware"},
             )
 
@@ -146,4 +148,7 @@ class ErrorHandlerMiddleware(BaseMiddleware):
                 }
             )
 
-        return JSONResponse(status_code=500, content=error_content)
+        # Serialize datetime objects and other non-JSON-serializable types
+        serialized_content = JSONEncoder.serialize(error_content)
+
+        return JSONResponse(status_code=500, content=serialized_content)

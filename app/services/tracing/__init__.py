@@ -1,17 +1,22 @@
 """Main tracing service combining all tracing functionality."""
+
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fastapi import FastAPI
 
-from app.services.logger import Logger
+from app.services.base_service import BaseService
 from app.services.tracing.core import TracingCore
 from app.services.tracing.decorators import TracingDecorators
 from app.services.tracing.exporters import TracingExporters
 
+if TYPE_CHECKING:
+    from app.services.logger.core import Logger
+    from config import Config
 
-class TracingService:
+
+class TracingService(BaseService):
     """Service for distributed tracing using OpenTelemetry.
 
     Features:
@@ -21,20 +26,28 @@ class TracingService:
     - Full logging for tracing events
     """
 
-    def __init__(self, logger: Logger, config: dict):
+    def __init__(
+        self,
+        logger: Logger,
+        config: Config,
+        *args: dict[str, Any],
+        **kwargs: dict[str, Any],
+    ) -> None:
         """Initialize tracing service.
 
         Args:
+        ----
             logger: Logger instance.
             config: Configuration dictionary.
+            *args: Additional arguments.
+            **kwargs: Additional keyword arguments.
 
         """
-        self.logger = logger
-        self.config = config
+        super().__init__(config, logger, *args, **kwargs)
         self.enabled = config.get("tracing_enabled", True)
 
         # Initialize components
-        self.core = TracingCore(logger, config)
+        self.core = TracingCore(config, logger, *args, **kwargs)
         self.decorators = TracingDecorators(logger, self.enabled, self.core.tracer)
         self.exporters = TracingExporters(logger, self.enabled)
 
@@ -42,6 +55,7 @@ class TracingService:
         """Instrument FastAPI application and external clients.
 
         Args:
+        ----
             app: FastAPI application instance.
 
         """
@@ -76,6 +90,7 @@ class TracingService:
         """Add an event to the current span.
 
         Args:
+        ----
             name: The name of the event.
             attributes: The attributes of the event.
 
@@ -86,6 +101,7 @@ class TracingService:
         """Set an attribute on the current span.
 
         Args:
+        ----
             key: The key to set.
             value: The value to set.
 
@@ -96,6 +112,7 @@ class TracingService:
         """Set multiple attributes on the current span.
 
         Args:
+        ----
             attributes: The attributes to set.
 
         """
@@ -105,6 +122,7 @@ class TracingService:
         """Record an exception in the current span.
 
         Args:
+        ----
             exception: The exception to record.
 
         """
@@ -113,7 +131,8 @@ class TracingService:
     def get_trace_id(self) -> str | None:
         """Get the current trace ID.
 
-        Returns:
+        Returns
+        -------
             The current trace ID.
 
         """
@@ -122,7 +141,8 @@ class TracingService:
     def get_span_id(self) -> str | None:
         """Get the current span ID.
 
-        Returns:
+        Returns
+        -------
             The current span ID.
 
         """
@@ -132,9 +152,11 @@ class TracingService:
         """Inject tracing headers for propagation.
 
         Args:
+        ----
             headers: The headers to inject the tracing headers into.
 
         Returns:
+        -------
             The injected headers.
 
         """
@@ -144,9 +166,11 @@ class TracingService:
         """Extract tracing context from headers.
 
         Args:
+        ----
             headers: The headers to extract the context from.
 
         Returns:
+        -------
             The extracted context.
 
         """

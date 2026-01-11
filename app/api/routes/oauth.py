@@ -1,4 +1,5 @@
 """OAuth2 API routes for provider authorization and callbacks."""
+
 from __future__ import annotations
 
 import secrets
@@ -12,6 +13,7 @@ from app.models.oauth import OAuthProvider
 from app.models.session import DeviceInfo
 from app.models.user import UserPublic
 from app.services.auth import AuthService
+from app.services.data import DataService
 from app.services.oauth import OAuthService
 from app.utils.permissions import get_current_user
 
@@ -197,7 +199,7 @@ async def oauth_callback(
         refresh_token = auth_service.create_refresh_token(token_payload.dict())
 
         # Create session
-        session_repository = Container.session_repository()
+        data_service: DataService = Container.data_service()
         session_data = {
             "user_id": user.id,
             "refresh_token": refresh_token,
@@ -205,7 +207,7 @@ async def oauth_callback(
             "expires_at": datetime.now(timezone.utc) + timedelta(hours=168),  # 7 days
         }
 
-        session_id = await session_repository.create_session(session_data)
+        session_id = await data_service.sessions.create_session(session_data)
 
         # Create token pair
         from app.models.auth import TokenPair
@@ -221,7 +223,15 @@ async def oauth_callback(
             user=user_public, tokens=token_pair, permissions=permissions
         )
 
-        return login_response
+        # Set cookies for server-side rendered pages
+        from fastapi.responses import JSONResponse
+
+        from app.utils.cookie_manager import CookieManager
+
+        response = JSONResponse(content=login_response.model_dump(mode="json"))
+        CookieManager.set_auth_cookies(response, token_pair)
+
+        return response
 
     except HTTPException:
         raise

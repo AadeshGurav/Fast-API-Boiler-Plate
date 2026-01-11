@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "demo/base.html" %}
 
 {% block title %}Register{% endblock %}
 
@@ -81,13 +81,13 @@
             </div>
             
             <div class="form-actions">
-                <button type="submit" class="btn btn-primary">Create Account</button>
+                <button type="submit" class="btn btn-primary">Register</button>
                 <a href="/demo/auth/login" class="btn btn-secondary">Already have an account?</a>
             </div>
         </form>
         
         <div class="auth-links">
-            <p>Already have an account? <a href="/demo/auth/login">Login here</a></p>
+            <p>Already have an account? <a href="/demo/auth/login">Login</a></p>
         </div>
     </div>
     
@@ -247,6 +247,10 @@
                 }
             };
 
+            // Remove any existing alerts
+            const existingAlerts = form.parentNode.querySelectorAll('.alert');
+            existingAlerts.forEach(alert => alert.remove());
+
             const alertContainer = document.createElement('div');
             try {
                 const res = await fetch('/api/v1/auth/register', {
@@ -254,11 +258,34 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
+                
                 if (!res.ok) {
-                    const text = await res.text();
-                    throw new Error(text || `Registration failed (${res.status})`);
+                    let errorMessage = `Registration failed (${res.status})`;
+                    try {
+                        const errorData = await res.json();
+                        errorMessage = errorData.detail || errorData.message || errorMessage;
+                    } catch (_) {
+                        const text = await res.text();
+                        if (text) {
+                            try {
+                                const errorData = JSON.parse(text);
+                                errorMessage = errorData.detail || errorData.message || errorMessage;
+                            } catch (_) {
+                                errorMessage = text || errorMessage;
+                            }
+                        }
+                    }
+                    throw new Error(errorMessage);
                 }
-                window.location.href = '/demo/auth/login';
+                
+                const data = await res.json();
+                alertContainer.className = 'alert alert-success';
+                alertContainer.innerHTML = `<strong>Success:</strong> Account created successfully! Redirecting to login...`;
+                form.parentNode.insertBefore(alertContainer, form);
+                
+                setTimeout(() => {
+                    window.location.href = '/demo/auth/login';
+                }, 1500);
             } catch (err) {
                 alertContainer.className = 'alert alert-error';
                 alertContainer.innerHTML = `<strong>Error:</strong> ${err.message || 'Registration failed'}`;

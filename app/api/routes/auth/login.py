@@ -1,14 +1,17 @@
 """Authentication login and logout routes."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer
 
 from app import container as app_container
 from app.models.auth import LoginRequest, LoginResponse, RefreshRequest, TokenPair
 from app.services.auth import AuthService
+from app.utils.cookie_manager import CookieManager
 from app.utils.permissions import get_current_user
-from app.utils.uitls import extract_device_info
+from app.utils.utils import extract_device_info
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 security = HTTPBearer()
@@ -27,6 +30,7 @@ async def login(
         login_request: Login credentials and device info
         request: FastAPI request object
         auth_service: Auth service instance
+        config: Application configuration
 
     Returns:
     -------
@@ -38,12 +42,21 @@ async def login(
 
     """
     try:
-        # Add device info to login request
+        # Extract device info from request
         device_info = extract_device_info(request)
-        login_request.device_info = device_info
 
-        login_response = await auth_service.login_user(login_request)
-        return login_response
+        # Call service with extracted fields
+        login_response = await auth_service.login_user(
+            username=login_request.username,
+            password=login_request.password,
+            device_info=device_info,
+        )
+
+        # Set cookies for server-side rendered pages
+        response = JSONResponse(content=login_response.model_dump(mode="json"))
+        CookieManager.set_auth_cookies(response, login_response.tokens)
+
+        return response
 
     except ValueError as e:
         raise HTTPException(
@@ -51,7 +64,8 @@ async def login(
         ) from e
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Login failed"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Login failed: {str(e)}",
         ) from e
 
 
@@ -79,12 +93,20 @@ async def refresh_tokens(
 
     """
     try:
-        # Add device info to refresh request
+        # Extract device info from request
         device_info = extract_device_info(request)
-        refresh_request.device_info = device_info
 
-        token_pair = await auth_service.refresh_tokens(refresh_request)
-        return token_pair
+        # Call service with extracted fields
+        token_pair = await auth_service.refresh_tokens(
+            refresh_token=refresh_request.refresh_token,
+            device_info=device_info,
+        )
+
+        # Set cookies for server-side rendered pages
+        response = JSONResponse(content=token_pair.model_dump(mode="json"))
+        CookieManager.set_auth_cookies(response, token_pair)
+
+        return response
 
     except ValueError as e:
         raise HTTPException(
@@ -110,6 +132,7 @@ async def logout(
         request: FastAPI request object
         current_user: Current authenticated user
         auth_service: Auth service instance
+        config: Application configuration
 
     Returns:
     -------
@@ -137,7 +160,11 @@ async def logout(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Logout failed"
             )
 
-        return {"message": "Logged out successfully"}
+        # Clear cookies
+        response = JSONResponse(content={"message": "Logged out successfully"})
+        CookieManager.delete_auth_cookies(response)
+
+        return response
 
     except HTTPException:
         raise

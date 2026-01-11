@@ -6,10 +6,8 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from app.core.interfaces.session_repository_interface import (
-        SessionRepositoryInterface,
-    )
     from app.models.session import DeviceInfo
+    from app.services.data import DataService
     from app.services.logger import Logger
 
 
@@ -19,14 +17,14 @@ class SessionManagementMixin:
     def __init__(
         self: SessionManagementMixin,
         logger: Logger,
-        session_repository: SessionRepositoryInterface = None,
+        data_service: DataService = None,
     ) -> None:
         """Initialize session management mixin.
 
         Args:
         ----
             logger: The logger to use.
-            session_repository: Session repository interface.
+            data_service: Data service instance.
 
         Returns:
         -------
@@ -34,7 +32,7 @@ class SessionManagementMixin:
 
         """
         self.logger = logger
-        self.session_repository = session_repository
+        self.data_service = data_service
 
     async def create_session(
         self: SessionManagementMixin, user_id: str, device_info: DeviceInfo
@@ -51,8 +49,8 @@ class SessionManagementMixin:
             Session ID.
 
         """
-        if not self.session_repository:
-            raise ValueError("Session repository required")
+        if not self.data_service:
+            raise ValueError("Data service required")
 
         session_data = {
             "user_id": user_id,
@@ -63,9 +61,31 @@ class SessionManagementMixin:
             "revoked_at": None,
         }
 
-        session_id = await self.session_repository.create_session(session_data)
+        session_id = await self.data_service.sessions.create_session(session_data)
 
         if session_id:
+            # Add session reference to user object if method is available
+            # (e.g., when used in AuthService which has both mixins)
+            if hasattr(self, "_add_session_to_user"):
+                try:
+                    await self._add_session_to_user(
+                        user_id=user_id,
+                        session_id=session_id,
+                        device_info=device_info.dict(),
+                        created_at=session_data["created_at"],
+                        expires_at=session_data["expires_at"],
+                    )
+                except Exception as e:  # noqa: BLE001
+                    self.logger.warning(
+                        "Failed to add session to user",
+                        extra={
+                            "service": "SessionManagementMixin",
+                            "user_id": user_id,
+                            "session_id": session_id,
+                            "error": str(e),
+                        },
+                    )
+
             self.logger.info(
                 "Session created",
                 extra={
@@ -98,10 +118,10 @@ class SessionManagementMixin:
             Session data if found, None otherwise.
 
         """
-        if not self.session_repository:
+        if not self.data_service:
             return None
 
-        session_data = await self.session_repository.get_session(session_id)
+        session_data = await self.data_service.sessions.get_session(session_id)
 
         if session_data:
             self.logger.debug(
@@ -134,12 +154,31 @@ class SessionManagementMixin:
             True if revoked successfully, False otherwise.
 
         """
-        if not self.session_repository:
+        if not self.data_service:
             return False
 
-        success = await self.session_repository.revoke_session(session_id)
+        # Get session data to find user_id before revoking
+        session_data = await self.data_service.sessions.get_session(session_id)
+        user_id = session_data.get("user_id") if session_data else None
+
+        success = await self.data_service.sessions.revoke_session(session_id)
 
         if success:
+            # Update session reference in user object if method is available
+            if user_id and hasattr(self, "_update_user_session"):
+                try:
+                    await self._update_user_session(user_id, session_id, revoked=True)
+                except Exception as e:  # noqa: BLE001
+                    self.logger.warning(
+                        "Failed to update user session",
+                        extra={
+                            "service": "SessionManagementMixin",
+                            "user_id": user_id,
+                            "session_id": session_id,
+                            "error": str(e),
+                        },
+                    )
+
             self.logger.info(
                 "Session revoked",
                 extra={
@@ -173,12 +212,26 @@ class SessionManagementMixin:
             Number of sessions revoked.
 
         """
-        if not self.session_repository:
+        if not self.data_service:
             return 0
 
-        count = await self.session_repository.revoke_user_sessions(
+        count = await self.data_service.sessions.revoke_user_sessions(
             user_id, except_session_id
         )
+
+        # Update all session references in user object if method is available
+        if hasattr(self, "_update_user_sessions"):
+            try:
+                await self._update_user_sessions(user_id, except_session_id)
+            except Exception as e:  # noqa: BLE001
+                self.logger.warning(
+                    "Failed to update user sessions",
+                    extra={
+                        "service": "SessionManagementMixin",
+                        "user_id": user_id,
+                        "error": str(e),
+                    },
+                )
 
         self.logger.info(
             "User sessions revoked",
@@ -200,10 +253,12 @@ class SessionManagementMixin:
             Number of sessions cleaned up.
 
         """
-        if not self.session_repository:
+        if not self.data_service:
             return 0
 
-        count = await self.session_repository.cleanup_expired_sessions()
+        # Note: cleanup_expired_sessions is not implemented in ops yet
+        # This would need to be added to sessions_ops if needed
+        count = 0
 
         if count > 0:
             self.logger.info(

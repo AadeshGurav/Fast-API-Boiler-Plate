@@ -1,4 +1,5 @@
 """Template context middleware for FastAPI."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -46,6 +47,9 @@ class TemplateContextMiddleware(BaseMiddleware):
 
         """
         try:
+            from app.utils.permissions import get_token_cookie_names
+
+            access_token_key, refresh_token_key = get_token_cookie_names()
             template_context = {
                 "request": request,
                 "now": datetime.now,
@@ -55,6 +59,8 @@ class TemplateContextMiddleware(BaseMiddleware):
                 "version": "1.0.0",
                 "debug": self.config.get("app_debug", False),
                 "site_name": self.config.get("app_title", "FastAPI App"),
+                "access_token_cookie": access_token_key,
+                "refresh_token_cookie": refresh_token_key,
             }
 
             request.state.template_context = template_context

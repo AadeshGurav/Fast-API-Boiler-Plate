@@ -1,4 +1,5 @@
 """Security and request tracing middleware for FastAPI."""
+
 from __future__ import annotations
 
 import uuid
@@ -55,7 +56,9 @@ class SecurityHeadersMiddleware(BaseMiddleware):
 
         # Content Security Policy
         self.csp_enabled = self.config.get("csp_enabled", True)
-        self.csp_directives = self.config.get("csp_directives")
+        self.csp_directives = (
+            self.config.get("csp_directives") or self._default_csp_directives()
+        )
         self.generate_nonce = any(
             "nonce-" in str(v) for v in self.csp_directives.values()
         )
@@ -64,7 +67,9 @@ class SecurityHeadersMiddleware(BaseMiddleware):
         self.permissions_policy_enabled = self.config.get(
             "permissions_policy_enabled", True
         )
-        self.permissions_policy = self.config.get("permissions_policy")
+        self.permissions_policy = (
+            self.config.get("permissions_policy") or self._default_permissions_policy()
+        )
 
         self.logger.info(
             "SecurityHeadersMiddleware initialized",
@@ -145,6 +150,9 @@ class SecurityHeadersMiddleware(BaseMiddleware):
             Permissions Policy header
 
         """
+        if not self.permissions_policy:
+            return ""
+
         policies = []
         for feature, allowlist in self.permissions_policy.items():
             policies.append(
