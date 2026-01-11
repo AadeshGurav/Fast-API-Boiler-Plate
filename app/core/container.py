@@ -21,6 +21,7 @@ from app.services.retry_service import RetryService
 from app.services.sentry import SentryService
 from app.services.session import SessionService
 from app.services.tracing import TracingService
+from app.utils.utils import lifespan
 from config import Config
 
 
@@ -89,22 +90,18 @@ class Container(containers.DeclarativeContainer):
 
     # Services
 
-    # Database
-    data_service: DataService = providers.Singleton(
-        DataService, logger=logger, config=config
-    )
-
     database_service: DatabaseService = providers.Singleton(
         DatabaseService,
         config=config,
-        logger=logger,
-        backend=data_service,
+        logger=logger
     )
 
     # Cache service - get from data_service
-    cache_service: CacheService = providers.Singleton(
-        lambda data_service: data_service.cache_service,
-        data_service=data_service,
+    cache_service: CacheService = providers.Singleton(CacheService, config=config, logger=logger)
+
+    # Database
+    data_service: DataService = providers.Singleton(
+        DataService, logger=logger, config=config, database_service=database_service, cache_service=cache_service
     )
 
     # Password service
@@ -179,6 +176,7 @@ class Container(containers.DeclarativeContainer):
         config=config,
         logger=logger,
         debug=config.provided.app_debug,
+        life_span=lifespan,
         services={
             "retry_service": retry_service,
             "metrics_service": metrics_service,
@@ -200,10 +198,7 @@ class Container(containers.DeclarativeContainer):
 
     # FastAPI application instance
     app: FastAPI = providers.Singleton(
-        lambda factory: factory.create_app(
-            life_span=__import__("app.utils.utils", fromlist=["lifespan"]).lifespan
-        ),
-        factory=app_factory,
+        app_factory.provided.create_app.call()
     )
 
     # TODO: user proper DI injection instead of this

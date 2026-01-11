@@ -6,8 +6,6 @@ from datetime import datetime
 from typing import Any
 
 from app.services.base_service import BaseService
-from app.services.cache import CacheService
-from app.services.database_service import DatabaseService
 from app.services.logger import Logger
 from config import Config
 
@@ -128,49 +126,6 @@ class DataService(BaseService):
 
         """
         super().__init__(config, logger, *args, **kwargs)
-
-        # Wire underlying services
-        from app.database.mongodb import MongoDB
-        from app.database.redis import Redis
-
-        database_provider = config.get("app_database_provider")
-        cache_provider = config.get("app_cache_provider")
-
-        if database_provider == "mongodb":
-            db_backend = MongoDB(
-                host=config.get("mongo_host"),
-                port=config.get("mongo_port"),
-                db_name=config.get("app_database"),
-                logger=logger,
-                config=config,
-            )
-        elif database_provider == "redis":
-            db_backend = Redis(
-                host=config.get("redis_host"),
-                port=config.get("redis_port"),
-                db_name=config.get("app_database"),
-                logger=logger,
-                config=config,
-            )
-        # Add more if required
-        else:
-            raise ValueError(f"Invalid database provider: {database_provider}")
-
-        if cache_provider == "redis":
-            cache_backend = Redis(
-                host=config.get("redis_host"),
-                port=config.get("redis_port"),
-                db_name=config.get("app_database"),
-                password=config.get("redis_password"),
-                logger=logger,
-                config=config,
-            )
-        else:
-            raise ValueError(f"Invalid cache provider: {cache_provider}")
-
-        self.database_service = DatabaseService(config=config, logger=logger, backend=db_backend)
-        self.cache_service = CacheService(config, logger, cache_backend)
-
         # Attach ops (lazy imported to keep this file small)
         try:
             from . import users_ops

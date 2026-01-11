@@ -322,7 +322,7 @@ class AppFactory:
                 RateLimiter,
                 config=self.config,
                 logger=self.logger,
-                redis_client=self._cache_service.redis_client,
+                redis_client=self._cache_service.backend,
             )
 
         self.app.add_middleware(

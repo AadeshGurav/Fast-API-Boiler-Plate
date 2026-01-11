@@ -4,13 +4,12 @@ import functools
 import hashlib
 import json
 from typing import TYPE_CHECKING, Any
+from app.database.redis import Redis
 
 from app.services.base_service import BaseService
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
-    from app.database.redis import Redis
     from app.services.logger import Logger
     from config import Config
 
@@ -22,7 +21,6 @@ class CacheService(BaseService):
         self: CacheService,
         config: Config,
         logger: Logger,
-        redis_client: Redis,
         *args: dict[str, Any],
         **kwargs: dict[str, Any],
     ) -> None:
@@ -32,35 +30,49 @@ class CacheService(BaseService):
         ----
             config: The configuration to use.
             logger: The logger to use.
-            redis_client: The Redis client to use.
             *args: Additional arguments.
             **kwargs: Additional keyword arguments.
 
         """
         super().__init__(config, logger, *args, **kwargs)
-        self.redis_client: Redis = redis_client
+
         self.default_ttl: int = self.config.get("cache_default_ttl", 300)
         self.prefix: str = self.config.get("cache_prefix", "cache:")
+
+        cache_provider = config.get("app_cache_provider")
+
+        if cache_provider == "redis":
+            self.backend: Redis = Redis(
+                host=config.get("redis_host"),
+                port=config.get("redis_port"),
+                db_name=config.get("app_database"),
+                password=config.get("redis_password"),
+                logger=logger,
+                config=config,
+            )
+        else:
+            raise ValueError(f"Invalid cache provider: {cache_provider}")
+
         self.logger.info("CacheService initialized", extra={"service": "CacheService"})
 
     async def get(self: CacheService, key: str) -> Any:
         """Get a value from cache."""
         full_key = f"{self.prefix}{key}"
-        return await self.redis_client.get(full_key)
+        return await self.backend.get(full_key)
 
     async def set(
         self: CacheService, key: str, value: Any, ttl: int | None = None
     ) -> bool:
         """Set a value in cache with TTL."""
         full_key = f"{self.prefix}{key}"
-        return await self.redis_client.set(
+        return await self.backend.set(
             full_key, value, expire=ttl or self.default_ttl
         )
 
     async def delete(self: CacheService, key: str) -> int:
         """Delete a value from cache."""
         full_key = f"{self.prefix}{key}"
-        return await self.redis_client.delete(full_key)
+        return await self.backend.delete(full_key)
 
     async def clear_pattern(self: CacheService, pattern: str) -> int:
         """Clear all keys matching a pattern.
@@ -74,7 +86,7 @@ class CacheService(BaseService):
             The number of keys deleted.
 
         """
-        return await self.redis_client.delete_pattern(pattern)
+        return await self.backend.delete_pattern(pattern)
 
     def cached(self: CacheService, ttl: int | None = None) -> Callable:
         """Decorator for caching function results."""
@@ -118,11 +130,11 @@ class CacheService(BaseService):
 
     async def connect(self: CacheService) -> None:
         """Connect to the Redis backend if needed."""
-        if not hasattr(self.redis_client, "connect"):
+        if not hasattr(self.backend, "connect"):
             return
 
         try:
-            await self.redis_client.connect()
+            await self.backend.connect()
             self.logger.info("CacheService connected to Redis.")
         except Exception as e:
             self.logger.error(f"CacheService failed to connect: {e}")
@@ -130,11 +142,11 @@ class CacheService(BaseService):
 
     async def close(self: CacheService) -> None:
         """Close the Redis backend connection if needed."""
-        if not hasattr(self.redis_client, "close"):
+        if not hasattr(self.backend, "close"):
             return
 
         try:
-            await self.redis_client.close()
+            await self.backend.close()
             self.logger.info("CacheService closed Redis connection.")
         except Exception as e:
             self.logger.error(f"CacheService failed to close: {e}")

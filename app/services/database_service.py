@@ -33,6 +33,33 @@ class DatabaseService(BaseService):
 
         """
         super().__init__(config, logger, *args, **kwargs)
+
+        database_provider = config.get("app_database_provider")
+
+        if database_provider == "mongodb":
+            from app.database.mongodb import MongoDB
+
+            self.backend: MongoDB = MongoDB(
+                host=config.get("mongo_host"),
+                port=config.get("mongo_port"),
+                db_name=config.get("app_database"),
+                logger=logger,
+                config=config,
+            )
+        elif database_provider == "redis":
+            from app.database.redis import Redis
+
+            self.backend: Redis = Redis(
+                host=config.get("redis_host"),
+                port=config.get("redis_port"),
+                db_name=config.get("app_database"),
+                logger=logger,
+                config=config,
+            )
+        # Add more if required
+        else:
+            raise ValueError(f"Invalid database provider: {database_provider}")
+
         self.logger.info(
             "DatabaseService initialized", extra={"service": "DatabaseService"}
         )

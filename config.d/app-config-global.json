@@ -1,5 +1,5 @@
 {
-  "app_title": "One Conf",
+  "app_title": "Boiler Plate",
   "app_host": "0.0.0.0",
   "app_port": 8000,
   "app_debug": true,
@@ -7,7 +7,7 @@
   "app_workers": 1,
   "app_log_level": "info",
   "app_version": "1.0.0",
-  "app_database": "oneconf",
+  "app_database": "boiler-plate",
   "app_description": "Production-ready FastAPI application",
   "app_database_provider": "mongodb",
   "app_cache_provider": "redis",
