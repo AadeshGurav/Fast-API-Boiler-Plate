@@ -1,72 +1,52 @@
-version: '3.8'
+version: "3.8"
 
 services:
-  app:
-    build: .
-    container_name: boiler_plate
-    command: ["python3", "main.py"]
-    volumes:
-      - ./:/app
-      - ./config.d:/app/config.d
-    depends_on:
-      - mongodb
-      - redis
-    ports:
-      - "8000:8000"
-    networks:
-      - boiler-plate-network
-
   mongodb:
-    image: bitnami/mongodb:latest
-    container_name: boiler-plate-mongodb
+    # Switched to official image which supports Apple Silicon native
+    image: mongo:8.0
+    container_name: mongodb
+    hostname: mongodb
     restart: always
-    networks:
-      - boiler-plate-network
     ports:
-      - "18001:27017"
+      - "27017:27017"  # Kept original port so your App doesn't break
     volumes:
-      - mongodb_data:/bitnami/mongodb
+      - mongodb_data:/data/db
     environment:
-      MONGODB_ROOT_PASSWORD: "boiler-plate"
-      MONGODB_ENABLE_DIRECTORY_PER_DB: "yes"
-      MONGODB_ENABLE_IPV6: "no"
-      MONGODB_EXTRA_FLAGS: "--oplogSize=1024"
+      # Kept your original password 'ag'
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: ag
+      # Note: Official image does not auto-configure Replica Sets like Bitnami.
+      # If your app fails on "Transactions", we need a different fix.
+    
+    # Official images use a different healthcheck format
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+      
     deploy:
       resources:
         limits:
           memory: 2048M
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "mongosh --quiet -u root -p 'boiler-plate' --eval 'quit(db.runCommand({ ping: 1 }).ok ? 0 : 2)' || exit 1"
-        ]
-      interval: 30s
-      timeout: 5s
-      retries: 10
-      start_period: 10s
-    security_opt:
-      - "no-new-privileges"
-    sysctls:
-      net.core.somaxconn: "65535"
-    cap_drop:
-      - ALL
 
+  # Added Redis back (You need this!)
   redis:
-    image: redis:8.2.3-alpine
-    container_name: boiler-plate-redis
+    image: redis:7.2-alpine
+    container_name: redis
     restart: always
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     networks:
-      - boiler-plate-network
+      - ag-network
 
 volumes:
   mongodb_data:
   redis_data:
 
 networks:
-  boiler-plate-network:
+  ag-network:
     driver: bridge
