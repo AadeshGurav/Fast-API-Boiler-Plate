@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
+from app.models.user import User
+
 if TYPE_CHECKING:
     from app.models.session import DeviceInfo
     from app.services.data import DataService
@@ -35,13 +37,13 @@ class SessionManagementMixin:
         self.data_service = data_service
 
     async def create_session(
-        self: SessionManagementMixin, user_id: str, device_info: DeviceInfo
+        self: SessionManagementMixin, user: User, device_info: DeviceInfo
     ) -> str:
         """Create a new session.
 
         Args:
         ----
-            user_id: User ID.
+            user: User.
             device_info: Device information.
 
         Returns:
@@ -53,7 +55,7 @@ class SessionManagementMixin:
             raise ValueError("Data service required")
 
         session_data = {
-            "user_id": user_id,
+            "user_id": user.id,
             "device_info": device_info.dict(),
             "created_at": datetime.now(timezone.utc),
             "expires_at": datetime.now(timezone.utc).timestamp()
@@ -69,7 +71,7 @@ class SessionManagementMixin:
             if hasattr(self, "_add_session_to_user"):
                 try:
                     await self._add_session_to_user(
-                        user_id=user_id,
+                        user=user,
                         session_id=session_id,
                         device_info=device_info.dict(),
                         created_at=session_data["created_at"],
@@ -80,7 +82,7 @@ class SessionManagementMixin:
                         "Failed to add session to user",
                         extra={
                             "service": "SessionManagementMixin",
-                            "user_id": user_id,
+                            "user_id": user.id,
                             "session_id": session_id,
                             "error": str(e),
                         },
@@ -90,7 +92,7 @@ class SessionManagementMixin:
                 "Session created",
                 extra={
                     "service": "SessionManagementMixin",
-                    "user_id": user_id,
+                    "user_id": user.id,
                     "session_id": session_id,
                     "device_info": device_info.dict(),
                 },
@@ -100,7 +102,7 @@ class SessionManagementMixin:
                 "Failed to create session",
                 extra={
                     "service": "SessionManagementMixin",
-                    "user_id": user_id,
+                    "user_id": user.id,
                 },
             )
 

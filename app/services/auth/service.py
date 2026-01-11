@@ -68,7 +68,7 @@ class AuthService(
             password_service,
             rbac_service,
         )
-        UserManagementMixin.__init__(self, logger, data_service, password_service)
+        UserManagementMixin.__init__(self, logger, config, data_service, password_service)
         SessionManagementMixin.__init__(self, logger, data_service)
 
     # Interface implementation methods
@@ -347,7 +347,7 @@ class AuthService(
         permissions = await self.rbac_service.resolve_user_permissions(user.id)
 
         # Create session
-        session_id = await self.create_session(user.id, device_info)
+        session_id = await self.create_session(user, device_info)
 
         # Get roles - handle both role (string) and roles (array) fields
         roles = getattr(user, "roles", None) or [getattr(user, "role", "user")]

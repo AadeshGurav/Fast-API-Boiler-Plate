@@ -84,43 +84,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # Connect data layer
         if data_service:
             await data_service.connect()
-            if logger:
-                logger.info("DataService connections established")
+            logger.info("DataService connections established")
 
         # Initialize RBAC system
         try:
             rbac_service = container.rbac_service()
             await rbac_service.load_rbac_config()
 
-            if logger:
-                logger.info("RBAC system initialized successfully")
-
-            # Schedule periodic RBAC refresh
-            async def periodic_rbac_refresh():
-                """Periodic RBAC configuration refresh task."""
-                while True:
-                    try:
-                        await asyncio.sleep(300)  # 5 minutes
-                        await rbac_service.refresh_rbac_config()
-                        if logger:
-                            logger.debug("RBAC configuration refreshed")
-                    except Exception as e:
-                        if logger:
-                            logger.error(f"RBAC refresh failed: {e}")
-                        await asyncio.sleep(60)  # Wait 1 minute before retry
-
-            # Start periodic refresh task
-            refresh_task = asyncio.create_task(
-                periodic_rbac_refresh(), name="rbac_refresh"
-            )
-            app.state.rbac_refresh_task = refresh_task
-
-            if logger:
-                logger.info("RBAC periodic refresh scheduled: every 5 minutes")
+            logger.info("RBAC system initialized successfully")
 
         except Exception as e:
-            if logger:
-                logger.error(f"RBAC initialization failed: {e}")
+            logger.error(f"RBAC initialization failed: {e}")
             # Don't fail startup if RBAC fails, but log the error
 
         # Initialize OAuth providers if enabled
@@ -128,32 +102,26 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             oauth_service = container.oauth_service()
             if oauth_service.oauth_enabled:
                 providers = list(oauth_service.providers.keys())
-                if logger:
-                    logger.info(f"OAuth providers initialized: {providers}")
+                logger.info(f"OAuth providers initialized: {providers}")
             else:
-                if logger:
-                    logger.info("OAuth providers disabled")
+                logger.info("OAuth providers disabled")
         except Exception as e:
-            if logger:
-                logger.error(f"OAuth initialization failed: {e}")
+            logger.error(f"OAuth initialization failed: {e}")
 
-        if logger:
-            logger.info("Application startup completed successfully")
-            logger.info(
-                f"http://{app.state.config.get('app_host', '127.0.0.1')}:{app.state.config.get('app_port', 8000)}"
-            )
+        logger.info("Application startup completed successfully")
+        logger.info(
+            f"http://{app.state.config.get('app_host', '127.0.0.1')}:{app.state.config.get('app_port', 8000)}"
+        )
 
     except Exception as exc:
-        if logger:
-            logger.exception("Application startup failed", exc_info=exc)
+        logger.exception("Application startup failed", exc_info=exc)
         raise
 
     # Yield control to the running app
     yield
 
     # --- Shutdown Phase ---
-    if logger:
-        logger.info("Beginning graceful shutdown...")
+    logger.info("Beginning graceful shutdown...")
 
     try:
         data_service = getattr(app.state, "data_service", None)
@@ -189,18 +157,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         bulkhead_manager = getattr(app.state, "bulkhead_manager", None)
         if bulkhead_manager:
             bulkhead_manager.shutdown_all()
-            if logger:
-                logger.info("Bulkheads shut down")
+            logger.info("Bulkheads shut down")
 
         # Close tracing resources if any
         if tracing_service and hasattr(tracing_service, "close"):
             try:
                 tracing_service.close()
-                if logger:
-                    logger.info("Tracing resources closed")
+                logger.info("Tracing resources closed")
             except Exception as exc:  # noqa: BLE001
-                if logger:
-                    logger.error("Error closing tracing resources: %s", exc)
+                logger.error("Error closing tracing resources: %s", exc)
 
         # Flush async logger if implemented
         if logger and hasattr(logger, "shutdown"):
@@ -213,14 +178,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # Close database and cache
         if data_service:
             await data_service.close()
-            if logger:
-                logger.info("Database connections closed")
+            logger.info("Database connections closed")
 
             cache_service = getattr(data_service, "cache_service", None)
             if cache_service and hasattr(cache_service, "close"):
                 await cache_service.close()
-                if logger:
-                    logger.info("Cache connections closed")
+                logger.info("Cache connections closed")
 
         # Cancel RBAC refresh task
         rbac_refresh_task = getattr(app.state, "rbac_refresh_task", None)
@@ -230,8 +193,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 await rbac_refresh_task
             except asyncio.CancelledError:
                 pass
-            if logger:
-                logger.info("RBAC refresh task cancelled")
+            logger.info("RBAC refresh task cancelled")
 
         # Execute any app cleanup tasks
         cleanup_tasks = getattr(app.state, "cleanup_tasks", [])
@@ -239,15 +201,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             try:
                 await task()
             except Exception as exc:
-                if logger:
-                    logger.error("Error during cleanup task: %s", exc)
+                logger.error("Error during cleanup task: %s", exc)
 
-        if logger:
-            logger.info("Graceful shutdown complete")
+        logger.info("Graceful shutdown complete")
 
     except Exception as exc:
-        if logger:
-            logger.exception("Error during shutdown", exc_info=exc)
+        logger.exception("Error during shutdown", exc_info=exc)
     finally:
         # Clear app state to free resources
         try:

@@ -180,7 +180,7 @@ class DataService(BaseService):
         """
         await self.database_service.connect()
         await self.cache_service.connect()
-        await self.database_service.initialize_application_data(self.config)
+        await self.database_service.initialize_application_data()
         self.logger.info("DataService: All backends connected and initialized.")
 
     async def close(self: DataService) -> None:

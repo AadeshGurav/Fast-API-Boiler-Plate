@@ -8,10 +8,12 @@ from typing import TYPE_CHECKING
 from app.models.user import User, UserPublic
 
 if TYPE_CHECKING:
-    from app.core.interfaces.password_service_interface import PasswordServiceInterface
+    from app.core.interfaces.password_service_interface import \
+        PasswordServiceInterface
     from app.models.user import UserCreate
     from app.services.data import DataService
     from app.services.logger import Logger
+    from config import Config
 
 
 class UserManagementMixin:
@@ -20,6 +22,7 @@ class UserManagementMixin:
     def __init__(
         self: UserManagementMixin,
         logger: Logger,
+        config: Config,
         data_service: DataService = None,
         password_service: PasswordServiceInterface = None,
     ) -> None:
@@ -28,6 +31,7 @@ class UserManagementMixin:
         Args:
         ----
             logger: The logger to use.
+            config: The configuration to use.
             data_service: Data service instance.
             password_service: Password service interface.
 
@@ -37,6 +41,7 @@ class UserManagementMixin:
 
         """
         self.logger = logger
+        self.config = config
         self.data_service = data_service
         self.password_service = password_service
 

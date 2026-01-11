@@ -278,15 +278,11 @@ class DatabaseService(BaseService):
             self.logger.error(f"DatabaseService failed to close: {e}")
             raise
 
-    async def initialize_application_data(self: DatabaseService, config: dict) -> None:
+    async def initialize_application_data(self: DatabaseService) -> None:
         """Initialize application data including default admin user and RBAC structure.
 
         This method is database-agnostic and works with any backend that implements
         the DatabaseInterface.
-
-        Args:
-        ----
-            config: Application configuration dictionary
 
         """
         try:
@@ -298,16 +294,16 @@ class DatabaseService(BaseService):
             # Create default admin user if no users exist
             existing_users = await self.find_many("users", {})
             if not existing_users:
-                await self._create_default_admin_user(config)
+                await self._create_default_admin_user()
                 self.logger.info("Created default admin user")
 
             # Initialize RBAC structure
-            await self._initialize_rbac_structure(config)
+            await self._initialize_rbac_structure()
 
             # Create default settings if they don't exist
             existing_settings = await self.find_many("settings", {})
             if not existing_settings:
-                await self._create_default_settings(config)
+                await self._create_default_settings()
                 self.logger.info("Created default settings")
 
             self.logger.info("Application data initialization completed")
@@ -316,7 +312,7 @@ class DatabaseService(BaseService):
             self.logger.error(f"Application data initialization failed: {str(e)}")
             raise
 
-    async def _create_default_admin_user(self: DatabaseService, config: dict) -> None:
+    async def _create_default_admin_user(self: DatabaseService) -> None:
         """Create the default admin user based on current RBAC structure."""
         # Default admin user with proper RBAC structure
         default_admin = {
@@ -356,7 +352,7 @@ class DatabaseService(BaseService):
 
         await self.insert_record("users", default_admin)
 
-    async def _initialize_rbac_structure(self: DatabaseService, config: dict) -> None:
+    async def _initialize_rbac_structure(self: DatabaseService) -> None:
         """Initialize RBAC roles, permissions, and groups."""
         # Initialize roles
         await self._initialize_roles()
@@ -555,10 +551,10 @@ class DatabaseService(BaseService):
             if not existing_group:
                 await self.insert_record("groups", group)
 
-    async def _create_default_settings(self: DatabaseService, config: dict) -> None:
+    async def _create_default_settings(self: DatabaseService) -> None:
         """Create default application settings."""
         default_settings = {
-            "site_name": config.get("app_title", "One Conf"),
+            "site_name": self.config.get("app_title", "One Conf"),
             "theme": "light",
             "maintenance_mode": False,
             "features": {
