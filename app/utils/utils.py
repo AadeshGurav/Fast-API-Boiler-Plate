@@ -73,7 +73,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         try:
             logger.enable_async()
             logger.info("Logger async mode enabled")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.warning(f"Failed to enable logger async mode: {e}")
 
     try:
@@ -93,7 +93,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
             logger.info("RBAC system initialized successfully")
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error(f"RBAC initialization failed: {e}")
             # Don't fail startup if RBAC fails, but log the error
 
@@ -105,7 +105,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 logger.info(f"OAuth providers initialized: {providers}")
             else:
                 logger.info("OAuth providers disabled")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error(f"OAuth initialization failed: {e}")
 
         logger.info("Application startup completed successfully")
@@ -113,7 +113,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             f"http://{app.state.config.get('app_host', '127.0.0.1')}:{app.state.config.get('app_port', 8000)}"
         )
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         logger.exception("Application startup failed", exc_info=exc)
         raise
 
@@ -137,7 +137,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 try:
                     for metric in metrics_service.active_requests._metrics.values():
                         active_requests += metric._value.get()
-                except Exception:
+                except Exception:  # noqa: BLE001
                     break
 
                 if active_requests == 0:
@@ -172,7 +172,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             try:
                 await logger.shutdown()
                 logger.info("Logger shutdown complete")
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 print(f"Logger shutdown error: {e}", file=sys.stderr)
 
         # Close database and cache
@@ -200,19 +200,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         for task in cleanup_tasks:
             try:
                 await task()
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001
                 logger.error("Error during cleanup task: %s", exc)
 
         logger.info("Graceful shutdown complete")
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         logger.exception("Error during shutdown", exc_info=exc)
     finally:
         # Clear app state to free resources
         try:
             for attr in list(app.state.__dict__.keys()):
                 delattr(app.state, attr)
-        except Exception:
+        except Exception:  # noqa: BLE001
             pass
 
 
@@ -227,7 +227,7 @@ def generate_session_id() -> str:
     return secrets.token_urlsafe(32)
 
 
-def get_client_ip(request) -> str:
+def get_client_ip(request: Request) -> str:
     """Return the client's IP address from headers or connection info."""
     forwarded_for = request.headers.get("X-Forwarded-For")
     if forwarded_for:

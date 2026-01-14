@@ -26,9 +26,7 @@ class FilesOps:
         self.service = service
         self.collection = "files"
 
-    async def create_file_metadata(
-        self: FilesOps, file_data: dict[str, Any]
-    ) -> str:
+    async def create_file_metadata(self: FilesOps, file_data: dict[str, Any]) -> str:
         """Create file metadata record.
 
         Args:
@@ -75,9 +73,7 @@ class FilesOps:
         if not include_deleted:
             filters["deleted_at"] = None
 
-        return await self.service.get(
-            self.collection, filters, policy=CachePolicy.AUTO
-        )
+        return await self.service.get(self.collection, filters, policy=CachePolicy.AUTO)
 
     async def get_file_by_hash(
         self: FilesOps, content_hash: str, *, include_deleted: bool = False
@@ -98,9 +94,7 @@ class FilesOps:
         if not include_deleted:
             filters["deleted_at"] = None
 
-        return await self.service.get(
-            self.collection, filters, policy=CachePolicy.AUTO
-        )
+        return await self.service.get(self.collection, filters, policy=CachePolicy.AUTO)
 
     async def get_user_files(
         self: FilesOps,
@@ -137,7 +131,7 @@ class FilesOps:
             self.collection, filters, policy=CachePolicy.AUTO
         )
 
-        return files[offset : offset + limit]
+        return files[offset: offset + limit]
 
     async def update_file_metadata(
         self: FilesOps, file_id: str, updates: dict[str, Any]
@@ -211,9 +205,7 @@ class FilesOps:
 
         return sorted(versions, key=lambda x: x.get("version", 0), reverse=True)
 
-    async def get_latest_version(
-        self: FilesOps, file_id: str
-    ) -> dict | None:
+    async def get_latest_version(self: FilesOps, file_id: str) -> dict | None:
         """Get latest version of a file.
 
         Args:
@@ -267,8 +259,7 @@ class FilesOps:
             self.collection, filters, policy=CachePolicy.AUTO
         )
 
-        return files[offset : offset + limit]
+        return files[offset: offset + limit]
 
 
 __all__ = ["FilesOps"]
-

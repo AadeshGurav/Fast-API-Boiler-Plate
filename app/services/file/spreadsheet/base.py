@@ -110,7 +110,9 @@ class BaseSpreadsheetProcessor(ABC):
 
         return Path(tempfile.gettempdir())
 
-    def _is_spreadsheet_mime_type(self: BaseSpreadsheetProcessor, mime_type: str) -> bool:
+    def _is_spreadsheet_mime_type(
+        self: BaseSpreadsheetProcessor, mime_type: str
+    ) -> bool:
         """Check if MIME type is a spreadsheet type.
 
         Args:
@@ -256,4 +258,3 @@ class BaseSpreadsheetProcessor(ABC):
 
 
 __all__ = ["BaseSpreadsheetProcessor"]
-

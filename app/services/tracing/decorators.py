@@ -5,12 +5,13 @@ from __future__ import annotations
 import time
 from collections.abc import Callable
 from contextlib import contextmanager
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from opentelemetry import trace
 from opentelemetry.trace import SpanKind, Status, StatusCode
 
-from app.services.logger import Logger
+if TYPE_CHECKING:
+    from app.services.logger import Logger
 
 
 class TracingDecorators:
@@ -22,6 +23,7 @@ class TracingDecorators:
         """Initialize tracing decorators.
 
         Args:
+        ----
             logger: Logger instance.
             enabled: Whether tracing is enabled.
             tracer: OpenTelemetry tracer instance.
@@ -42,12 +44,14 @@ class TracingDecorators:
         """Context manager to create a custom tracing span.
 
         Args:
+        ----
             name: The name of the span.
             kind: The kind of the span.
             attributes: The attributes of the span.
             record_exception: Whether to record an exception.
 
         Returns:
+        -------
             The span.
 
         """
@@ -77,11 +81,13 @@ class TracingDecorators:
         """Create a span for a database operation.
 
         Args:
+        ----
             operation: The operation to create the span for.
             collection: The collection to create the span for.
             **kwargs: The keyword arguments to pass to the span.
 
         Returns:
+        -------
             The span.
 
         """
@@ -103,11 +109,13 @@ class TracingDecorators:
         """Create a span for an HTTP operation.
 
         Args:
+        ----
             method: The HTTP method.
             url: The HTTP URL.
             **kwargs: The keyword arguments to pass to the span.
 
         Returns:
+        -------
             The span.
 
         """
@@ -129,11 +137,13 @@ class TracingDecorators:
         """Create a span for cache operations.
 
         Args:
+        ----
             operation: The operation to create the span for.
             key: The key to create the span for.
             **kwargs: The keyword arguments to pass to the span.
 
         Returns:
+        -------
             The span.
 
         """
@@ -153,10 +163,12 @@ class TracingDecorators:
         """Decorator to measure execution time of a function and create a span.
 
         Args:
+        ----
             span_name: The name of the span.
             attributes: The attributes to set on the span.
 
         Returns:
+        -------
             The decorator.
 
         """

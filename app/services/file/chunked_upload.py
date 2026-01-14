@@ -41,7 +41,8 @@ class ChunkedUploadHandler(BaseService):
         self.upload_ttl = config.get("file_upload_ttl", 3600)
 
         self.logger.info(
-            "ChunkedUploadHandler initialized", extra={"service": "ChunkedUploadHandler"}
+            "ChunkedUploadHandler initialized",
+            extra={"service": "ChunkedUploadHandler"},
         )
 
     def _get_upload_key(self: ChunkedUploadHandler, upload_id: str) -> str:
@@ -112,9 +113,7 @@ class ChunkedUploadHandler(BaseService):
         }
 
         key = self._get_upload_key(upload_id)
-        await self.cache_service.set(
-            key, json.dumps(upload_info), ttl=self.upload_ttl
-        )
+        await self.cache_service.set(key, json.dumps(upload_info), ttl=self.upload_ttl)
 
         self.logger.info(
             f"Started chunked upload: {upload_id}",
@@ -158,9 +157,7 @@ class ChunkedUploadHandler(BaseService):
 
         upload_info["chunks_received"] = chunks_received
         key = self._get_upload_key(upload_id)
-        await self.cache_service.set(
-            key, json.dumps(upload_info), ttl=self.upload_ttl
-        )
+        await self.cache_service.set(key, json.dumps(upload_info), ttl=self.upload_ttl)
 
         self.logger.debug(
             f"Saved chunk {chunk_number} for upload {upload_id}",
@@ -219,9 +216,7 @@ class ChunkedUploadHandler(BaseService):
 
         return None
 
-    async def is_upload_complete(
-        self: ChunkedUploadHandler, upload_id: str
-    ) -> bool:
+    async def is_upload_complete(self: ChunkedUploadHandler, upload_id: str) -> bool:
         """Check if all chunks have been received.
 
         Args:
@@ -318,15 +313,11 @@ class ChunkedUploadHandler(BaseService):
         upload_info["file_size"] = len(file_content)
 
         key = self._get_upload_key(upload_id)
-        await self.cache_service.set(
-            key, json.dumps(upload_info), ttl=self.upload_ttl
-        )
+        await self.cache_service.set(key, json.dumps(upload_info), ttl=self.upload_ttl)
 
         return upload_info
 
-    async def cleanup_upload(
-        self: ChunkedUploadHandler, upload_id: str
-    ) -> None:
+    async def cleanup_upload(self: ChunkedUploadHandler, upload_id: str) -> None:
         """Clean up upload session and chunks.
 
         Args:
@@ -357,4 +348,3 @@ class ChunkedUploadHandler(BaseService):
 
 
 __all__ = ["ChunkedUploadHandler"]
-

@@ -49,7 +49,7 @@ class TracingService(BaseService):
         # Initialize components
         self.core = TracingCore(config, logger, *args, **kwargs)
         self.decorators = TracingDecorators(logger, self.enabled, self.core.tracer)
-        self.exporters = TracingExporters(logger, self.enabled)
+        self.exporters = TracingExporters(logger, config, self.enabled)
 
     def instrument_app(self, app: FastAPI) -> None:
         """Instrument FastAPI application and external clients.

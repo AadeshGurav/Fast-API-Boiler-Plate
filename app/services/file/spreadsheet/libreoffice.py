@@ -68,9 +68,7 @@ class LibreOfficeProcessor(BaseSpreadsheetProcessor):
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            stdout, stderr = await asyncio.wait_for(
-                process.communicate(), timeout=10.0
-            )
+            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=10.0)
 
             if process.returncode == 0:
                 self._available = True
@@ -403,7 +401,9 @@ class LibreOfficeProcessor(BaseSpreadsheetProcessor):
         format_map = {".xlsx": "xlsx", ".ods": "ods", ".csv": "csv"}
         format_type = format_map.get(file_ext, "xlsx")
 
-        return await self.create_spreadsheet(file_path, existing_data, format=format_type)
+        return await self.create_spreadsheet(
+            file_path, existing_data, format=format_type
+        )
 
     async def delete_sheet(
         self: LibreOfficeProcessor,
@@ -440,7 +440,9 @@ class LibreOfficeProcessor(BaseSpreadsheetProcessor):
         format_map = {".xlsx": "xlsx", ".ods": "ods", ".csv": "csv"}
         format_type = format_map.get(file_ext, "xlsx")
 
-        return await self.create_spreadsheet(file_path, existing_data, format=format_type)
+        return await self.create_spreadsheet(
+            file_path, existing_data, format=format_type
+        )
 
     async def get_sheet_info(
         self: LibreOfficeProcessor,
@@ -481,4 +483,3 @@ class LibreOfficeProcessor(BaseSpreadsheetProcessor):
 
 
 __all__ = ["LibreOfficeProcessor"]
-

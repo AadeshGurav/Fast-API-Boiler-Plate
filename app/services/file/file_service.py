@@ -74,9 +74,7 @@ class FileService(BaseService):
 
         if self.spreadsheet_processing_enabled:
             try:
-                from app.services.file.spreadsheet_processor import (
-                    SpreadsheetProcessor,
-                )
+                from app.services.file.spreadsheet_processor import SpreadsheetProcessor
 
                 self.spreadsheet_processor = SpreadsheetProcessor(
                     logger=logger, config=config, storage_backend=storage_backend
@@ -209,7 +207,10 @@ class FileService(BaseService):
             if existing_file:
                 self.logger.info(
                     f"File with hash {content_hash} already exists",
-                    extra={"service": "FileService", "file_id": existing_file["file_id"]},
+                    extra={
+                        "service": "FileService",
+                        "file_id": existing_file["file_id"],
+                    },
                 )
                 return await self._file_metadata_to_response(existing_file)
 
@@ -220,7 +221,9 @@ class FileService(BaseService):
             existing = await self.data_service.files.get_file_by_id(file_id)
             if existing:
                 versions = await self.data_service.files.get_file_versions(file_id)
-                file_version = max((v.get("version", 0) for v in versions), default=0) + 1
+                file_version = (
+                    max((v.get("version", 0) for v in versions), default=0) + 1
+                )
 
         storage_path = self._generate_storage_path(
             user_id, file_id, file_version, filename
@@ -555,4 +558,3 @@ class FileService(BaseService):
 
 
 __all__ = ["FileService"]
-

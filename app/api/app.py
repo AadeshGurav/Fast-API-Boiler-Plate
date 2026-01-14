@@ -8,9 +8,10 @@ from typing import TYPE_CHECKING
 from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from starlette.types import Lifespan
 
 if TYPE_CHECKING:
+    from starlette.types import Lifespan
+
     from app.services.base_service import BaseService
     from app.services.logger import Logger
     from config import Config
@@ -37,11 +38,8 @@ class AppFactory:
         self.services: dict[str, BaseService] = services
         self.logger.info("AppFactory initialized", extra={"service": "AppFactory"})
 
-    def create_app(self: AppFactory, life_span: Lifespan | None = None) -> FastAPI:
+    def create_app(self: AppFactory) -> FastAPI:
         """Create and configure FastAPI app."""
-        if life_span:
-            self.life_span = life_span
-
         self.app = FastAPI(
             title=self.app_name,
             debug=self.debug,
@@ -74,21 +72,16 @@ class AppFactory:
     def _initialize_services(self: AppFactory) -> None:
         """Safely initialize optional services (retry, metrics, tracing, sentry)."""
         try:
-            # Resolve dependency_injector providers into concrete instances
-            from dependency_injector import providers as _di_providers
-
-            for key, value in self.services.items():
-                instance = (
-                    value() if isinstance(value, _di_providers.Provider) else value
-                )
+            for key, service_instance in self.services.items():
                 # Skip None services (disabled via feature flags)
-                if instance is None:
+                if service_instance is None:
                     continue
-                setattr(self.app.state, key, instance)
-                setattr(self, f"_{key}", instance)
-                self.logger.info(
-                    f"Set {key} Service in App Factory", extra={"service": "AppFactory"}
-                )
+
+                # 1. Directly attach the service (no need to check if it's a provider)
+                setattr(self.app.state, key, service_instance)
+                setattr(self, f"_{key}", service_instance)
+
+                self.logger.info(f"Set {key} Service", extra={"service": "AppFactory"})
 
             # Instrument tracing if available
             if getattr(self, "_tracing_service", None):
@@ -185,8 +178,7 @@ class AppFactory:
         self.app.include_router(files_router, prefix="/api/v1/files")
 
         # Demo routes (HTML templates) - Unified demo
-        from app.api.routes.demo import (demo_router, files_play_router,
-                                         files_router, library_router)
+        from app.api.routes.demo import demo_router, files_play_router, files_router, library_router
 
         self.app.include_router(demo_router)
         self.app.include_router(library_router)
@@ -255,13 +247,11 @@ class AppFactory:
         from app.api.middleware.error_handler import ErrorHandlerMiddleware
         from app.api.middleware.rate_limiter import RateLimiter
         from app.api.middleware.rbac import RBACMiddleware
-        from app.api.middleware.security import (RequestIDMiddleware,
-                                                 SecurityHeadersMiddleware)
+        from app.api.middleware.security import RequestIDMiddleware, SecurityHeadersMiddleware
         from app.api.middleware.sentry import SentryMiddleware
         from app.api.middleware.serialization import SerializationMiddleware
         from app.api.middleware.session import SessionMiddleware
-        from app.api.middleware.template_context import \
-            TemplateContextMiddleware
+        from app.api.middleware.template_context import TemplateContextMiddleware
         from app.api.middleware.timeout import TimeoutMiddleware
 
         origins = self.__get_cors_origins()
@@ -270,7 +260,7 @@ class AppFactory:
             ErrorHandlerMiddleware,
             config=self.config,
             logger=self.logger,
-            error_service=self._error_service,
+            error_service=self.services.get("error_service"),
         )
 
         if self._sentry_service:
@@ -278,7 +268,7 @@ class AppFactory:
                 SentryMiddleware,
                 config=self.config,
                 logger=self.logger,
-                sentry_service=self._sentry_service,
+                sentry_service=self.services.get("sentry_service"),
                 capture_exceptions=True,
                 capture_requests=True,
                 set_user_context=True,
@@ -295,6 +285,7 @@ class AppFactory:
             RequestIDMiddleware,
             config=self.config,
             logger=self.logger,
+            tracing_service=self.services.get("tracing_service"),
         )
 
         if self.config.get("enable_security_headers", True):
@@ -323,14 +314,14 @@ class AppFactory:
                 RateLimiter,
                 config=self.config,
                 logger=self.logger,
-                redis_client=self._cache_service.backend,
+                redis_client=self.services.get("data_service").cache_service.backend,
             )
 
         self.app.add_middleware(
             SessionMiddleware,
             config=self.config,
             logger=self.logger,
-            data_service=self._data_service,
+            data_service=self.services.get("data_service"),
         )
 
         self.app.add_middleware(
@@ -345,8 +336,8 @@ class AppFactory:
             RBACMiddleware,
             config=self.config,
             logger=self.logger,
-            rbac_service=self._rbac_service,
-            error_service=self._error_service,
+            rbac_service=self.services.get("rbac_service"),
+            error_service=self.services.get("error_service"),
         )
 
         self.logger.info("Middleware stack configured", extra={"service": "AppFactory"})

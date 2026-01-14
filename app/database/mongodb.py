@@ -16,63 +16,70 @@ class MongoDB(DatabaseInterface):
     async def connect(self) -> None:
         """Connect to MongoDB with production-ready settings."""
         self.logger.info("Connecting to MongoDB...")
+
         try:
-            # Create connection string with authentication if credentials exist
-            # Get username and password from config or use default None
-            username = self.config.get("mongo_username")
-            password = self.config.get("mongo_password")
-            auth_source = self.config.get("mongo_auth_source", "admin")
+            # 1. Prepare configuration
+            uri = self._build_connection_uri()
+            options = self._get_client_options()
 
-            # Build base connection string
-            if username and password:
-                encoded_username = urllib.parse.quote_plus(username)
-                encoded_password = urllib.parse.quote_plus(password)
-                connection_string = (
-                    f"mongodb://{encoded_username}:{encoded_password}"
-                    f"@{self.host}:{self.port}/{self.db_name}"
-                    f"?authSource={auth_source}"
-                )
-            else:
-                connection_string = f"mongodb://{self.host}:{self.port}/{self.db_name}"
-
-            # Create client with connection pooling configuration
-            self.client = AsyncIOMotorClient(
-                connection_string,
-                # Connection pool settings
-                maxPoolSize=self.config.get("mongo_pool_size", 100),
-                minPoolSize=self.config.get("mongo_min_pool_size", 10),
-                maxIdleTimeMS=self.config.get("mongo_max_idle_time_ms", 30000),
-                waitQueueTimeoutMS=self.config.get("mongo_wait_queue_timeout_ms", 5000),
-                # Timeout settings
-                serverSelectionTimeoutMS=5000,
-                connectTimeoutMS=5000,
-                socketTimeoutMS=5000,
-                # Performance settings
-                directConnection=self.config.get("mongo_direct_connection", False),
-                retryWrites=True,
-                retryReads=True,
-                # Monitoring
-                appname=self.config.get("app_title", "fastapi-app"),
-            )
-
+            # 2. Initialize Client
+            self.client = AsyncIOMotorClient(uri, **options)
             self.db = self.client[self.db_name]
 
-            # Verify connection with ping
+            # 3. Verify Connection
             await self.client.admin.command("ping")
             self.logger.info(f"Connected to MongoDB at {self.host}:{self.port}")
 
-            # Initialize the database after successful connection
+            # 4. Run App-specific Init
             await self.initialize_db()
 
-        except ServerSelectionTimeoutError as e:
-            self.logger.error(f"MongoDB connection timeout: {str(e)}")
-            raise
-        except ConnectionFailure as e:
-            self.logger.error(f"Failed to connect to MongoDB: {str(e)}")
+        except (ServerSelectionTimeoutError, ConnectionFailure) as e:
+            self.logger.error(f"MongoDB connection failed: {e}")
             raise
         except Exception as e:
-            self.logger.error(f"Unexpected error connecting to MongoDB: {str(e)}")
+            self.logger.error(f"Unexpected error connecting to MongoDB: {e}")
             raise
+
+    def _build_connection_uri(self) -> str:
+        """Construct the MongoDB connection URI safely handling auth."""
+        # 'or None' treats empty strings as None
+        username = self.config.get("mongo_username") or None
+        password = self.config.get("mongo_password") or None
+        auth_src = self.config.get("mongo_auth_source") or "admin"
+
+        self.logger.debug(
+            f"MongoDB Config - host: {self.host}, port: {self.port}, "
+            f"user: {username}, auth_src: {auth_src}, has_pwd: {bool(password)}"
+        )
+
+        base_uri = f"mongodb://{self.host}:{self.port}/{self.db_name}"
+
+        if not (username and password):
+            return base_uri
+
+        # Encode credentials safely
+        user_enc = urllib.parse.quote_plus(username)
+        pass_enc = urllib.parse.quote_plus(password)
+        return f"mongodb://{user_enc}:{pass_enc}@{self.host}:{self.port}/{self.db_name}?authSource={auth_src}"
+
+    def _get_client_options(self) -> dict:
+        """Centralize MongoDB client configuration parameters."""
+        return {
+            # Pool Settings
+            "maxPoolSize": self.config.get("mongo_pool_size", 100),
+            "minPoolSize": self.config.get("mongo_min_pool_size", 10),
+            "maxIdleTimeMS": self.config.get("mongo_max_idle_time_ms", 30000),
+            "waitQueueTimeoutMS": self.config.get("mongo_wait_queue_timeout_ms", 5000),
+            # Timeouts
+            "serverSelectionTimeoutMS": 5000,
+            "connectTimeoutMS": 5000,
+            "socketTimeoutMS": 5000,
+            # Operational
+            "directConnection": self.config.get("mongo_direct_connection", False),
+            "retryWrites": True,
+            "retryReads": True,
+            "appname": self.config.get("app_title", "fastapi-app"),
+        }
 
     async def initialize_db(self) -> None:
         """Initialize the database with required collections and indexes."""

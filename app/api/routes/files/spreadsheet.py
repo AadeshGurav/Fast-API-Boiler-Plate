@@ -426,7 +426,9 @@ async def create_spreadsheet_file(
             "ods": "application/vnd.oasis.opendocument.spreadsheet",
             "csv": "text/csv",
         }
-        content_type = mime_type_map.get(create_request.format, "application/octet-stream")
+        content_type = mime_type_map.get(
+            create_request.format, "application/octet-stream"
+        )
 
         file_id = str(uuid.uuid4())
         storage_path = file_service._generate_storage_path(

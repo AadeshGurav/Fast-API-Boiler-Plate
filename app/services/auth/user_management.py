@@ -8,8 +8,7 @@ from typing import TYPE_CHECKING
 from app.models.user import User, UserPublic
 
 if TYPE_CHECKING:
-    from app.core.interfaces.password_service_interface import \
-        PasswordServiceInterface
+    from app.core.interfaces.password_service_interface import PasswordServiceInterface
     from app.models.user import UserCreate
     from app.services.data import DataService
     from app.services.logger import Logger

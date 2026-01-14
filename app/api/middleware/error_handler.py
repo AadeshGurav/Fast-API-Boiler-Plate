@@ -30,22 +30,14 @@ class ErrorHandlerMiddleware(BaseMiddleware):
                     - log_errors (bool)
                     - include_traceback (bool)
                     - app_debug (bool)
+                    - error_service: ErrorService instance
             kwargs: Additional keyword arguments.
 
         """
         self.log_errors: bool = self.config.get("log_errors", True)
         self.include_traceback: bool = self.config.get("include_traceback", False)
         self.app_debug: bool = self.config.get("app_debug", False)
-        self.error_service: ErrorService | None = None
-
-        # Try to import a centralized error service if available
-        try:
-            self.error_service = self.app.state.error_service
-        except AttributeError as e:
-            self.logger.warning(
-                f"Error service not found: {e}",
-                extra={"middleware": "ErrorHandlerMiddleware"},
-            )
+        self.error_service: ErrorService = kwargs.get("error_service")
 
         self.logger.info(
             "ErrorHandlerMiddleware initialized",

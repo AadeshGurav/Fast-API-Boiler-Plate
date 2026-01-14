@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from fastapi import Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.utils.utils import extract_device_info
