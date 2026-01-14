@@ -17,7 +17,6 @@ from sentry_sdk.integrations.redis import RedisIntegration
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
 from app.services.base_service import BaseService
-from app.services.logger import Logger
 
 if TYPE_CHECKING:
     from app.services.logger import Logger

@@ -59,15 +59,19 @@ class Container(containers.DeclarativeContainer):
     )
 
     database_service: DatabaseService = providers.Singleton(
-        DatabaseService,
-        config=config,
-        logger=logger
+        DatabaseService, config=config, logger=logger
     )
 
-    cache_service: CacheService = providers.Singleton(CacheService, config=config, logger=logger)
+    cache_service: CacheService = providers.Singleton(
+        CacheService, config=config, logger=logger
+    )
 
     data_service: DataService = providers.Singleton(
-        DataService, logger=logger, config=config, database_service=database_service, cache_service=cache_service
+        DataService,
+        logger=logger,
+        config=config,
+        database_service=database_service,
+        cache_service=cache_service,
     )
 
     password_service: PasswordService = providers.Singleton(
@@ -205,14 +209,12 @@ class Container(containers.DeclarativeContainer):
         logger=logger,
         debug=config.provided.app_debug,
         life_span=lifespan,
-        services={
+        services=providers.Dict({
+            "data_service": data_service,
             "retry_service": retry_service,
             "metrics_service": metrics_service,
             "tracing_service": tracing_service,
             "sentry_service": sentry_service,
-            "data_service": data_service,
-            "database_service": database_service,
-            "cache_service": cache_service,
             "password_service": password_service,
             "rbac_service": rbac_service,
             "oauth_service": oauth_service,
@@ -221,13 +223,11 @@ class Container(containers.DeclarativeContainer):
             "error_service": error_service,
             "file_service": file_service,
             "class_store": class_store,
-        },
+        }),
     )
 
     # FastAPI application instance
-    app: FastAPI = providers.Singleton(
-        app_factory.provided.create_app.call()
-    )
+    app: FastAPI = providers.Singleton(app_factory.provided.create_app.call())
 
     # TODO: user proper DI injection instead of this
     def init_app(self: Container) -> None:

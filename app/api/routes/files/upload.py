@@ -53,10 +53,13 @@ async def upload_file(
         )
         if not user_id:
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated"
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not authenticated",
             )
 
-        content_type = content_type or request.headers.get("content-type", "application/octet-stream")
+        content_type = content_type or request.headers.get(
+            "content-type", "application/octet-stream"
+        )
 
         tag_list = []
         if tags:
@@ -144,7 +147,8 @@ async def upload_chunk(
         )
         if not user_id:
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated"
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not authenticated",
             )
 
         if not file_service.chunked_upload_handler:
@@ -153,7 +157,9 @@ async def upload_chunk(
                 detail="Chunked upload not available",
             )
 
-        upload_info = await file_service.chunked_upload_handler.get_upload_info(upload_id)
+        upload_info = await file_service.chunked_upload_handler.get_upload_info(
+            upload_id
+        )
         if not upload_info:
             await file_service.chunked_upload_handler.start_upload(
                 upload_id=upload_id,
@@ -173,8 +179,12 @@ async def upload_chunk(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to save chunk"
             )
 
-        upload_info = await file_service.chunked_upload_handler.get_upload_info(upload_id)
-        chunks_received = len(upload_info.get("chunks_received", [])) if upload_info else 0
+        upload_info = await file_service.chunked_upload_handler.get_upload_info(
+            upload_id
+        )
+        chunks_received = (
+            len(upload_info.get("chunks_received", [])) if upload_info else 0
+        )
 
         return ChunkUploadResponse(
             upload_id=upload_id,
@@ -224,7 +234,8 @@ async def complete_chunked_upload(
         )
         if not user_id:
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated"
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not authenticated",
             )
 
         if not file_service.chunked_upload_handler:
@@ -233,7 +244,9 @@ async def complete_chunked_upload(
                 detail="Chunked upload not available",
             )
 
-        upload_info = await file_service.chunked_upload_handler.complete_upload(upload_id)
+        upload_info = await file_service.chunked_upload_handler.complete_upload(
+            upload_id
+        )
         if not upload_info:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -245,7 +258,9 @@ async def complete_chunked_upload(
                 status_code=status.HTTP_403_FORBIDDEN, detail="Unauthorized"
             )
 
-        file_content = await file_service.chunked_upload_handler.reassemble_file(upload_id)
+        file_content = await file_service.chunked_upload_handler.reassemble_file(
+            upload_id
+        )
         if not file_content:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="File content not found"
@@ -274,4 +289,3 @@ async def complete_chunked_upload(
 
 
 __all__ = ["router"]
-

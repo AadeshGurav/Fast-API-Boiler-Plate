@@ -145,7 +145,7 @@ async def get_demo_user_context(request: Request) -> dict[str, Any] | None:
         return None
     except (ValueError, KeyError, AttributeError, TypeError):
         return None
-    except Exception:
+    except Exception:  # noqa: BLE001
         return None
 
 
@@ -157,8 +157,6 @@ def clear_user_cache(user_id: str | None = None) -> None:
         user_id: Specific user ID to clear, or None to clear all
 
     """
-    global _USER_CACHE
-
     if user_id:
         cache_key = f"user_{user_id}"
         _USER_CACHE.pop(cache_key, None)

@@ -7,4 +7,3 @@ from .excel import ExcelProcessor
 from .libreoffice import LibreOfficeProcessor
 
 __all__ = ["BaseSpreadsheetProcessor", "ExcelProcessor", "LibreOfficeProcessor"]
-

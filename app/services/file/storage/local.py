@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import aiofiles
-from aiofiles.os import makedirs, remove, stat
+from aiofiles.os import remove, stat
 
 from app.core.interfaces.storage_interface import StorageInterface
 
@@ -63,19 +63,19 @@ class LocalStorage(StorageInterface):
         # Normalize path to prevent directory traversal
         # Remove any leading slashes and normalize separators
         normalized_path = file_path.lstrip("/").replace("\\", "/")
-        
+
         # Check for path traversal patterns
         if ".." in normalized_path or normalized_path.startswith("/"):
             raise ValueError("Path traversal detected")
-        
+
         # Build the full path
         full_path = self.base_path / normalized_path
-        
+
         # Resolve both paths to absolute and check
         try:
             base_resolved = str(self.base_path.resolve())
             full_resolved = str(full_path.resolve())
-            
+
             # Check if resolved path is within base path
             if not full_resolved.startswith(base_resolved):
                 raise ValueError("Path traversal detected")
@@ -85,7 +85,7 @@ class LocalStorage(StorageInterface):
             parts = normalized_path.split("/")
             if ".." in parts or any(part.startswith("..") for part in parts):
                 raise ValueError("Path traversal detected")
-        
+
         return full_path
 
     async def save(
@@ -328,4 +328,3 @@ class LocalStorage(StorageInterface):
 
 
 __all__ = ["LocalStorage"]
-

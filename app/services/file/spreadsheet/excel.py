@@ -162,4 +162,3 @@ class ExcelProcessor(BaseSpreadsheetProcessor):
 
 
 __all__ = ["ExcelProcessor"]
-

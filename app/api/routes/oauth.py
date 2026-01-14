@@ -152,7 +152,7 @@ async def oauth_callback(
         # Create login request for auth service
         from app.models.auth import LoginRequest
 
-        login_request = LoginRequest(
+        login_request = LoginRequest(  # noqa: F841
             username=user.username,
             password="",  # OAuth users don't have passwords
             device_info=device_info,
@@ -207,7 +207,7 @@ async def oauth_callback(
             "expires_at": datetime.now(timezone.utc) + timedelta(hours=168),  # 7 days
         }
 
-        session_id = await data_service.sessions.create_session(session_data)
+        await data_service.sessions.create_session(session_data)  # noqa: F841
 
         # Create token pair
         from app.models.auth import TokenPair
@@ -270,7 +270,7 @@ async def link_oauth_account(
     try:
         # Validate provider
         try:
-            oauth_provider = OAuthProvider(provider)
+            oauth_provider = OAuthProvider(provider)  # noqa: F841
         except ValueError:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

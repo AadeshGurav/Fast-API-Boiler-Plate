@@ -17,3 +17,4 @@ logs/*
 *-local.json
 .cursor/plans/*
 uploads/*
+.DS_Store

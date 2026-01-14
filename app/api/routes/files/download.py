@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from fastapi.responses import Response, StreamingResponse
+from fastapi.responses import StreamingResponse
 
 from app import container as app_container
 from app.models.file import FileResponse
@@ -121,4 +121,3 @@ async def get_file_metadata(
 
 
 __all__ = ["router"]
-

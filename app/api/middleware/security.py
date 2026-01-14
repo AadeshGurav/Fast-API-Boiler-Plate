@@ -8,6 +8,7 @@ from collections.abc import Callable
 from fastapi import Request, Response
 
 from app.services.logger import create_log_context, set_request_id
+from app.services.tracing import TracingService
 
 from .base import BaseMiddleware
 
@@ -238,6 +239,7 @@ class RequestIDMiddleware(BaseMiddleware):
 
         """
         self.header_name = self.config.get("request_id_header", "X-Request-ID")
+        self.tracing_service: TracingService = kwargs.get("tracing_service")
         self.logger.info(
             "RequestIDMiddleware initialized",
             extra=create_log_context(middleware="RequestIDMiddleware"),
@@ -266,13 +268,7 @@ class RequestIDMiddleware(BaseMiddleware):
 
         if enable_trace:
             # Get trace ID if tracing is active
-            tracing_service = getattr(request.app.state, "tracing_service", None)
-            trace_id = None
-            if tracing_service and hasattr(tracing_service, "get_trace_id"):
-                try:
-                    trace_id = tracing_service.get_trace_id()
-                except Exception:  # noqa: BLE001
-                    pass
+            trace_id = self.tracing_service.get_trace_id()
 
             # Combine request ID and trace ID
             if trace_id:

@@ -68,7 +68,9 @@ class AuthService(
             password_service,
             rbac_service,
         )
-        UserManagementMixin.__init__(self, logger, config, data_service, password_service)
+        UserManagementMixin.__init__(
+            self, logger, config, data_service, password_service
+        )
         SessionManagementMixin.__init__(self, logger, data_service)
 
     # Interface implementation methods

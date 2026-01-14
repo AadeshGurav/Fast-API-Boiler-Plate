@@ -96,7 +96,9 @@ class ImageProcessor(BaseService):
                     thumb_path = self._generate_thumbnail_path(storage_path, size)
 
                     thumb_bytes = await self._image_to_bytes(thumbnail, image_format)
-                    await self.storage_backend.save(thumb_path, thumb_bytes, overwrite=True)
+                    await self.storage_backend.save(
+                        thumb_path, thumb_bytes, overwrite=True
+                    )
 
                     thumbnail_paths[str(size)] = thumb_path
 
@@ -159,7 +161,9 @@ class ImageProcessor(BaseService):
                 rgb_image = Image.new("RGB", image.size, (255, 255, 255))
                 if image.mode == "P":
                     image = image.convert("RGBA")
-                rgb_image.paste(image, mask=image.split()[-1] if image.mode == "RGBA" else None)
+                rgb_image.paste(
+                    image, mask=image.split()[-1] if image.mode == "RGBA" else None
+                )
                 image = rgb_image
             image.save(buffer, format="JPEG", quality=85, optimize=True)
         else:
@@ -198,7 +202,9 @@ class ImageProcessor(BaseService):
                 new_height = max_height or original_height
 
                 if max_width and max_height:
-                    ratio = min(new_width / original_width, new_height / original_height)
+                    ratio = min(
+                        new_width / original_width, new_height / original_height
+                    )
                     new_width = int(original_width * ratio)
                     new_height = int(original_height * ratio)
                 elif max_width:
@@ -221,4 +227,3 @@ class ImageProcessor(BaseService):
 
 
 __all__ = ["ImageProcessor"]
-

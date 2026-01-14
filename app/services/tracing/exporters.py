@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fastapi import FastAPI
 from opentelemetry import trace
@@ -11,25 +11,29 @@ from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 from opentelemetry.instrumentation.pymongo import PymongoInstrumentor
 from opentelemetry.instrumentation.redis import RedisInstrumentor
 
-from app.services.logger import Logger
+if TYPE_CHECKING:
+    from app.services.logger import Logger
+    from config import Config
 
 
 class TracingExporters:
     """Tracing exporters and instrumentation functionality."""
 
-    def __init__(self, logger: Logger, enabled: bool = True):
+    def __init__(self: TracingExporters, logger: Logger, config: Config, enabled: bool = True):
         """Initialize tracing exporters.
 
         Args:
         ----
             logger: Logger instance.
+            config: Configuration object.
             enabled: Whether tracing is enabled.
 
         """
         self.logger = logger
+        self.config = config
         self.enabled = enabled
 
-    def instrument_app(self, app: FastAPI) -> None:
+    def instrument_app(self: TracingExporters, app: FastAPI) -> None:
         """Instrument FastAPI application and external clients.
 
         Args:
@@ -49,7 +53,7 @@ class TracingExporters:
             )
             HTTPXClientInstrumentor().instrument()
             # Optionally instrument PyMongo; default disabled to avoid attribute type issues
-            if app.state.config.get("tracing_pymongo_enabled", False):
+            if self.config.get("tracing_pymongo_enabled", False):
                 try:
                     PymongoInstrumentor().instrument()
                 except Exception as pymongo_instr_error:  # noqa: BLE001
@@ -184,5 +188,4 @@ class TracingExporters:
         return ctx
 
 
-__all__ = ["TracingExporters"]
 __all__ = ["TracingExporters"]

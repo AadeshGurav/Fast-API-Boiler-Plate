@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 from app.services.base_service import BaseService
 
 if TYPE_CHECKING:
+    from app.core.interfaces.database_interface import DatabaseInterface
     from app.services.logger import Logger
     from config import Config
 
@@ -39,7 +40,7 @@ class DatabaseService(BaseService):
         if database_provider == "mongodb":
             from app.database.mongodb import MongoDB
 
-            self.backend: MongoDB = MongoDB(
+            self.backend: DatabaseInterface = MongoDB(
                 host=config.get("mongo_host"),
                 port=config.get("mongo_port"),
                 db_name=config.get("app_database"),
@@ -49,7 +50,7 @@ class DatabaseService(BaseService):
         elif database_provider == "redis":
             from app.database.redis import Redis
 
-            self.backend: Redis = Redis(
+            self.backend: DatabaseInterface = Redis(
                 host=config.get("redis_host"),
                 port=config.get("redis_port"),
                 db_name=config.get("app_database"),

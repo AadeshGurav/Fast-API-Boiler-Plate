@@ -132,9 +132,9 @@ async def read_file_api(
                 processed_data["image_mode"] = image.mode
 
                 img_base64 = base64.b64encode(file_content).decode("utf-8")
-                processed_data[
-                    "image_base64"
-                ] = f"data:{content_type};base64,{img_base64}"
+                processed_data["image_base64"] = (
+                    f"data:{content_type};base64,{img_base64}"
+                )
             except (OSError, ValueError) as e:
                 processed_data["error"] = f"Failed to process image: {str(e)}"
 

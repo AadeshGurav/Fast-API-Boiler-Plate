@@ -4,12 +4,13 @@ import functools
 import hashlib
 import json
 from typing import TYPE_CHECKING, Any
-from app.database.redis import Redis
 
+from app.database.redis import Redis
 from app.services.base_service import BaseService
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
     from app.services.logger import Logger
     from config import Config
 
@@ -65,9 +66,7 @@ class CacheService(BaseService):
     ) -> bool:
         """Set a value in cache with TTL."""
         full_key = f"{self.prefix}{key}"
-        return await self.backend.set(
-            full_key, value, expire=ttl or self.default_ttl
-        )
+        return await self.backend.set(full_key, value, expire=ttl or self.default_ttl)
 
     async def delete(self: CacheService, key: str) -> int:
         """Delete a value from cache."""

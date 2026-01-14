@@ -46,7 +46,8 @@ async def list_files(
         )
         if not user_id:
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated"
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not authenticated",
             )
 
         offset = (page - 1) * page_size
@@ -111,7 +112,8 @@ async def update_file(
         )
         if not user_id:
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated"
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not authenticated",
             )
 
         file_response = await file_service.update_file_metadata(
@@ -173,7 +175,8 @@ async def delete_file(
         )
         if not user_id:
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated"
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not authenticated",
             )
 
         success = await file_service.delete_file(
@@ -231,7 +234,8 @@ async def get_file_versions(
         )
         if not user_id:
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated"
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not authenticated",
             )
 
         versions = await file_service.get_file_versions(file_id)
@@ -253,4 +257,3 @@ async def get_file_versions(
 
 
 __all__ = ["router"]
-
