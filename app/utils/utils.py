@@ -100,7 +100,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # Initialize OAuth providers if enabled
         try:
             oauth_service = container.oauth_service()
-            if oauth_service.oauth_enabled:
+            if oauth_service and oauth_service.oauth_enabled:
                 providers = list(oauth_service.providers.keys())
                 logger.info(f"OAuth providers initialized: {providers}")
             else:

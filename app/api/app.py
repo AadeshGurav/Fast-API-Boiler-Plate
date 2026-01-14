@@ -81,6 +81,9 @@ class AppFactory:
                 instance = (
                     value() if isinstance(value, _di_providers.Provider) else value
                 )
+                # Skip None services (disabled via feature flags)
+                if instance is None:
+                    continue
                 setattr(self.app.state, key, instance)
                 setattr(self, f"_{key}", instance)
                 self.logger.info(
@@ -141,7 +144,7 @@ class AppFactory:
             env = Environment(loader=FileSystemLoader(str(templates_path)))
             env.filters["safe_user_json"] = safe_user_json
             self.app.state.templates = Jinja2Templates(env=env)
-            
+
             # Verify filter is registered
             if "safe_user_json" not in env.filters:
                 self.logger.error(
@@ -182,12 +185,8 @@ class AppFactory:
         self.app.include_router(files_router, prefix="/api/v1/files")
 
         # Demo routes (HTML templates) - Unified demo
-        from app.api.routes.demo import (
-            demo_router,
-            files_play_router,
-            files_router,
-            library_router,
-        )
+        from app.api.routes.demo import (demo_router, files_play_router,
+                                         files_router, library_router)
 
         self.app.include_router(demo_router)
         self.app.include_router(library_router)
@@ -256,11 +255,13 @@ class AppFactory:
         from app.api.middleware.error_handler import ErrorHandlerMiddleware
         from app.api.middleware.rate_limiter import RateLimiter
         from app.api.middleware.rbac import RBACMiddleware
-        from app.api.middleware.security import RequestIDMiddleware, SecurityHeadersMiddleware
+        from app.api.middleware.security import (RequestIDMiddleware,
+                                                 SecurityHeadersMiddleware)
         from app.api.middleware.sentry import SentryMiddleware
         from app.api.middleware.serialization import SerializationMiddleware
         from app.api.middleware.session import SessionMiddleware
-        from app.api.middleware.template_context import TemplateContextMiddleware
+        from app.api.middleware.template_context import \
+            TemplateContextMiddleware
         from app.api.middleware.timeout import TimeoutMiddleware
 
         origins = self.__get_cors_origins()

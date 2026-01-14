@@ -1,0 +1,7 @@
+{
+    "retry_service": true,
+    "metrics_service": true,
+    "tracing_service": true,
+    "sentry_service": true,
+    "oauth_service": false
+}

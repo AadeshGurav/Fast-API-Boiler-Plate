@@ -51,44 +51,12 @@ class Container(containers.DeclarativeContainer):
         ]
     )
 
-    # Configuration provider - using lazy import to avoid circular dependency
     config = providers.Singleton(Config)
 
-    # Logger with direct configuration
     logger: Logger = providers.Singleton(
         Logger,
         config=config,
     )
-
-    # Retry service
-    retry_service = providers.Singleton(
-        RetryService,
-        logger=logger,
-        config=config,
-    )
-
-    # Metrics service
-    metrics_service = providers.Singleton(
-        MetricsService,
-        logger=logger,
-        config=config,
-    )
-
-    # Tracing service
-    tracing_service = providers.Singleton(
-        TracingService,
-        logger=logger,
-        config=config,
-    )
-
-    # Sentry service
-    sentry_service = providers.Singleton(
-        SentryService,
-        logger=logger,
-        config=config,
-    )
-
-    # Services
 
     database_service: DatabaseService = providers.Singleton(
         DatabaseService,
@@ -96,22 +64,18 @@ class Container(containers.DeclarativeContainer):
         logger=logger
     )
 
-    # Cache service - get from data_service
     cache_service: CacheService = providers.Singleton(CacheService, config=config, logger=logger)
 
-    # Database
     data_service: DataService = providers.Singleton(
         DataService, logger=logger, config=config, database_service=database_service, cache_service=cache_service
     )
 
-    # Password service
     password_service: PasswordService = providers.Singleton(
         PasswordService,
         config=config,
         logger=logger,
     )
 
-    # RBAC service
     rbac_service: RBACService = providers.Singleton(
         RBACService,
         config=config,
@@ -120,15 +84,6 @@ class Container(containers.DeclarativeContainer):
         cache_service=cache_service,
     )
 
-    # OAuth service
-    oauth_service: OAuthService = providers.Singleton(
-        OAuthService,
-        config=config,
-        logger=logger,
-        data_service=data_service,
-    )
-
-    # Enhanced Auth service
     auth_service: AuthService = providers.Singleton(
         AuthService,
         logger=logger,
@@ -142,19 +97,16 @@ class Container(containers.DeclarativeContainer):
         SessionService, config=config, logger=logger, data_service=data_service
     )
 
-    # ErrorService as a core singleton
     error_service: ErrorService = providers.Singleton(
         ErrorService, logger=logger, config=config
     )
 
-    # Storage backend for files
     storage_backend: LocalStorage = providers.Singleton(
         LocalStorage,
         logger=logger,
         config=config,
     )
 
-    # File service
     file_service: FileService = providers.Singleton(
         FileService,
         logger=logger,
@@ -163,8 +115,84 @@ class Container(containers.DeclarativeContainer):
         storage_backend=storage_backend,
     )
 
-    # ClassStore (soft dependencies)
-    # Use factory to set container reference after creation
+    @staticmethod
+    def _create_retry_service(cfg: Config, log: Logger) -> RetryService | None:
+        """Create retry service if enabled in config."""
+        if cfg.get("retry_service"):
+            log.info("Retry service: Enabled", extra={"service": "Container"})
+            return RetryService(logger=log, config=cfg)
+        log.info("Retry service: Disabled", extra={"service": "Container"})
+        return None
+
+    @staticmethod
+    def _create_metrics_service(cfg: Config, log: Logger) -> MetricsService | None:
+        """Create metrics service if enabled in config."""
+        if cfg.get("metrics_service"):
+            log.info("Metrics service: Enabled", extra={"service": "Container"})
+            return MetricsService(logger=log, config=cfg)
+        log.info("Metrics service: Disabled", extra={"service": "Container"})
+        return None
+
+    @staticmethod
+    def _create_tracing_service(cfg: Config, log: Logger) -> TracingService | None:
+        """Create tracing service if enabled in config."""
+        if cfg.get("tracing_service"):
+            log.info("Tracing service: Enabled", extra={"service": "Container"})
+            return TracingService(logger=log, config=cfg)
+        log.info("Tracing service: Disabled", extra={"service": "Container"})
+        return None
+
+    @staticmethod
+    def _create_sentry_service(cfg: Config, log: Logger) -> SentryService | None:
+        """Create sentry service if enabled in config."""
+        if cfg.get("sentry_service"):
+            log.info("Sentry service: Enabled", extra={"service": "Container"})
+            return SentryService(logger=log, config=cfg)
+        log.info("Sentry service: Disabled", extra={"service": "Container"})
+        return None
+
+    @staticmethod
+    def _create_oauth_service(
+        cfg: Config, log: Logger, data_svc: DataService
+    ) -> OAuthService | None:
+        """Create oauth service if enabled in config."""
+        if cfg.get("oauth_service"):
+            log.info("OAuth service: Enabled", extra={"service": "Container"})
+            return OAuthService(config=cfg, logger=log, data_service=data_svc)
+        log.info("OAuth service: Disabled", extra={"service": "Container"})
+        return None
+
+    retry_service = providers.Factory(
+        _create_retry_service,
+        cfg=config,
+        log=logger,
+    )
+
+    metrics_service = providers.Factory(
+        _create_metrics_service,
+        cfg=config,
+        log=logger,
+    )
+
+    tracing_service = providers.Factory(
+        _create_tracing_service,
+        cfg=config,
+        log=logger,
+    )
+
+    sentry_service = providers.Factory(
+        _create_sentry_service,
+        cfg=config,
+        log=logger,
+    )
+
+    oauth_service = providers.Factory(
+        _create_oauth_service,
+        cfg=config,
+        log=logger,
+        data_svc=data_service,
+    )
+
     class_store: ClassStore = providers.Singleton(
         ClassStore, config=config, logger=logger
     )
