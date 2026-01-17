@@ -7,6 +7,7 @@ from datetime import datetime
 from pydantic import Field
 
 from app.core.dynamic_config import DynamicConfig
+
 # Import at runtime so Pydantic can resolve annotations during schema generation
 from app.models.session import DeviceInfo
 from app.models.user import UserPublic
@@ -42,9 +43,7 @@ class LoginRequest(DynamicConfig):
 
     username: str = Field(..., description="Username")
     password: str = Field(..., description="Password")
-    remember_me: bool = Field(
-        default=False, description="Remember user for 30 days"
-    )
+    remember_me: bool = Field(default=False, description="Remember user for 30 days")
     device_info: DeviceInfo | None = Field(
         None, description="Device information (added server-side)"
     )

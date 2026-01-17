@@ -10,8 +10,7 @@ from typing import TYPE_CHECKING, Any
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 
-from app.core.interfaces.password_service_interface import \
-    PasswordServiceInterface
+from app.core.interfaces.password_service_interface import PasswordServiceInterface
 from app.services.base_service import BaseService
 
 if TYPE_CHECKING:

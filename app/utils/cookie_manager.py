@@ -40,8 +40,12 @@ class CookieManager:
         # For development: default to False for secure (allows HTTP) and httponly (allows JS access)
         # For production: should be set to True in config
         if config:
-            httponly = config.get("cookie_httponly", False)  # Default False for development
-            secure = config.get("cookie_secure", False)  # Default False for HTTP (localhost)
+            httponly = config.get(
+                "cookie_httponly", False
+            )  # Default False for development
+            secure = config.get(
+                "cookie_secure", False
+            )  # Default False for HTTP (localhost)
             samesite = config.get("cookie_samesite", "lax")
         else:
             # Development-friendly defaults if no config provided
@@ -62,9 +66,7 @@ class CookieManager:
 
         if token_pair.refresh_token:
             # Set refresh token cookie expiry: 30 days if remember_me, otherwise 7 days
-            refresh_max_age = (
-                30 * 24 * 60 * 60 if remember_me else 7 * 24 * 60 * 60
-            )
+            refresh_max_age = 30 * 24 * 60 * 60 if remember_me else 7 * 24 * 60 * 60
             response.set_cookie(
                 key=refresh_token_key,
                 value=token_pair.refresh_token,
@@ -126,8 +128,12 @@ class CookieManager:
             cookie_name = config.get("auth_session_cookie_name", "auth_session")
             default_max_age = config.get("session_max_age", 7 * 24 * 60 * 60)  # 7 days
             path = config.get("session_cookie_path", "/")
-            httponly = config.get("cookie_httponly", False)  # Default False for development
-            secure = config.get("cookie_secure", False)  # Default False for HTTP (localhost)
+            httponly = config.get(
+                "cookie_httponly", False
+            )  # Default False for development
+            secure = config.get(
+                "cookie_secure", False
+            )  # Default False for HTTP (localhost)
             samesite = config.get("cookie_samesite", "lax")
         else:
             # Development-friendly defaults if no config provided

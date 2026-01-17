@@ -87,14 +87,11 @@ class ClassStore:
                 if key in self._registry:
                     existing_cls = self._registry[key]
                     # Check if it's the same class by identity or by full module path
-                    same_class = (
-                        existing_cls is cls
-                        or (
-                            hasattr(existing_cls, "__module__")
-                            and hasattr(cls, "__module__")
-                            and existing_cls.__module__ == cls.__module__
-                            and existing_cls.__name__ == cls.__name__
-                        )
+                    same_class = existing_cls is cls or (
+                        hasattr(existing_cls, "__module__")
+                        and hasattr(cls, "__module__")
+                        and existing_cls.__module__ == cls.__module__
+                        and existing_cls.__name__ == cls.__name__
                     )
                     if same_class:
                         # Same class already registered (re-imported), skip silently

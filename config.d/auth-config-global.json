@@ -2,7 +2,7 @@
   "jwt_secret": "X*yG9v8(>b+MHgxgf0le_i4Ihfg:Yqcl7&Drhxqc_]k09!*Vp#odM5#QYBZEWCd<@U:@#;q0n`Cmyd@d,udjElg<9/pOyn~>G8B~(@P)SEIc6?<iAId\\QS8V#nKYv-%",
   "jwt_algo": "HS256",
   "jwt_token_expiry": 30,
-  "jwt_access_token_expiry": 1,
+  "jwt_access_token_expiry": 60,
   "jwt_refresh_token_expiry": 168,
   "password_reset_token_lifetime": 3600,
   "verification_token_lifetime": 86400,

@@ -7,8 +7,7 @@ from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer
 
 from app import container as app_container
-from app.models.auth import (LoginRequest, LoginResponse, RefreshRequest,
-                             TokenPair)
+from app.models.auth import LoginRequest, LoginResponse, RefreshRequest, TokenPair
 from app.services.auth import AuthService
 from app.utils.cookie_manager import CookieManager
 from app.utils.permissions import get_current_user

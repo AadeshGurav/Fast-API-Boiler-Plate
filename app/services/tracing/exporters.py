@@ -19,7 +19,9 @@ if TYPE_CHECKING:
 class TracingExporters:
     """Tracing exporters and instrumentation functionality."""
 
-    def __init__(self: TracingExporters, logger: Logger, config: Config, enabled: bool = True):
+    def __init__(
+        self: TracingExporters, logger: Logger, config: Config, enabled: bool = True
+    ):
         """Initialize tracing exporters.
 
         Args:

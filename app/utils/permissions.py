@@ -184,6 +184,20 @@ async def get_current_user(
         if not isinstance(token, HTTPAuthorizationCredentials):
             token_str = _extract_token_from_request(request)
             if not token_str:
+                # If no access token, try to refresh using refresh token before failing
+                # This handles the case where access token cookie expired but refresh token still exists
+                # When called directly, auth_service will be a Depends object, not AuthService
+                if not isinstance(auth_service, AuthService):
+                    auth_service = container.auth_service()
+
+                # Try to refresh using refresh token
+                refreshed_payload = await _attempt_token_refresh(request, auth_service)
+                if refreshed_payload:
+                    # Attach user info to request state for logging
+                    request.state.user_id = refreshed_payload.user_id
+                    request.state.username = refreshed_payload.username
+                    return refreshed_payload
+
                 # Log available cookies for debugging
                 if hasattr(request, "cookies") and request.cookies:
                     cookie_names = list(request.cookies.keys())
@@ -216,6 +230,7 @@ async def get_current_user(
             import jwt
 
             token_expired = False
+            exp_datetime = None
             try:
                 decoded = jwt.decode(
                     token_credentials,
@@ -228,7 +243,8 @@ async def get_current_user(
                     exp_datetime = datetime.fromtimestamp(
                         exp_timestamp, tz=timezone.utc
                     )
-                    if exp_datetime < datetime.now(timezone.utc):
+                    now = datetime.now(timezone.utc)
+                    if exp_datetime < now:
                         token_expired = True
             except jwt.ExpiredSignatureError:
                 token_expired = True

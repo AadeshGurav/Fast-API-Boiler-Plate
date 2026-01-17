@@ -92,7 +92,7 @@ class BaseSpreadsheetProcessor(ABC):
 
             # Check if LibreOffice command is available
             libreoffice_path = config.get("file_libreoffice_path", "libreoffice")
-            
+
             # Check common macOS paths if default not found
             if platform_name == "darwin":
                 possible_paths = [
@@ -111,7 +111,7 @@ class BaseSpreadsheetProcessor(ABC):
                                 extra={"service": "BaseSpreadsheetProcessor"},
                             )
                         break
-                
+
                 if not libreoffice_found:
                     logger.warning(
                         "LibreOffice not found on macOS, falling back to Python processor. "
@@ -119,6 +119,7 @@ class BaseSpreadsheetProcessor(ABC):
                         extra={"service": "BaseSpreadsheetProcessor"},
                     )
                     from .python_processor import PythonSpreadsheetProcessor
+
                     return PythonSpreadsheetProcessor(logger, config, storage_backend)
             else:
                 # Linux: Check if libreoffice is in PATH
@@ -129,6 +130,7 @@ class BaseSpreadsheetProcessor(ABC):
                         extra={"service": "BaseSpreadsheetProcessor"},
                     )
                     from .python_processor import PythonSpreadsheetProcessor
+
                     return PythonSpreadsheetProcessor(logger, config, storage_backend)
 
             return LibreOfficeProcessor(logger, config, storage_backend)

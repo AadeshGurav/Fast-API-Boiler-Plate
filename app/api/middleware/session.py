@@ -29,10 +29,10 @@ class SessionMiddleware(BaseMiddleware):
 
         """
         self.data_service: DataService = data_service
-        self.cookie_name = self.config.get(
-            "auth_session_cookie_name", "auth_session"
-        )
-        self.max_age = self.config.get("session_max_age", 7 * 24 * 60 * 60)  # 7 days to match JWT refresh token
+        self.cookie_name = self.config.get("auth_session_cookie_name", "auth_session")
+        self.max_age = self.config.get(
+            "session_max_age", 7 * 24 * 60 * 60
+        )  # 7 days to match JWT refresh token
         self.path = self.config.get("session_cookie_path", "/")
         self.same_site = self.config.get("session_cookie_same_site", "lax")
         # Cookie security settings (default to False for development/HTTP)

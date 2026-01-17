@@ -42,13 +42,13 @@ class LibreOfficeProcessor(BaseSpreadsheetProcessor):
 
         """
         super().__init__(logger, config, storage_backend, *args, **kwargs)
-        
+
         # Determine LibreOffice path with macOS support
         default_path = config.get("file_libreoffice_path", "libreoffice")
         import platform
         import shutil
         from pathlib import Path
-        
+
         if platform.system().lower() == "darwin":
             # macOS: Check common installation paths
             possible_paths = [
@@ -65,7 +65,7 @@ class LibreOfficeProcessor(BaseSpreadsheetProcessor):
                 self.libreoffice_path = default_path
         else:
             self.libreoffice_path = default_path
-        
+
         self._available = None
 
         self.logger.info(

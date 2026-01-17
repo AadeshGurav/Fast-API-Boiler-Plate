@@ -18,8 +18,7 @@ from app.services.data.policies import CachePolicy
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from app.core.interfaces.password_service_interface import \
-        PasswordServiceInterface
+    from app.core.interfaces.password_service_interface import PasswordServiceInterface
     from app.core.interfaces.rbac_service_interface import RBACServiceInterface
     from app.models.auth import TokenPair
     from app.models.session import DeviceInfo
@@ -454,7 +453,9 @@ class AuthService(
         if token_payload.exp:
             token_lifetime = (token_payload.exp - token_payload.iat).total_seconds()
             # If token lifetime is approximately 30 days (43200 * 60 seconds), it was remember_me
-            remember_me = token_lifetime > (20 * 24 * 60 * 60)  # > 20 days = likely 30-day token
+            remember_me = token_lifetime > (
+                20 * 24 * 60 * 60
+            )  # > 20 days = likely 30-day token
         else:
             remember_me = False
 
@@ -569,9 +570,7 @@ class AuthService(
 
         return self._verify_device_fingerprint(session_data, device_info)
 
-    async def request_password_reset(
-        self: AuthService, email: str
-    ) -> dict[str, str]:
+    async def request_password_reset(self: AuthService, email: str) -> dict[str, str]:
         """Request password reset by generating and storing reset token.
 
         Args:

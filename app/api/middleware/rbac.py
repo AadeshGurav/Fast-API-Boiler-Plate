@@ -85,7 +85,9 @@ class RBACMiddleware(BaseMiddleware):
             from app.utils.permissions import get_current_user
 
             # Call get_current_user directly (can't use Depends in middleware)
-            current_user = await get_current_user(request, token=None, auth_service=None)
+            current_user = await get_current_user(
+                request, token=None, auth_service=None
+            )
 
             user_id = current_user.user_id
             username = current_user.username
@@ -152,7 +154,9 @@ class RBACMiddleware(BaseMiddleware):
                     )
 
             # Store user context
-            request.state.user = current_user.dict() if hasattr(current_user, "dict") else current_user
+            request.state.user = (
+                current_user.dict() if hasattr(current_user, "dict") else current_user
+            )
             request.state.user_id = user_id
             request.state.username = username
             request.state.user_role = roles[0] if roles else None

@@ -105,9 +105,9 @@ class PythonSpreadsheetProcessor(BaseSpreadsheetProcessor):
                     sheet_name_actual = sheet_name or "Sheet1"
                     result[sheet_name_actual] = df.values.tolist()
                     if not df.empty and df.columns.tolist():
-                        result[sheet_name_actual] = [
-                            df.columns.tolist()
-                        ] + result[sheet_name_actual]
+                        result[sheet_name_actual] = [df.columns.tolist()] + result[
+                            sheet_name_actual
+                        ]
 
                 elif file_ext in [".xlsx", ".xls"]:
                     if file_ext == ".xlsx":
@@ -126,7 +126,9 @@ class PythonSpreadsheetProcessor(BaseSpreadsheetProcessor):
                     sheet_names = workbook.sheetnames
 
                     if sheet_name and sheet_name not in sheet_names:
-                        raise RuntimeError(f"Sheet '{sheet_name}' not found in workbook")
+                        raise RuntimeError(
+                            f"Sheet '{sheet_name}' not found in workbook"
+                        )
 
                     for name in sheet_names:
                         if sheet_name and name != sheet_name:
@@ -141,7 +143,9 @@ class PythonSpreadsheetProcessor(BaseSpreadsheetProcessor):
 
                 elif file_ext == ".ods":
                     try:
-                        df_dict = pandas.read_excel(tmp_path, sheet_name=None, engine="odf")
+                        df_dict = pandas.read_excel(
+                            tmp_path, sheet_name=None, engine="odf"
+                        )
                     except ImportError:
                         raise RuntimeError(
                             "ODS file support requires odfpy. Install with: pip install odfpy"
@@ -202,7 +206,9 @@ class PythonSpreadsheetProcessor(BaseSpreadsheetProcessor):
                 if format == "csv":
                     sheet_name = list(data.keys())[0]
                     rows = data[sheet_name]
-                    df = pandas.DataFrame(rows[1:] if rows else [], columns=rows[0] if rows else [])
+                    df = pandas.DataFrame(
+                        rows[1:] if rows else [], columns=rows[0] if rows else []
+                    )
                     if headers and sheet_name in headers:
                         df.columns = headers[sheet_name]
                     df.to_csv(tmp_path, index=False)
@@ -227,7 +233,8 @@ class PythonSpreadsheetProcessor(BaseSpreadsheetProcessor):
                         with pandas.ExcelWriter(tmp_path, engine="odf") as writer:
                             for sheet_name, rows in data.items():
                                 df = pandas.DataFrame(
-                                    rows[1:] if rows else [], columns=rows[0] if rows else []
+                                    rows[1:] if rows else [],
+                                    columns=rows[0] if rows else [],
                                 )
                                 if headers and sheet_name in headers:
                                     df.columns = headers[sheet_name]
@@ -296,7 +303,9 @@ class PythonSpreadsheetProcessor(BaseSpreadsheetProcessor):
         format_map = {".xlsx": "xlsx", ".ods": "ods", ".csv": "csv", ".xls": "xlsx"}
         format_type = format_map.get(file_ext, "xlsx")
 
-        return await self.create_spreadsheet(file_path, existing_data, format=format_type)
+        return await self.create_spreadsheet(
+            file_path, existing_data, format=format_type
+        )
 
     async def delete_sheet(
         self: PythonSpreadsheetProcessor,
@@ -333,7 +342,9 @@ class PythonSpreadsheetProcessor(BaseSpreadsheetProcessor):
         format_map = {".xlsx": "xlsx", ".ods": "ods", ".csv": "csv", ".xls": "xlsx"}
         format_type = format_map.get(file_ext, "xlsx")
 
-        return await self.create_spreadsheet(file_path, existing_data, format=format_type)
+        return await self.create_spreadsheet(
+            file_path, existing_data, format=format_type
+        )
 
     async def get_sheet_info(
         self: PythonSpreadsheetProcessor,

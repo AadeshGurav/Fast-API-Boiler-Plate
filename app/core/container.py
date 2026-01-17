@@ -209,21 +209,23 @@ class Container(containers.DeclarativeContainer):
         logger=logger,
         debug=config.provided.app_debug,
         life_span=lifespan,
-        services=providers.Dict({
-            "data_service": data_service,
-            "retry_service": retry_service,
-            "metrics_service": metrics_service,
-            "tracing_service": tracing_service,
-            "sentry_service": sentry_service,
-            "password_service": password_service,
-            "rbac_service": rbac_service,
-            "oauth_service": oauth_service,
-            "auth_service": auth_service,
-            "session_service": session_service,
-            "error_service": error_service,
-            "file_service": file_service,
-            "class_store": class_store,
-        }),
+        services=providers.Dict(
+            {
+                "data_service": data_service,
+                "retry_service": retry_service,
+                "metrics_service": metrics_service,
+                "tracing_service": tracing_service,
+                "sentry_service": sentry_service,
+                "password_service": password_service,
+                "rbac_service": rbac_service,
+                "oauth_service": oauth_service,
+                "auth_service": auth_service,
+                "session_service": session_service,
+                "error_service": error_service,
+                "file_service": file_service,
+                "class_store": class_store,
+            }
+        ),
     )
 
     # FastAPI application instance

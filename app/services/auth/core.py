@@ -10,8 +10,7 @@ import jwt
 from app.models.auth import TokenPair, TokenPayload
 
 if TYPE_CHECKING:
-    from app.core.interfaces.password_service_interface import \
-        PasswordServiceInterface
+    from app.core.interfaces.password_service_interface import PasswordServiceInterface
     from app.core.interfaces.rbac_service_interface import RBACServiceInterface
     from app.services.data import DataService
     from app.services.logger import Logger
