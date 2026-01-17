@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.core.container import Container
+from app import container
 from app.services.data import DataService
 from app.utils.permissions import get_current_user
 
@@ -14,7 +14,7 @@ router = APIRouter(prefix="/sessions", tags=["Session Management"])
 @router.get("/active")
 async def list_active_sessions(
     current_user: dict = Depends(get_current_user),
-    data_service: DataService = Depends(lambda: Container.data_service()),
+    data_service: DataService = Depends(lambda: container.data_service()),
 ) -> dict[str, list[dict]]:
     """List active sessions for current user.
 
@@ -68,7 +68,7 @@ async def list_active_sessions(
 async def revoke_session(
     session_id: str,
     current_user: dict = Depends(get_current_user),
-    data_service: DataService = Depends(lambda: Container.data_service()),
+    data_service: DataService = Depends(lambda: container.data_service()),
 ):
     """Revoke specific session.
 
@@ -126,7 +126,7 @@ async def revoke_session(
 @router.delete("/all")
 async def revoke_all_sessions(
     current_user: dict = Depends(get_current_user),
-    data_service: DataService = Depends(lambda: Container.data_service()),
+    data_service: DataService = Depends(lambda: container.data_service()),
 ):
     """Revoke all sessions for current user.
 
@@ -166,7 +166,7 @@ async def revoke_all_sessions(
 async def get_session_details(
     session_id: str,
     current_user: dict = Depends(get_current_user),
-    data_service: DataService = Depends(lambda: Container.data_service()),
+    data_service: DataService = Depends(lambda: container.data_service()),
 ):
     """Get details of specific session.
 

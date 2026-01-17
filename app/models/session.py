@@ -44,7 +44,7 @@ class Session(DynamicConfig):
 
     id: str = Field(..., description="Unique session identifier")
     user_id: str = Field(..., description="User identifier")
-    refresh_token_id: str = Field(..., description="Associated refresh token ID")
+    refresh_token_id: str | None = Field(None, description="Associated refresh token ID")
     device_info: DeviceInfo = Field(..., description="Device information")
     created_at: datetime = Field(
         default_factory=datetime.utcnow, description="Session creation time"

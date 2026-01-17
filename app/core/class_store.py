@@ -85,16 +85,31 @@ class ClassStore:
             with self._lock:
                 # Allow re-registration if it's the same class (for discovery)
                 if key in self._registry:
-                    if self._registry[key] is cls:
-                        # Same class already registered, skip
+                    existing_cls = self._registry[key]
+                    # Check if it's the same class by identity or by full module path
+                    same_class = (
+                        existing_cls is cls
+                        or (
+                            hasattr(existing_cls, "__module__")
+                            and hasattr(cls, "__module__")
+                            and existing_cls.__module__ == cls.__module__
+                            and existing_cls.__name__ == cls.__name__
+                        )
+                    )
+                    if same_class:
+                        # Same class already registered (re-imported), skip silently
                         if self._logger:
                             self._logger.debug(
                                 f"Class '{key}' already registered, skipping",
-                                extra={"class_name": key},
+                                extra={"class_name": key, "module": cls.__module__},
                             )
                         return cls
                     # Different class with same key, raise error
-                    raise KeyError(f"Duplicate registration: {key}")
+                    raise KeyError(
+                        f"Duplicate registration: {key}. "
+                        f"Existing: {existing_cls.__module__}.{existing_cls.__name__}, "
+                        f"New: {cls.__module__}.{cls.__name__}"
+                    )
                 self._registry[key] = cls
                 self._singleton_registry[key] = singleton
                 self._metadata[key] = {**meta, "interfaces": interfaces or []}
@@ -163,10 +178,14 @@ class ClassStore:
                     module.__path__, module.__name__ + "."
                 ):
                     try:
-                        # Force re-import to ensure decorators run with correct instance
-                        if name in sys.modules:
-                            del sys.modules[name]
-                        importlib.import_module(name)
+                        # Skip if already imported (may have been imported via __init__.py)
+                        # Only force re-import if module hasn't been imported yet
+                        if name not in sys.modules:
+                            importlib.import_module(name)
+                        else:
+                            # Module already imported, but ensure it's processed
+                            # Re-import only if decorators might not have run
+                            importlib.import_module(name)
                         discovered_count += 1
                         if self._logger:
                             self._logger.debug(

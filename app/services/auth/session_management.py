@@ -37,7 +37,10 @@ class SessionManagementMixin:
         self.data_service = data_service
 
     async def create_session(
-        self: SessionManagementMixin, user: User, device_info: DeviceInfo
+        self: SessionManagementMixin,
+        user: User,
+        device_info: DeviceInfo,
+        remember_me: bool = False,
     ) -> str:
         """Create a new session.
 
@@ -45,6 +48,7 @@ class SessionManagementMixin:
         ----
             user: User.
             device_info: Device information.
+            remember_me: If True, extend session expiry to 30 days.
 
         Returns:
         -------
@@ -54,12 +58,17 @@ class SessionManagementMixin:
         if not self.data_service:
             raise ValueError("Data service required")
 
+        # Set session duration: 30 days if remember_me, otherwise 7 days
+        session_duration_seconds = (
+            30 * 24 * 60 * 60 if remember_me else 7 * 24 * 60 * 60
+        )
+
         session_data = {
             "user_id": user.id,
             "device_info": device_info.dict(),
             "created_at": datetime.now(timezone.utc),
             "expires_at": datetime.now(timezone.utc).timestamp()
-            + (7 * 24 * 60 * 60),  # 7 days
+            + session_duration_seconds,
             "revoked_at": None,
         }
 

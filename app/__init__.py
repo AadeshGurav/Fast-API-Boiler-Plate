@@ -15,6 +15,15 @@ try:
 
     container.init_resources()
 
+    # Discover and register services/classes (includes library_manager, etc.)
+    # Access class_store and trigger discovery directly
+    class_store_instance = container.class_store()
+    # Set container reference for service access
+    class_store_instance._container = container
+    class_store_instance.discover_services(
+        ["app.services", "app.api", "app.classes"]
+    )
+
     # Create FastAPI app
     app = container.app()
 

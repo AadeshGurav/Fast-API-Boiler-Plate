@@ -202,31 +202,32 @@ document.addEventListener('DOMContentLoaded', function() {
   form.addEventListener('submit', async function(e) {
     e.preventDefault();
     
-    const username = document.getElementById('username').value.trim();
-    const password = document.getElementById('password').value;
-    
-    if (!username || !password) {
-      showError('Please enter both username and password');
-      return;
-    }
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      const rememberMe = form.querySelector('input[name="remember_me"]')?.checked || false;
+      
+      if (!username || !password) {
+        showError('Please enter both username and password');
+        return;
+      }
 
-    // Remove any existing alerts
-    const existingAlert = form.parentNode.querySelector('.alert');
-    if (existingAlert) {
-      existingAlert.remove();
-    }
+      // Remove any existing alerts
+      const existingAlert = form.parentNode.querySelector('.alert');
+      if (existingAlert) {
+        existingAlert.remove();
+      }
 
-    const alertContainer = document.createElement('div');
-    alertContainer.className = 'alert';
-    
-    try {
-      // Disable form during submission
-      const submitButton = form.querySelector('button[type="submit"]');
-      const originalText = submitButton.textContent;
-      submitButton.disabled = true;
-      submitButton.textContent = 'Logging in...';
+      const alertContainer = document.createElement('div');
+      alertContainer.className = 'alert';
+      
+      try {
+        // Disable form during submission
+        const submitButton = form.querySelector('button[type="submit"]');
+        const originalText = submitButton.textContent;
+        submitButton.disabled = true;
+        submitButton.textContent = 'Logging in...';
 
-      await window.DemoAuth.login(username, password);
+        await window.DemoAuth.login(username, password, rememberMe);
       console.log('Login successful');
       // Success - redirect
       window.location.href = '/demo/auth/dashboard';

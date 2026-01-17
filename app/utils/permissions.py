@@ -123,6 +123,30 @@ async def _attempt_token_refresh(
         request.state.new_refresh_token = token_pair.refresh_token
         request.state.token_expires_in = token_pair.expires_in
 
+        # Check if new refresh token is a 30-day token (remember_me was preserved)
+        # This is detected by checking the token expiry duration
+        import jwt
+
+        try:
+            decoded = jwt.decode(
+                token_pair.refresh_token,
+                auth_service.jwt_secret,
+                algorithms=[auth_service.jwt_algorithm],
+                options={"verify_exp": False},
+            )
+            if decoded.get("exp") and decoded.get("iat"):
+                # exp and iat are timestamps (seconds since epoch)
+                token_lifetime_seconds = decoded["exp"] - decoded["iat"]
+                # 30 days = 30 * 24 * 60 * 60 = 2592000 seconds
+                # Default is 7 days = 7 * 24 * 60 * 60 = 604800 seconds
+                # Use 20 days as threshold: 20 * 24 * 60 * 60 = 1728000 seconds
+                remember_me = token_lifetime_seconds > (20 * 24 * 60 * 60)
+                request.state.remember_me = remember_me
+            else:
+                request.state.remember_me = False
+        except Exception:
+            request.state.remember_me = False
+
         return payload
 
     except Exception:
@@ -160,6 +184,17 @@ async def get_current_user(
         if not isinstance(token, HTTPAuthorizationCredentials):
             token_str = _extract_token_from_request(request)
             if not token_str:
+                # Log available cookies for debugging
+                if hasattr(request, "cookies") and request.cookies:
+                    cookie_names = list(request.cookies.keys())
+                    logger = container.logger()
+                    logger.debug(
+                        "No token found in request",
+                        extra={
+                            "available_cookies": cookie_names,
+                            "path": request.url.path,
+                        },
+                    )
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Authentication required",

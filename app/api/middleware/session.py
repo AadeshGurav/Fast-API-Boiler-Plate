@@ -2,10 +2,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import datetime, timezone
-from uuid import uuid4
 
 from fastapi import Request, Response
-from starlette.datastructures import MutableHeaders
 
 from app.models.session import DeviceInfo
 from app.services.data import DataService
@@ -31,11 +29,15 @@ class SessionMiddleware(BaseMiddleware):
 
         """
         self.data_service: DataService = data_service
-        self.cookie_name = self.config.get("session_cookie_name", "session")
-        self.max_age = self.config.get("session_max_age", 14 * 24 * 60 * 60)
+        self.cookie_name = self.config.get(
+            "auth_session_cookie_name", "auth_session"
+        )
+        self.max_age = self.config.get("session_max_age", 7 * 24 * 60 * 60)  # 7 days to match JWT refresh token
         self.path = self.config.get("session_cookie_path", "/")
         self.same_site = self.config.get("session_cookie_same_site", "lax")
-        self.https_only = self.config.get("session_cookie_https_only", False)
+        # Cookie security settings (default to False for development/HTTP)
+        self.httponly = self.config.get("cookie_httponly", False)
+        self.secure = self.config.get("cookie_secure", False)
         self.extend_on_activity = self.config.get("extend_on_activity", True)
         self.track_device_info = self.config.get("track_device_info", True)
 
@@ -54,6 +56,9 @@ class SessionMiddleware(BaseMiddleware):
         self: SessionMiddleware, request: Request, call_next: Callable
     ) -> Response:
         """Process the request using DataService with device tracking.
+
+        Only processes sessions for authenticated users. Unauthenticated requests
+        bypass session management.
 
         Args:
         ----
@@ -75,101 +80,84 @@ class SessionMiddleware(BaseMiddleware):
             },
         )
 
-        session_id = request.cookies.get(self.cookie_name)
+        # Check if user is authenticated by looking for JWT token
+        # This is checked before session management since sessions are only for authenticated users
+        from app.utils.permissions import _extract_token_from_request
+
+        token = _extract_token_from_request(request)
+        session_id = None
         session_data = None
 
-        if session_id and self.data_service:
-            try:
-                # Get session from DataService (hybrid MongoDB + Redis)
-                session_data = await self.data_service.sessions.get_session(session_id)
+        # Only manage sessions for authenticated users
+        if token and self.data_service:
+            session_id = request.cookies.get(self.cookie_name)
 
-                if session_data:
-                    self.logger.debug(
-                        f"Loaded existing session: {session_id}",
-                        extra={
-                            "middleware": "SessionMiddleware",
-                            "action": "session_load",
-                            "session_id": session_id,
-                            "user_id": session_data.get("user_id"),
-                        },
-                    )
-
-                    # Track device info if enabled
-                    if self.track_device_info:
-                        device_info = self._extract_device_info(request)
-                        await self._update_session_device_info(session_id, device_info)
-
-                    # Extend session on activity if enabled
-                    if self.extend_on_activity:
-                        await self._extend_session_on_activity(session_id)
-                else:
-                    self.logger.debug(
-                        f"Session not found: {session_id}",
-                        extra={
-                            "middleware": "SessionMiddleware",
-                            "action": "session_not_found",
-                            "session_id": session_id,
-                        },
-                    )
-                    session_id = None
-
-            except Exception as e:  # noqa: BLE001
-                self.logger.error(
-                    f"Error loading session: {str(e)}",
-                    extra={
-                        "middleware": "SessionMiddleware",
-                        "action": "session_load_error",
-                        "session_id": session_id,
-                        "error": str(e),
-                    },
-                )
-                session_id = None
-
-        # Create new session if none exists
-        if not session_id:
-            session_id = str(uuid4())
-            session_data = {
-                "created_at": datetime.now(timezone.utc),
-                "expires_at": datetime.now(timezone.utc).timestamp() + self.max_age,
-            }
-
-            if self.track_device_info:
-                device_info = self._extract_device_info(request)
-                session_data["device_info"] = device_info.dict()
-
-            # Store new session in DataService
-            if self.data_service:
+            if session_id:
                 try:
-                    await self.data_service.sessions.create_session(session_data)
-                    self.logger.info(
-                        f"Created new session: {session_id}",
-                        extra={
-                            "middleware": "SessionMiddleware",
-                            "action": "session_create",
-                            "session_id": session_id,
-                            "device_info": session_data.get("device_info"),
-                        },
+                    # Get session from DataService (hybrid MongoDB + Redis)
+                    session_data = await self.data_service.sessions.get_session(
+                        session_id
                     )
+
+                    if session_data:
+                        self.logger.debug(
+                            f"Loaded existing session: {session_id}",
+                            extra={
+                                "middleware": "SessionMiddleware",
+                                "action": "session_load",
+                                "session_id": session_id,
+                                "user_id": session_data.get("user_id"),
+                            },
+                        )
+
+                        # Track device info if enabled
+                        if self.track_device_info:
+                            device_info = self._extract_device_info(request)
+                            await self._update_session_device_info(
+                                session_id, device_info
+                            )
+
+                        # Extend session on activity if enabled
+                        if self.extend_on_activity:
+                            await self._extend_session_on_activity(session_id)
+                    else:
+                        self.logger.debug(
+                            f"Session not found: {session_id}",
+                            extra={
+                                "middleware": "SessionMiddleware",
+                                "action": "session_not_found",
+                                "session_id": session_id,
+                            },
+                        )
+                        session_id = None
+
                 except Exception as e:  # noqa: BLE001
                     self.logger.error(
-                        f"Error creating session: {str(e)}",
+                        f"Error loading session: {str(e)}",
                         extra={
                             "middleware": "SessionMiddleware",
-                            "action": "session_create_error",
+                            "action": "session_load_error",
                             "session_id": session_id,
                             "error": str(e),
                         },
                     )
+                    session_id = None
 
-        # Store session in request state
+            # Note: We don't create sessions here - they're created by AuthService during login
+            # Session cookie is set by AuthService.login_user(), not middleware
+
+        # Store session in request state (may be None for unauthenticated requests)
         request.state.session = session_data or {}
-        request.state.session_id = session_id
+        if session_id:
+            request.state.session_id = session_id
 
         # Process the request
         response = await call_next(request)
 
-        # Set session cookie
-        self._set_cookie(response, session_id)
+        # Only set/update session cookie if we have a session_id
+        # (cookie is primarily set during login by AuthService)
+        if session_id:
+            self._set_cookie(response, session_id)
 
         # Set refreshed tokens in cookies if they were refreshed
         if hasattr(request.state, "token_refreshed") and request.state.token_refreshed:
@@ -198,7 +186,11 @@ class SessionMiddleware(BaseMiddleware):
                     refresh_token=refresh_token,
                     expires_in=expires_in,
                 )
-                CookieManager.set_auth_cookies(response, token_pair)
+                # Check if remember_me was preserved from refresh
+                remember_me = getattr(request.state, "remember_me", False)
+                CookieManager.set_auth_cookies(
+                    response, token_pair, self.config, remember_me
+                )
 
             self.logger.info(
                 "Tokens refreshed and set in cookies",
@@ -233,14 +225,15 @@ class SessionMiddleware(BaseMiddleware):
             session_id: The session ID to set the cookie for.
 
         """
-        headers = MutableHeaders(response.headers)
-
-        cookie = f"{self.cookie_name}={session_id}; Path={self.path}; Max-Age={self.max_age}; SameSite={self.same_site}"  # noqa
-
-        if self.https_only:
-            cookie += "; Secure"
-
-        headers.append("Set-Cookie", cookie)
+        response.set_cookie(
+            key=self.cookie_name,
+            value=session_id,
+            max_age=self.max_age,
+            path=self.path,
+            httponly=self.httponly,
+            secure=self.secure,
+            samesite=self.same_site,
+        )
 
         self.logger.debug(
             f"Set cookie headers for session: {session_id}",

@@ -10,7 +10,8 @@ from typing import TYPE_CHECKING, Any
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 
-from app.core.interfaces.password_service_interface import PasswordServiceInterface
+from app.core.interfaces.password_service_interface import \
+    PasswordServiceInterface
 from app.services.base_service import BaseService
 
 if TYPE_CHECKING:
@@ -218,7 +219,7 @@ class PasswordService(BaseService, PasswordServiceInterface):
         return True
 
     def generate_reset_token(self: PasswordService, user_id: str) -> str:
-        """Generate password reset token.
+        """Generate password reset token and store it in database.
 
         Args:
         ----
@@ -226,7 +227,7 @@ class PasswordService(BaseService, PasswordServiceInterface):
 
         Returns:
         -------
-            Reset token
+            Reset token (plain text - caller should hash before storing)
 
         """
         token = secrets.token_urlsafe(self.reset_token_length)

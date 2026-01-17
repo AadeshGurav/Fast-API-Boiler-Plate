@@ -7,7 +7,8 @@ from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer
 
 from app import container as app_container
-from app.models.auth import LoginRequest, LoginResponse, RefreshRequest, TokenPair
+from app.models.auth import (LoginRequest, LoginResponse, RefreshRequest,
+                             TokenPair)
 from app.services.auth import AuthService
 from app.utils.cookie_manager import CookieManager
 from app.utils.permissions import get_current_user
@@ -50,11 +51,19 @@ async def login(
             username=login_request.username,
             password=login_request.password,
             device_info=device_info,
+            remember_me=login_request.remember_me,
         )
 
         # Set cookies for server-side rendered pages
         response = JSONResponse(content=login_response.model_dump(mode="json"))
-        CookieManager.set_auth_cookies(response, login_response.tokens)
+        config = getattr(request.app.state, "config", None)
+        CookieManager.set_auth_cookies(
+            response, login_response.tokens, config, login_request.remember_me
+        )
+        # Set session cookie
+        CookieManager.set_session_cookie(
+            response, login_response.session_id, config, login_request.remember_me
+        )
 
         return response
 
@@ -96,15 +105,48 @@ async def refresh_tokens(
         # Extract device info from request
         device_info = extract_device_info(request)
 
+        # Prefer refresh token from cookie, fallback to body for API clients
+        from app.utils.permissions import _extract_refresh_token_from_request
+
+        refresh_token = _extract_refresh_token_from_request(request)
+        if not refresh_token:
+            refresh_token = refresh_request.refresh_token
+
+        if not refresh_token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Refresh token required",
+            )
+
         # Call service with extracted fields
         token_pair = await auth_service.refresh_tokens(
-            refresh_token=refresh_request.refresh_token,
+            refresh_token=refresh_token,
             device_info=device_info,
         )
 
+        # Detect remember_me from the new refresh token expiry duration
+        import jwt
+
+        remember_me = False
+        try:
+            if token_pair.refresh_token:
+                decoded = jwt.decode(
+                    token_pair.refresh_token,
+                    auth_service.jwt_secret,
+                    algorithms=[auth_service.jwt_algorithm],
+                    options={"verify_exp": False},
+                )
+                if decoded.get("exp") and decoded.get("iat"):
+                    token_lifetime_seconds = decoded["exp"] - decoded["iat"]
+                    # 30 days threshold: 20 * 24 * 60 * 60 = 1728000 seconds
+                    remember_me = token_lifetime_seconds > (20 * 24 * 60 * 60)
+        except Exception:
+            pass  # Default to False if detection fails
+
         # Set cookies for server-side rendered pages
         response = JSONResponse(content=token_pair.model_dump(mode="json"))
-        CookieManager.set_auth_cookies(response, token_pair)
+        config = getattr(request.app.state, "config", None)
+        CookieManager.set_auth_cookies(response, token_pair, config, remember_me)
 
         return response
 
@@ -153,7 +195,7 @@ async def logout(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Session ID not found"
             )
 
-        success = await auth_service.logout_user(session_id)
+        success = await auth_service.logout(session_id)
 
         if not success:
             raise HTTPException(
@@ -163,6 +205,9 @@ async def logout(
         # Clear cookies
         response = JSONResponse(content={"message": "Logged out successfully"})
         CookieManager.delete_auth_cookies(response)
+        # Clear session cookie
+        config = getattr(request.app.state, "config", None)
+        CookieManager.delete_session_cookie(response, config)
 
         return response
 
@@ -201,8 +246,13 @@ async def logout_all_devices(
         # Extract session ID from request (this would need to be implemented)
         session_id = getattr(request.state, "session_id", None)
 
+        user_id = (
+            current_user.user_id
+            if hasattr(current_user, "user_id")
+            else current_user.get("user_id")
+        )
         revoked_count = await auth_service.logout_all_devices(
-            current_user["user_id"], except_session_id=session_id
+            user_id, except_session_id=session_id
         )
 
         return {

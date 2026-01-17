@@ -10,7 +10,8 @@ import jwt
 from app.models.auth import TokenPair, TokenPayload
 
 if TYPE_CHECKING:
-    from app.core.interfaces.password_service_interface import PasswordServiceInterface
+    from app.core.interfaces.password_service_interface import \
+        PasswordServiceInterface
     from app.core.interfaces.rbac_service_interface import RBACServiceInterface
     from app.services.data import DataService
     from app.services.logger import Logger
@@ -106,25 +107,32 @@ class AuthCoreMixin:
 
         return token
 
-    def create_refresh_token(self: AuthCoreMixin, user_id: str) -> str:
+    def create_refresh_token(
+        self: AuthCoreMixin, user_id: str, remember_me: bool = False
+    ) -> str:
         """Create JWT refresh token.
 
         Args:
         ----
             user_id: User ID.
+            remember_me: If True, extend refresh token expiry to 30 days.
 
         Returns:
         -------
             JWT refresh token.
 
         """
+        # Use 30 days (43200 minutes) if remember_me, otherwise use configured expiry
+        refresh_expiry_minutes = (
+            30 * 24 * 60 if remember_me else self.refresh_token_expiry
+        )
+
         payload = TokenPayload(
             user_id=user_id,
             username="",
             roles=[],
             permissions=[],
-            exp=datetime.now(timezone.utc)
-            + timedelta(minutes=self.refresh_token_expiry),
+            exp=datetime.now(timezone.utc) + timedelta(minutes=refresh_expiry_minutes),
             iat=datetime.now(timezone.utc),
             type="refresh",
         )
@@ -211,6 +219,7 @@ class AuthCoreMixin:
         username: str,
         roles: list[str],
         permissions: list[str],
+        remember_me: bool = False,
     ) -> TokenPair:
         """Create access and refresh token pair.
 
@@ -220,6 +229,7 @@ class AuthCoreMixin:
             username: Username.
             roles: User roles.
             permissions: User permissions.
+            remember_me: If True, extend refresh token expiry to 30 days.
 
         Returns:
         -------
@@ -229,7 +239,7 @@ class AuthCoreMixin:
         access_token = AuthCoreMixin.create_access_token(
             self, user_id, username, roles, permissions
         )
-        refresh_token = AuthCoreMixin.create_refresh_token(self, user_id)
+        refresh_token = AuthCoreMixin.create_refresh_token(self, user_id, remember_me)
 
         token_pair = TokenPair(
             access_token=access_token,

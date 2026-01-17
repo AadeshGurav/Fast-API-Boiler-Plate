@@ -9,6 +9,7 @@ from fastapi import Request, Response
 
 from app.services.logger import create_log_context, set_request_id
 from app.services.tracing import TracingService
+from app.utils.service_utils import is_service_enabled
 
 from .base import BaseMiddleware
 
@@ -266,8 +267,10 @@ class RequestIDMiddleware(BaseMiddleware):
         # Check if trace correlation is enabled
         enable_trace = self.config.get("log_enable_trace_correlation", True)
 
-        if enable_trace:
-            # Get trace ID if tracing is active
+        if enable_trace and is_service_enabled(
+            self.tracing_service, "tracing_service", self.config
+        ):
+            # Get trace ID if tracing is active and enabled
             trace_id = self.tracing_service.get_trace_id()
 
             # Combine request ID and trace ID

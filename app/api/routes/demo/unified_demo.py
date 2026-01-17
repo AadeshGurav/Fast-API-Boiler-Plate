@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, status
@@ -137,13 +137,22 @@ async def dashboard(request: Request):
         # Convert datetime objects in login_attempts to strings (recursively)
         formatted_login_attempts = convert_datetime_to_str(login_attempts)
 
+        # Determine role - prioritize "admin" in roles array, then first role, then role field
+        roles_list = user_data.get("roles", [])
+        if "admin" in roles_list:
+            display_role = "admin"
+        elif roles_list:
+            display_role = roles_list[0]
+        else:
+            display_role = user_data.get("role", "user")
+
         # Convert to dictionary format for template with profile structure
         user_dict = {
             "id": user_data.get("id"),
             "username": user_data.get("username", ""),
             "email": user_data.get("email", ""),
-            "role": user_data.get("role", "user"),
-            "roles": user_data.get("roles", []),
+            "role": display_role,
+            "roles": roles_list,
             "groups": user_data.get("groups", []),
             "status": user_data.get("status", "active"),
             "permissions": token_payload.permissions,
@@ -182,10 +191,23 @@ async def logout(request: Request):
     """Logout user."""
     from app.utils.cookie_manager import CookieManager
 
+    # Try to get session ID and revoke it
+    try:
+        from app import container
+
+        session_id = getattr(request.state, "session_id", None)
+        if session_id:
+            auth_service = container.auth_service()
+            await auth_service.logout(session_id)
+    except Exception:
+        pass  # Continue with cookie clearing even if session revocation fails
+
     # Client tokens are cleared by JS on landing; server clears cookies and redirects
     response = RedirectResponse(url="/demo/", status_code=status.HTTP_302_FOUND)
-    response.delete_cookie("session_token", path="/")
     CookieManager.delete_auth_cookies(response)
+    # Clear session cookie
+    config = getattr(request.app.state, "config", None)
+    CookieManager.delete_session_cookie(response, config)
     return response
 
 
@@ -271,21 +293,56 @@ async def sessions_page(request: Request):
                 url="/demo/auth/login", status_code=status.HTTP_302_FOUND
             )
 
-        # Get sessions from user data
-        sessions = user_data.get("sessions", [])
-        if not isinstance(sessions, list):
-            sessions = []
+        # Get sessions from database, not user object
+        sessions = await data_service.sessions.get_user_sessions(token_payload.user_id)
+
+        # Filter out revoked sessions
+        active_sessions = [
+            session for session in sessions if not session.get("revoked_at")
+        ]
+
+        # Format sessions for template (similar to dashboard route)
+        formatted_sessions = []
+        for session in active_sessions:
+            created_at = session.get("created_at")
+            expires_at = session.get("expires_at")
+            device_info = session.get("device_info", {})
+
+            # Handle timestamp if expires_at is a number
+            if isinstance(expires_at, (int, float)):
+                from datetime import datetime
+
+                expires_at = datetime.fromtimestamp(expires_at, tz=timezone.utc)
+
+            formatted_session = {
+                "id": session.get("id"),
+                "device_info": device_info,
+                "created_at": created_at,
+                "expires_at": expires_at,
+                "revoked_at": session.get("revoked_at"),
+                "is_active": not session.get("revoked_at"),
+            }
+            formatted_sessions.append(formatted_session)
+
+        # Determine role - prioritize "admin" in roles array, then first role, then role field
+        roles_list = user_data.get("roles", [])
+        if "admin" in roles_list:
+            display_role = "admin"
+        elif roles_list:
+            display_role = roles_list[0]
+        else:
+            display_role = user_data.get("role", "user")
 
         # Convert to dictionary format for template
         user_dict = {
             "id": user_data.get("id"),
             "username": user_data.get("username", ""),
             "email": user_data.get("email", ""),
-            "role": user_data.get("roles", [])[0] if user_data.get("roles") else "user",
-            "roles": user_data.get("roles", []),
+            "role": display_role,
+            "roles": roles_list,
             "groups": user_data.get("groups", []),
             "status": user_data.get("status", "active"),
-            "sessions": sessions,
+            "sessions": formatted_sessions,
         }
 
         return request.app.state.templates.TemplateResponse(
@@ -354,8 +411,6 @@ async def login_attempts_page(request: Request):
 @demo_router.get("/admin", response_class=HTMLResponse)
 async def admin_panel(request: Request):
     """Admin panel shell; client JS fetches RBAC/metrics from API."""
-    from app.core.container import Container
-
     user = await get_demo_user_context(request)
     if not user:
         return RedirectResponse(
@@ -374,8 +429,10 @@ async def admin_panel(request: Request):
     }
 
     try:
-        rbac_service = Container.rbac_service()
-        data_service = Container.data_service()
+        from app import container
+
+        rbac_service = container.rbac_service()
+        data_service = container.data_service()
 
         roles_cache = getattr(rbac_service, "roles_cache", {})
         permissions_cache = getattr(rbac_service, "permissions_cache", {})

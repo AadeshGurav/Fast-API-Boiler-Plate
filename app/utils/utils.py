@@ -450,4 +450,3 @@ def extract_device_info(request: Request) -> DeviceInfo:
 # Register OS signal handlers
 signal.signal(signal.SIGTERM, handle_shutdown_signal)
 signal.signal(signal.SIGINT, handle_shutdown_signal)
-signal.signal(signal.SIGINT, handle_shutdown_signal)

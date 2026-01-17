@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.core.container import Container
+from app import container
 from app.core.interfaces.rbac_service_interface import RBACServiceInterface
 from app.models.role import TemporaryPermission
 from app.utils.permissions import get_current_user
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/rbac", tags=["RBAC Management"])
 @router.get("/roles")
 async def list_roles(
     current_user: dict = Depends(get_current_user),
-    rbac_service: RBACServiceInterface = Depends(lambda: Container.rbac_service()),
+    rbac_service: RBACServiceInterface = Depends(lambda: container.rbac_service()),
 ):
     """List all available roles.
 
@@ -61,7 +61,7 @@ async def list_roles(
 @router.get("/permissions")
 async def list_permissions(
     current_user: dict = Depends(get_current_user),
-    rbac_service: RBACServiceInterface = Depends(lambda: Container.rbac_service()),
+    rbac_service: RBACServiceInterface = Depends(lambda: container.rbac_service()),
 ):
     """List all available permissions.
 
@@ -107,7 +107,7 @@ async def list_permissions(
 @router.get("/groups")
 async def list_groups(
     current_user: dict = Depends(get_current_user),
-    rbac_service: RBACServiceInterface = Depends(lambda: Container.rbac_service()),
+    rbac_service: RBACServiceInterface = Depends(lambda: container.rbac_service()),
 ):
     """List all available groups.
 
@@ -155,7 +155,7 @@ async def assign_role(
     user_id: str,
     role_id: str,
     current_user: dict = Depends(get_current_user),
-    rbac_service: RBACServiceInterface = Depends(lambda: Container.rbac_service()),
+    rbac_service: RBACServiceInterface = Depends(lambda: container.rbac_service()),
 ):
     """Assign role to user.
 
@@ -210,7 +210,7 @@ async def remove_role(
     user_id: str,
     role_id: str,
     current_user: dict = Depends(get_current_user),
-    rbac_service: RBACServiceInterface = Depends(lambda: Container.rbac_service()),
+    rbac_service: RBACServiceInterface = Depends(lambda: container.rbac_service()),
 ):
     """Remove role from user.
 
@@ -265,7 +265,7 @@ async def assign_group(
     user_id: str,
     group_id: str,
     current_user: dict = Depends(get_current_user),
-    rbac_service: RBACServiceInterface = Depends(lambda: Container.rbac_service()),
+    rbac_service: RBACServiceInterface = Depends(lambda: container.rbac_service()),
 ):
     """Assign group to user.
 
@@ -319,7 +319,7 @@ async def assign_group(
 async def create_temporary_permission(
     temp_perm: TemporaryPermission,
     current_user: dict = Depends(get_current_user),
-    rbac_service: RBACServiceInterface = Depends(lambda: Container.rbac_service()),
+    rbac_service: RBACServiceInterface = Depends(lambda: container.rbac_service()),
 ):
     """Create temporary permission.
 
@@ -370,7 +370,7 @@ async def create_temporary_permission(
 async def revoke_temporary_permission(
     temp_perm_id: str,
     current_user: dict = Depends(get_current_user),
-    rbac_service: RBACServiceInterface = Depends(lambda: Container.rbac_service()),
+    rbac_service: RBACServiceInterface = Depends(lambda: container.rbac_service()),
 ):
     """Revoke temporary permission.
 
@@ -424,7 +424,7 @@ async def revoke_temporary_permission(
 async def get_user_permissions(
     user_id: str,
     current_user: dict = Depends(get_current_user),
-    rbac_service: RBACServiceInterface = Depends(lambda: Container.rbac_service()),
+    rbac_service: RBACServiceInterface = Depends(lambda: container.rbac_service()),
 ):
     """Get resolved permissions for user.
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import platform
+import shutil
 import tempfile
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -48,7 +49,7 @@ class BaseSpreadsheetProcessor(ABC):
 
         Returns:
         -------
-            Platform identifier: 'linux', 'windows', or 'unknown'.
+            Platform identifier: 'linux', 'windows', 'darwin', or 'unknown'.
 
         """
         system = platform.system().lower()
@@ -56,6 +57,8 @@ class BaseSpreadsheetProcessor(ABC):
             return "linux"
         if system == "windows":
             return "windows"
+        if system == "darwin":
+            return "darwin"
         return "unknown"
 
     @staticmethod
@@ -83,8 +86,50 @@ class BaseSpreadsheetProcessor(ABC):
         """
         platform_name = BaseSpreadsheetProcessor.detect_platform()
 
-        if platform_name == "linux":
+        # Linux and macOS: Try LibreOffice first (preferred for offloading processing)
+        if platform_name in ("linux", "darwin"):
             from .libreoffice import LibreOfficeProcessor
+
+            # Check if LibreOffice command is available
+            libreoffice_path = config.get("file_libreoffice_path", "libreoffice")
+            
+            # Check common macOS paths if default not found
+            if platform_name == "darwin":
+                possible_paths = [
+                    libreoffice_path,  # Try configured/default path first
+                    "/Applications/LibreOffice.app/Contents/MacOS/soffice",
+                    shutil.which("libreoffice"),
+                    shutil.which("soffice"),
+                ]
+                libreoffice_found = False
+                for path in possible_paths:
+                    if path and (shutil.which(path) or Path(path).exists()):
+                        libreoffice_found = True
+                        if path != libreoffice_path:
+                            logger.info(
+                                f"Found LibreOffice at {path}, using it for spreadsheet processing",
+                                extra={"service": "BaseSpreadsheetProcessor"},
+                            )
+                        break
+                
+                if not libreoffice_found:
+                    logger.warning(
+                        "LibreOffice not found on macOS, falling back to Python processor. "
+                        "Install with: brew install --cask libreoffice",
+                        extra={"service": "BaseSpreadsheetProcessor"},
+                    )
+                    from .python_processor import PythonSpreadsheetProcessor
+                    return PythonSpreadsheetProcessor(logger, config, storage_backend)
+            else:
+                # Linux: Check if libreoffice is in PATH
+                if not shutil.which(libreoffice_path):
+                    logger.warning(
+                        f"LibreOffice not found at '{libreoffice_path}', "
+                        "falling back to Python processor",
+                        extra={"service": "BaseSpreadsheetProcessor"},
+                    )
+                    from .python_processor import PythonSpreadsheetProcessor
+                    return PythonSpreadsheetProcessor(logger, config, storage_backend)
 
             return LibreOfficeProcessor(logger, config, storage_backend)
 

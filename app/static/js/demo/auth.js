@@ -27,11 +27,11 @@ const DemoAuth = {
     return !!this.getAccessToken();
   },
   
-  async login(username, password) {
+  async login(username, password, rememberMe = false) {
     const res = await fetch('/api/v1/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ username, password, remember_me: rememberMe }),
     });
     
     if (!res.ok) {

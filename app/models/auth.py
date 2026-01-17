@@ -7,7 +7,6 @@ from datetime import datetime
 from pydantic import Field
 
 from app.core.dynamic_config import DynamicConfig
-
 # Import at runtime so Pydantic can resolve annotations during schema generation
 from app.models.session import DeviceInfo
 from app.models.user import UserPublic
@@ -43,6 +42,9 @@ class LoginRequest(DynamicConfig):
 
     username: str = Field(..., description="Username")
     password: str = Field(..., description="Password")
+    remember_me: bool = Field(
+        default=False, description="Remember user for 30 days"
+    )
     device_info: DeviceInfo | None = Field(
         None, description="Device information (added server-side)"
     )
@@ -65,12 +67,15 @@ class LoginResponse(DynamicConfig):
     user: UserPublic = Field(..., description="User information")
     tokens: TokenPair = Field(..., description="Token pair")
     permissions: list[str] = Field(..., description="Resolved user permissions")
+    session_id: str = Field(..., description="Session identifier")
 
 
 class RefreshRequest(DynamicConfig):
     """Token refresh request model."""
 
-    refresh_token: str = Field(..., description="Refresh token")
+    refresh_token: str | None = Field(
+        None, description="Refresh token (optional, prefers cookie if not provided)"
+    )
     device_info: DeviceInfo | None = Field(
         None, description="Device information (added server-side)"
     )

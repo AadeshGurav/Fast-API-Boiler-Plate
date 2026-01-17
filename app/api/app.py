@@ -9,6 +9,8 @@ from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from app.utils.service_utils import is_service_enabled
+
 if TYPE_CHECKING:
     from starlette.types import Lifespan
 
@@ -83,8 +85,9 @@ class AppFactory:
 
                 self.logger.info(f"Set {key} Service", extra={"service": "AppFactory"})
 
-            # Instrument tracing if available
-            if getattr(self, "_tracing_service", None):
+            # Instrument tracing if available and enabled
+            tracing_service = getattr(self, "_tracing_service", None)
+            if is_service_enabled(tracing_service, "tracing_service", self.config):
                 self.app.state.tracing_service.instrument_app(self.app)
 
             # Log Sentry ready
@@ -178,7 +181,8 @@ class AppFactory:
         self.app.include_router(files_router, prefix="/api/v1/files")
 
         # Demo routes (HTML templates) - Unified demo
-        from app.api.routes.demo import demo_router, files_play_router, files_router, library_router
+        from app.api.routes.demo import (demo_router, files_play_router,
+                                         files_router, library_router)
 
         self.app.include_router(demo_router)
         self.app.include_router(library_router)
@@ -195,6 +199,35 @@ class AppFactory:
                 "docs": "/docs" if self.debug else "Disabled in production",
                 "demo": "Visit /demo/ for comprehensive demo experience",
             }
+
+        # Basic icons for browsers – served as SVG even for .ico/.png paths
+        svg_icon = """
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="12" fill="#111827"/>
+  <path d="M18 46V18h8l10 16 10-16h8v28h-8V30l-10 16-10-16v16z" fill="#38bdf8"/>
+</svg>
+"""
+
+        @self.app.get(
+            "/favicon.ico",
+            include_in_schema=False,
+        )
+        async def favicon() -> Response:
+            return Response(content=svg_icon.strip(), media_type="image/svg+xml")
+
+        @self.app.get(
+            "/apple-touch-icon.png",
+            include_in_schema=False,
+        )
+        async def apple_touch_icon() -> Response:
+            return Response(content=svg_icon.strip(), media_type="image/svg+xml")
+
+        @self.app.get(
+            "/apple-touch-icon-precomposed.png",
+            include_in_schema=False,
+        )
+        async def apple_touch_icon_precomposed() -> Response:
+            return Response(content=svg_icon.strip(), media_type="image/svg+xml")
 
     def __setup_logging_middleware(self: AppFactory) -> None:
         """Log requests and responses."""
@@ -228,9 +261,9 @@ class AppFactory:
                 },
             )
 
-            # Metrics if available
-            metrics = self._metrics_service
-            if metrics:
+            # Metrics if available and enabled
+            metrics = getattr(self, "_metrics_service", None)
+            if is_service_enabled(metrics, "metrics_service", self.config):
                 metrics.track_request(
                     method=request.method,
                     endpoint=request.url.path,
@@ -247,11 +280,13 @@ class AppFactory:
         from app.api.middleware.error_handler import ErrorHandlerMiddleware
         from app.api.middleware.rate_limiter import RateLimiter
         from app.api.middleware.rbac import RBACMiddleware
-        from app.api.middleware.security import RequestIDMiddleware, SecurityHeadersMiddleware
+        from app.api.middleware.security import (RequestIDMiddleware,
+                                                 SecurityHeadersMiddleware)
         from app.api.middleware.sentry import SentryMiddleware
         from app.api.middleware.serialization import SerializationMiddleware
         from app.api.middleware.session import SessionMiddleware
-        from app.api.middleware.template_context import TemplateContextMiddleware
+        from app.api.middleware.template_context import \
+            TemplateContextMiddleware
         from app.api.middleware.timeout import TimeoutMiddleware
 
         origins = self.__get_cors_origins()

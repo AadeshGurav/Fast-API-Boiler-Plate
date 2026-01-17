@@ -1,4 +1,4 @@
-"""LibreOffice headless implementation for Linux spreadsheet processing."""
+"""LibreOffice headless implementation for Linux and macOS spreadsheet processing."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
 
 class LibreOfficeProcessor(BaseSpreadsheetProcessor):
-    """LibreOffice headless processor for Linux."""
+    """LibreOffice headless processor for Linux and macOS."""
 
     def __init__(
         self: LibreOfficeProcessor,
@@ -42,11 +42,34 @@ class LibreOfficeProcessor(BaseSpreadsheetProcessor):
 
         """
         super().__init__(logger, config, storage_backend, *args, **kwargs)
-        self.libreoffice_path = config.get("file_libreoffice_path", "libreoffice")
+        
+        # Determine LibreOffice path with macOS support
+        default_path = config.get("file_libreoffice_path", "libreoffice")
+        import platform
+        import shutil
+        from pathlib import Path
+        
+        if platform.system().lower() == "darwin":
+            # macOS: Check common installation paths
+            possible_paths = [
+                default_path,
+                "/Applications/LibreOffice.app/Contents/MacOS/soffice",
+                shutil.which("libreoffice") or "",
+                shutil.which("soffice") or "",
+            ]
+            for path in possible_paths:
+                if path and (shutil.which(path) or Path(path).exists()):
+                    self.libreoffice_path = path
+                    break
+            else:
+                self.libreoffice_path = default_path
+        else:
+            self.libreoffice_path = default_path
+        
         self._available = None
 
         self.logger.info(
-            "LibreOfficeProcessor initialized",
+            f"LibreOfficeProcessor initialized (path: {self.libreoffice_path})",
             extra={"service": "LibreOfficeProcessor"},
         )
 

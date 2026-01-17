@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from fastapi import Request, Response
+from fastapi import HTTPException, Request, Response
 from starlette.datastructures import MutableHeaders
 
 from app.services.error.exceptions import UserFacingExceptionError
@@ -80,33 +80,16 @@ class RBACMiddleware(BaseMiddleware):
             self.logger.debug(f"Public path allowed: {path}")
             return await call_next(request)
 
-        # Get token
-        token = self._get_token_from_request(request)
-        if not token:
-            self.logger.warning(
-                f"Authentication required: {path}",
-                extra={
-                    "middleware": "RBACMiddleware",
-                    "action": "auth_required",
-                    "path": path,
-                    "method": method,
-                },
-            )
-
-            return self.error_service.http_response(
-                UserFacingExceptionError("Authentication required", status_code=401),
-                status_code=401,
-            )
-
         try:
-            # Decode token via DI container
-            from app.core.container import Container
+            # Use get_current_user to centralize token verification and refresh logic
+            from app.utils.permissions import get_current_user
 
-            auth_service = Container.auth_service()
-            user_data = auth_service.decode_token(token, verify_type="access")
-            user_id = user_data.get("user_id")
-            username = user_data.get("username")
-            roles = user_data.get("roles", [])
+            # Call get_current_user directly (can't use Depends in middleware)
+            current_user = await get_current_user(request, token=None, auth_service=None)
+
+            user_id = current_user.user_id
+            username = current_user.username
+            roles = current_user.roles
 
             # Check admin-only paths
             if self.is_admin_only_path(path):
@@ -169,7 +152,7 @@ class RBACMiddleware(BaseMiddleware):
                     )
 
             # Store user context
-            request.state.user = user_data
+            request.state.user = current_user.dict() if hasattr(current_user, "dict") else current_user
             request.state.user_id = user_id
             request.state.username = username
             request.state.user_role = roles[0] if roles else None
@@ -198,6 +181,12 @@ class RBACMiddleware(BaseMiddleware):
             response.headers["X-User-Role"] = str(roles[0] if roles else "")
             return response
 
+        except HTTPException as e:
+            # Convert HTTPException to error response (middleware can't propagate exceptions)
+            return self.error_service.http_response(
+                UserFacingExceptionError(e.detail, status_code=e.status_code),
+                status_code=e.status_code,
+            )
         except Exception as e:  # noqa: BLE001
             self.logger.error(
                 f"Authentication failed: {str(e)}, path={path}",
@@ -220,33 +209,6 @@ class RBACMiddleware(BaseMiddleware):
     # --------------------------
     # Helpers
     # --------------------------
-
-    def _get_token_from_request(self: RBACMiddleware, request: Request) -> str | None:
-        """Extract token from cookie or Authorization header.
-
-        Args:
-        ----
-            request: The request to process.
-
-        Returns:
-        -------
-            The token from the request.
-
-        """
-        from app.utils.permissions import get_token_cookie_names
-
-        access_token_key, _ = get_token_cookie_names()
-        token = request.cookies.get(access_token_key) or request.cookies.get(
-            "auth_token"
-        )
-        if token:
-            return token
-
-        auth_header = request.headers.get("Authorization")
-        if auth_header and auth_header.startswith("Bearer "):
-            return auth_header.removeprefix("Bearer ").strip()
-
-        return None
 
     def is_public_path(self: RBACMiddleware, path: str) -> bool:
         """Check if path is public.

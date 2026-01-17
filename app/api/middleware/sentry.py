@@ -8,6 +8,7 @@ from collections.abc import Callable
 from fastapi import Request, Response
 
 from app.services.logger import create_log_context
+from app.utils.service_utils import is_service_enabled
 
 from .base import BaseMiddleware
 
@@ -57,10 +58,7 @@ class SentryMiddleware(BaseMiddleware):
             Response object
 
         """
-        if (
-            not self.sentry_service
-            or not getattr(self.sentry_service, "is_enabled", lambda: False)()
-        ):
+        if not is_service_enabled(self.sentry_service, "sentry_service", self.config):
             return await call_next(request)
 
         start_time = time.time()

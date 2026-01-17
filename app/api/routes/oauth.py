@@ -7,7 +7,7 @@ import secrets
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 
-from app.core.container import Container
+from app import container
 from app.models.auth import LoginResponse
 from app.models.oauth import OAuthProvider
 from app.models.session import DeviceInfo
@@ -15,6 +15,7 @@ from app.models.user import UserPublic
 from app.services.auth import AuthService
 from app.services.data import DataService
 from app.services.oauth import OAuthService
+from app.utils.dependencies import get_oauth_service
 from app.utils.permissions import get_current_user
 
 router = APIRouter(prefix="/oauth", tags=["OAuth"])
@@ -41,7 +42,7 @@ def get_device_info(request: Request) -> DeviceInfo:
 async def authorize_oauth(
     provider: str,
     request: Request,
-    oauth_service: OAuthService = Depends(lambda: Container.oauth_service()),
+    oauth_service: OAuthService = Depends(get_oauth_service),
 ):
     """Initiate OAuth authorization flow.
 
@@ -96,8 +97,8 @@ async def oauth_callback(
     code: str,
     state: str,
     request: Request,
-    oauth_service: OAuthService = Depends(lambda: Container.oauth_service()),
-    auth_service: AuthService = Depends(lambda: Container.auth_service()),
+    oauth_service: OAuthService = Depends(get_oauth_service),
+    auth_service: AuthService = Depends(lambda: container.auth_service()),
 ):
     """Handle OAuth callback and complete authentication.
 
@@ -175,7 +176,7 @@ async def oauth_callback(
 
         # Resolve permissions
         permissions = []
-        rbac_service = Container.rbac_service()
+        rbac_service = container.rbac_service()
         if rbac_service:
             permissions = await rbac_service.resolve_user_permissions(user.id)
 
@@ -199,7 +200,7 @@ async def oauth_callback(
         refresh_token = auth_service.create_refresh_token(token_payload.dict())
 
         # Create session
-        data_service: DataService = Container.data_service()
+        data_service: DataService = container.data_service()
         session_data = {
             "user_id": user.id,
             "refresh_token": refresh_token,
@@ -247,7 +248,7 @@ async def link_oauth_account(
     provider: str,
     request: Request,
     current_user: dict = Depends(get_current_user),
-    oauth_service: OAuthService = Depends(lambda: Container.oauth_service()),
+    oauth_service: OAuthService = Depends(get_oauth_service),
 ):
     """Link OAuth account to current user.
 
@@ -295,7 +296,7 @@ async def unlink_oauth_account(
     provider: str,
     request: Request,
     current_user: dict = Depends(get_current_user),
-    oauth_service: OAuthService = Depends(lambda: Container.oauth_service()),
+    oauth_service: OAuthService = Depends(get_oauth_service),
 ):
     """Unlink OAuth account from current user.
 
