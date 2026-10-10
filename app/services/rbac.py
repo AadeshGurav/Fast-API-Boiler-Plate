@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any
 from app.services.base_service import BaseService
 
 if TYPE_CHECKING:
+    from app.services.audit import AuditService
     from app.services.cache import CacheService
     from app.services.data import DataService
     from app.services.logger import Logger
@@ -36,10 +37,12 @@ class RBACService(BaseService):
         logger: Logger,
         data_service: DataService,
         cache_service: CacheService,
+        audit: AuditService,
     ) -> None:
         super().__init__(config, logger)
         self.data_service = data_service
         self.cache = cache_service
+        self.audit = audit
         self.permission_ttl: int = config["rbac_permission_cache_ttl"]
         self.roles: dict[str, dict] = {}
         self.groups: dict[str, dict] = {}
@@ -149,23 +152,45 @@ class RBACService(BaseService):
             await self._forget(user_id)
         return updated
 
+    async def _audited_change(
+        self, action: str, user_id: str, field: str, value: str, *, add: bool, known: dict
+    ) -> bool:
+        changed = await self._change_list(user_id, field, value, add=add, known=known)
+        if changed:
+            await self.audit.record(
+                action, target_type="user", target_id=user_id, details={field[:-1]: value}
+            )
+        return changed
+
     async def assign_role(self, user_id: str, role_id: str) -> bool:
         """Give a user a (defined) role."""
-        return await self._change_list(user_id, "roles", role_id, add=True, known=self.roles)
+        return await self._audited_change(
+            "rbac.role_assigned", user_id, "roles", role_id, add=True, known=self.roles
+        )
 
     async def remove_role(self, user_id: str, role_id: str) -> bool:
         """Take a role away from a user."""
-        return await self._change_list(user_id, "roles", role_id, add=False, known=self.roles)
+        return await self._audited_change(
+            "rbac.role_removed", user_id, "roles", role_id, add=False, known=self.roles
+        )
 
     async def assign_group(self, user_id: str, group_id: str) -> bool:
         """Put a user in a (defined) group."""
-        return await self._change_list(user_id, "groups", group_id, add=True, known=self.groups)
+        return await self._audited_change(
+            "rbac.group_assigned", user_id, "groups", group_id, add=True, known=self.groups
+        )
 
     # ---- temporary grants ----------------------------------------------------------
     async def create_temporary_permission(self, grant: dict[str, Any]) -> str:
         """Grant a permission for a limited time; returns the grant id."""
         grant_id = await self.data_service.temp_permissions.create(grant)
         await self._forget_entity(grant["entity_type"], grant["entity_id"])
+        await self.audit.record(
+            "rbac.grant_created",
+            target_type=grant["entity_type"],
+            target_id=grant["entity_id"],
+            details={"grant_id": grant_id, "permission": grant.get("permission_id")},
+        )
         return grant_id
 
     async def revoke_temporary_permission(self, grant_id: str) -> bool:
@@ -174,6 +199,12 @@ class RBACService(BaseService):
         if not grant or not await self.data_service.temp_permissions.revoke(grant_id):
             return False
         await self._forget_entity(grant["entity_type"], grant["entity_id"])
+        await self.audit.record(
+            "rbac.grant_revoked",
+            target_type=grant["entity_type"],
+            target_id=grant["entity_id"],
+            details={"grant_id": grant_id, "permission": grant.get("permission_id")},
+        )
         return True
 
     async def _forget_entity(self, entity_type: str, entity_id: str) -> None:

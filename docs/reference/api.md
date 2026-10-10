@@ -144,6 +144,21 @@ All need `*`.
 | DELETE | `/rbac/temporary-permissions/{id}` | Revoke early → 200 |
 | GET | `/rbac/users/{user_id}/permissions` | Effective permissions → 200 |
 
+### Administration
+
+All need `*` (everything under `/admin`).
+
+| Method | Path | Purpose → success |
+| --- | --- | --- |
+| GET | `/admin/audit-events` | Security audit log, newest first, paged; filters `actor_id`, `target_type`, `target_id`, `action`, `since`, `until` → 200 |
+
+Recorded actions: `user.registered`, `user.password_changed`, `user.password_reset`,
+`user.status_changed`, `user.deleted`, `session.revoked`, `session.revoked_all`,
+`rbac.role_assigned`, `rbac.role_removed`, `rbac.group_assigned`, `rbac.grant_created`,
+`rbac.grant_revoked`. Each event carries the actor, target, client IP, user agent, request id
+and small `details` (never secrets). Refused changes are not recorded; sign-in attempts are in
+`login_attempts`.
+
 ### Files (your own)
 
 Other users' files answer 404, never 403.

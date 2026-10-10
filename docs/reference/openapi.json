@@ -1,6 +1,138 @@
 {
   "components": {
     "schemas": {
+      "AuditEvent": {
+        "description": "One security-relevant change.",
+        "properties": {
+          "action": {
+            "description": "What happened, e.g. rbac.role_assigned",
+            "title": "Action",
+            "type": "string"
+          },
+          "actor_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Who did it; None for unauthenticated flows",
+            "title": "Actor Id"
+          },
+          "at": {
+            "description": "When the change happened (UTC)",
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "details": {
+            "additionalProperties": true,
+            "title": "Details",
+            "type": "object"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "ip_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ip Address"
+          },
+          "request_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Matches the request's log lines",
+            "title": "Request Id"
+          },
+          "target_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Id"
+          },
+          "target_type": {
+            "description": "Kind of thing changed: user, session, group...",
+            "title": "Target Type",
+            "type": "string"
+          },
+          "user_agent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Agent"
+          }
+        },
+        "required": [
+          "id",
+          "at",
+          "action",
+          "target_type"
+        ],
+        "title": "AuditEvent",
+        "type": "object"
+      },
+      "AuditEventListResponse": {
+        "description": "One page of audit events, newest first.",
+        "properties": {
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/AuditEvent"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "has_next": {
+            "title": "Has Next",
+            "type": "boolean"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "events",
+          "total",
+          "page",
+          "page_size",
+          "has_next"
+        ],
+        "title": "AuditEventListResponse",
+        "type": "object"
+      },
       "Body_upload_chunk": {
         "properties": {
           "chunk": {
@@ -1212,6 +1344,173 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/admin/audit-events": {
+      "get": {
+        "description": "Who changed what, newest first.",
+        "operationId": "list_audit_events",
+        "parameters": [
+          {
+            "description": "Only changes made by this user",
+            "in": "query",
+            "name": "actor_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only changes made by this user",
+              "title": "Actor Id"
+            }
+          },
+          {
+            "description": "user, session, group...",
+            "in": "query",
+            "name": "target_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "user, session, group...",
+              "title": "Target Type"
+            }
+          },
+          {
+            "description": "Only changes to this record",
+            "in": "query",
+            "name": "target_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only changes to this record",
+              "title": "Target Id"
+            }
+          },
+          {
+            "description": "e.g. user.password_changed",
+            "in": "query",
+            "name": "action",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "e.g. user.password_changed",
+              "title": "Action"
+            }
+          },
+          {
+            "description": "Only events after this time",
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only events after this time",
+              "title": "Since"
+            }
+          },
+          {
+            "description": "Only events before this time",
+            "in": "query",
+            "name": "until",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only events before this time",
+              "title": "Until"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditEventListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Audit Events",
+        "tags": [
+          "Administration"
+        ]
+      }
+    },
     "/api/v1/auth/change-password": {
       "post": {
         "description": "Change your password; your other sessions are signed out.",

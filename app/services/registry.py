@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from app.services.audit import AuditService
 from app.services.auth import AuthService
 from app.services.cache import CacheService
 from app.services.data import DataService
@@ -40,6 +41,7 @@ class Services:
     cache_service: CacheService
     data_service: DataService
     password_service: PasswordService
+    audit_service: AuditService
     rbac_service: RBACService
     auth_service: AuthService
     error_service: ErrorService
@@ -61,8 +63,11 @@ def build_services(config: Config) -> Services:
         config, logger, database_service=database_service, cache_service=cache_service
     )
     password_service = PasswordService(config, logger)
-    rbac_service = RBACService(config, logger, data_service, cache_service)
-    auth_service = AuthService(logger, config, data_service, password_service, rbac_service)
+    audit_service = AuditService(config, logger, data_service)
+    rbac_service = RBACService(config, logger, data_service, cache_service, audit_service)
+    auth_service = AuthService(
+        logger, config, data_service, password_service, rbac_service, audit_service
+    )
     storage_backend = create_storage(config, logger)
 
     def optional(flag: str, build):
@@ -77,6 +82,7 @@ def build_services(config: Config) -> Services:
         cache_service=cache_service,
         data_service=data_service,
         password_service=password_service,
+        audit_service=audit_service,
         rbac_service=rbac_service,
         auth_service=auth_service,
         error_service=ErrorService(logger, config),

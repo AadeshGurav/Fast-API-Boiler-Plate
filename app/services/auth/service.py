@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from app.models.auth import TokenPayload
     from app.models.session import DeviceInfo
     from app.models.user import UserCreate
+    from app.services.audit import AuditService
     from app.services.data import DataService
     from app.services.logger import Logger
     from app.services.password_service import PasswordService
@@ -55,11 +56,13 @@ class AuthService(BaseService):
         data_service: DataService,
         password_service: PasswordService,
         rbac_service: RBACService,
+        audit: AuditService,
     ) -> None:
         super().__init__(config, logger)
         self.data_service = data_service
         self.password_service = password_service
         self.rbac_service = rbac_service
+        self.audit = audit
 
         self.tokens = TokenManager(logger, config)
         self.sessions = SessionManager(
@@ -84,7 +87,11 @@ class AuthService(BaseService):
     # ------------------------------------------------------------------- login
     async def register_user(self: AuthService, user_data: UserCreate) -> UserPublic:
         """Register a new user (see ``UserManagementMixin.register_user``)."""
-        return await self.users.register_user(user_data)
+        user = await self.users.register_user(user_data)
+        await self.audit.record(
+            "user.registered", target_type="user", target_id=user.id, actor_id=user.id
+        )
+        return user
 
     async def _record_login_attempt(
         self: AuthService,
@@ -395,6 +402,7 @@ class AuthService(BaseService):
         """Log out by revoking the session (and with it every token issued for it)."""
         success = await self.sessions.revoke_session(session_id)
         if success:
+            await self.audit.record("session.revoked", target_type="session", target_id=session_id)
             self.logger.info(
                 "User logged out",
                 extra={"service": "AuthService", "session_id": session_id},
@@ -405,7 +413,11 @@ class AuthService(BaseService):
         self: AuthService, user_id: str, except_session_id: str | None = None
     ) -> int:
         """Revoke all of a user's sessions except one; returns how many."""
-        return await self.sessions.revoke_user_sessions(user_id, except_session_id)
+        revoked = await self.sessions.revoke_user_sessions(user_id, except_session_id)
+        await self.audit.record(
+            "session.revoked_all", target_type="user", target_id=user_id, details={"count": revoked}
+        )
+        return revoked
 
     async def change_password(
         self, user_id: str, current_password: str, new_password: str, keep_session_id: str | None
@@ -434,7 +446,14 @@ class AuthService(BaseService):
         await self.data_service.users.update_user(
             user_id, {"password": await self.password_service.ahash_password(new_password)}
         )
-        return await self.sessions.revoke_user_sessions(user_id, keep_session_id)
+        ended = await self.sessions.revoke_user_sessions(user_id, keep_session_id)
+        await self.audit.record(
+            "user.password_changed",
+            target_type="user",
+            target_id=user_id,
+            details={"sessions_ended": ended},
+        )
+        return ended
 
     async def set_user_status(self, user_id: str, status: str) -> bool:
         """Enable or disable an account; disabling ends all of its sessions."""
@@ -442,12 +461,18 @@ class AuthService(BaseService):
             return False
         if status != "active":
             await self.sessions.revoke_user_sessions(user_id)
+        await self.audit.record(
+            "user.status_changed", target_type="user", target_id=user_id, details={"status": status}
+        )
         return True
 
     async def delete_user(self, user_id: str) -> bool:
         """Permanently delete an account and end its sessions."""
         await self.sessions.revoke_user_sessions(user_id)
-        return await self.data_service.users.delete_user(user_id)
+        deleted = await self.data_service.users.delete_user(user_id)
+        if deleted:
+            await self.audit.record("user.deleted", target_type="user", target_id=user_id)
+        return deleted
 
     # --------------------------------------------------------- password resets
     async def request_password_reset(self: AuthService, email: str) -> dict[str, str]:
@@ -543,6 +568,9 @@ class AuthService(BaseService):
             raise invalid
 
         await self.sessions.revoke_user_sessions(user_id)
+        await self.audit.record(
+            "user.password_reset", target_type="user", target_id=user_id, actor_id=user_id
+        )
         self.logger.info(
             "Password reset completed",
             extra={"service": "AuthService", "user_id": user_id},

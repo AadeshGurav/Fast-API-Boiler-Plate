@@ -91,6 +91,7 @@ Values are resolved in this order (later wins):
 | `remember_me_days` | int | `30` | Refresh token / session lifetime with 'remember me'. |
 | `auth_max_failed_logins` | int | `5` | Failed logins before the account locks. |
 | `auth_lockout_minutes` | int | `15` | How long a locked account stays locked. |
+| `audit_retention_days` | int | `365` | How long security audit events are kept before they expire. |
 | `auth_refresh_reuse_grace_seconds` | int | `30` | A rotated refresh token still works this long (parallel tabs). |
 | `password_min_length` | int | `8` | Minimum password length. |
 | `password_require_uppercase` | bool | `True` | Passwords need an uppercase letter. |

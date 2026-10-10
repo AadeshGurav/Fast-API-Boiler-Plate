@@ -106,6 +106,10 @@ their groups' roles, and of active grants to the user or their groups, then cach
 per user (`rbac_permission_cache_ttl`, 300 s). Any change to an input drops the entry. `*`
 grants everything, `files:*` every action on files. Inheritance cycles are cut and logged.
 
+`RBACMiddleware` also attributes the request for the audit log: it puts the caller's IP, user
+agent and (once authenticated) user id in a context variable that `AuditService.record` reads,
+so services record security changes without passing request details around.
+
 `RBACMiddleware` authenticates every non-public path, then requires `*` on `admin_only_paths`
 and `<resource>:<action>` everywhere else (resource = first segment after `/api/v1/`, action
 from the method). Routes can add finer checks with `require_permission(...)` dependencies, as

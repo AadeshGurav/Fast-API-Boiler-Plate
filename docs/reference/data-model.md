@@ -45,6 +45,15 @@ Append-only audit of every sign-in: `username`, `user_id`, `success`, `reason`
 (`unknown_user`, `account_inactive`, `account_locked`, `invalid_password`), `ip_address`,
 `user_agent`, `timestamp`. **TTL 90 days.**
 
+### `audit_events` (`AuditService`)
+
+Append-only security changes: `id`, `at`, `action`, `actor_id`, `target_type`, `target_id`,
+`ip_address`, `user_agent`, `request_id`, `details` (flat identifiers and counts, values clipped
+to 200 characters). Indexes: `id` (unique), `(actor_id, at desc)`,
+`(target_type, target_id, at desc)`, `(action, at desc)`. **TTL on `at`:**
+`audit_retention_days` (365 by default). Written by services after a change succeeds; a failed
+write is logged and never fails the change.
+
 ### `files` (`FilesOps`)
 
 One record per **version**: `file_id` + `version` (unique together), `user_id`, `filename`,

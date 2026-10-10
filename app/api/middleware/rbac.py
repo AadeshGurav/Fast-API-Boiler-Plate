@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from fastapi import HTTPException
 from starlette.requests import Request
 from starlette.types import Receive, Send
 
+from app.services.audit import AuditActor, audit_actor_var, set_audit_actor
 from app.services.error.exceptions import UserFacingExceptionError
+from app.utils.utils import client_ip
 
 from .base import BaseMiddleware
 
@@ -42,7 +46,19 @@ class RBACMiddleware(BaseMiddleware):
         )
 
     async def handle(self, request: Request, receive: Receive, send: Send) -> None:
-        """Authenticate and authorize the request, then continue the pipeline."""
+        """Attribute audit events to the caller, then authenticate and authorize."""
+        caller = AuditActor(
+            ip_address=client_ip(request), user_agent=request.headers.get("user-agent")
+        )
+        token = set_audit_actor(caller)
+        try:
+            await self._authorize(request, receive, send, caller)
+        finally:
+            audit_actor_var.reset(token)
+
+    async def _authorize(
+        self, request: Request, receive: Receive, send: Send, caller: AuditActor
+    ) -> None:
         path = request.url.path
         # CORS preflights carry no credentials by design; CORSMiddleware answers them.
         if request.method == "OPTIONS" or self.is_public_path(path):
@@ -91,6 +107,7 @@ class RBACMiddleware(BaseMiddleware):
             await response(request.scope, receive, send)
             return
 
+        set_audit_actor(replace(caller, user_id=user.user_id))
         await self.app(request.scope, receive, send)
 
     @staticmethod

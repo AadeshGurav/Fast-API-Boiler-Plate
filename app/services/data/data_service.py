@@ -13,7 +13,7 @@ from .files_ops import FilesOps
 from .migrations import run_migrations
 from .oauth_ops import OAuthOps
 from .policies import CachePolicy
-from .schema import COLLECTION_INDEXES
+from .schema import collection_indexes
 from .sessions_ops import SessionsOps
 from .temp_permissions_ops import TemporaryPermissionsOps
 from .users_ops import UsersOps
@@ -114,7 +114,7 @@ class DataService(BaseService):
         await self.database_service.connect()
         await self.cache_service.connect()
         await run_migrations(self.database_service, self.logger)
-        await self.database_service.ensure_indexes(COLLECTION_INDEXES)
+        await self.database_service.ensure_indexes(collection_indexes(self.config))
         self.logger.info("DataService: All backends connected and initialized.")
 
     async def close(self: DataService) -> None:

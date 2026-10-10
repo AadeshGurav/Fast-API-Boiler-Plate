@@ -197,6 +197,9 @@ class Settings(BaseModel):
     auth_lockout_minutes: int = Field(
         15, ge=1, description="How long a locked account stays locked."
     )
+    audit_retention_days: int = Field(
+        365, ge=1, description="How long security audit events are kept before they expire."
+    )
     auth_refresh_reuse_grace_seconds: int = Field(
         30, ge=0, description="A rotated refresh token still works this long (parallel tabs)."
     )

@@ -51,9 +51,28 @@ COLLECTION_INDEXES: dict[str, list[dict[str, Any]]] = {
         },
         {"keys": [("user_id", ASCENDING), ("tags", ASCENDING)]},
     ],
+    "audit_events": [
+        {"keys": [("id", ASCENDING)], "unique": True},
+        {"keys": [("actor_id", ASCENDING), ("at", DESCENDING)]},
+        {"keys": [("target_type", ASCENDING), ("target_id", ASCENDING), ("at", DESCENDING)]},
+        {"keys": [("action", ASCENDING), ("at", DESCENDING)]},
+        # The time-to-live index on "at" is added from settings: see collection_indexes().
+    ],
     "password_reset_tokens": [
         {"keys": [("token_hash", ASCENDING)], "unique": True},
         # Expired reset tokens are useless; let MongoDB purge them.
         {"keys": [("expires_at", ASCENDING)], "expireAfterSeconds": 0},
     ],
 }
+
+
+def collection_indexes(config: Any) -> dict[str, list[dict[str, Any]]]:
+    """``COLLECTION_INDEXES`` plus the indexes whose options come from settings."""
+    retention = config["audit_retention_days"] * 24 * 3600
+    return {
+        **COLLECTION_INDEXES,
+        "audit_events": [
+            *COLLECTION_INDEXES["audit_events"],
+            {"keys": [("at", ASCENDING)], "expireAfterSeconds": retention},
+        ],
+    }
