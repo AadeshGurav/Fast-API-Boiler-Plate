@@ -1,452 +1,119 @@
-"""Lifecycle management utilities for FastAPI applications."""
+"""Application lifecycle and request helpers."""
 
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
-import secrets
-import signal
-import sys
-from collections.abc import AsyncGenerator
+import random
 from contextlib import asynccontextmanager
-from types import FrameType, TracebackType
+from typing import TYPE_CHECKING
 
-from fastapi import FastAPI, Request
 from user_agents import parse
 
 from app.models.session import DeviceInfo
-from app.services.logger import Logger
 
-_shutdown_event: asyncio.Event | None = None
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator
+
+    from fastapi import FastAPI, Request
 
 
-def get_shutdown_event() -> asyncio.Event:
-    """Return the global asyncio event used for graceful shutdown.
+async def purge_abandoned_uploads_forever(services) -> None:
+    """Every ``file_cleanup_interval`` seconds, drop chunked-upload data nobody finished.
 
-    Returns
-    -------
-        asyncio.Event: The global asyncio event used for graceful shutdown.
-
+    Every worker runs this; the purge is idempotent, and the random first delay keeps
+    them from all hitting the storage backend together. A failed pass is logged and
+    retried next time rather than ending the task.
     """
-    global _shutdown_event
-    if _shutdown_event is None:
-        _shutdown_event = asyncio.Event()
-    return _shutdown_event
-
-
-async def wait_for_shutdown(timeout: float = 30.0) -> None:
-    """Block until a shutdown signal is received or timeout elapses.
-
-    Args:
-    ----
-        timeout: The timeout in seconds.
-
-    Returns:
-    -------
-        None
-
-    """
-    event = get_shutdown_event()
-    try:
-        await asyncio.wait_for(event.wait(), timeout=timeout)
-    except asyncio.TimeoutError:
-        pass
+    interval = services.config["file_cleanup_interval"]
+    handler = services.file_service.chunked_upload_handler
+    await asyncio.sleep(random.uniform(0, interval))  # noqa: S311 - jitter, not security
+    while True:
+        try:
+            removed = await handler.purge_abandoned()
+            if removed:
+                services.logger.info(f"Purged {removed} abandoned upload file(s)")
+        except Exception as e:
+            services.logger.error(f"Upload cleanup failed: {e}")
+        await asyncio.sleep(interval)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Manage FastAPI application startup and shutdown lifecycle.
+    """Connect the data layer on startup; release everything on shutdown."""
+    from app.services.auth.bootstrap import ensure_bootstrap_admin
 
-    Args:
-    ----
-        app: The FastAPI application.
+    services = app.state.services
+    logger = services.logger
+    logger.info("Starting application")
 
-    Returns:
-    -------
-        AsyncGenerator[None, None]: The lifespan generator.
-
-    """
-    logger: Logger | None = getattr(app.state, "logger", None)
-    if logger:
-        logger.info("Starting application lifecycle...")
-        # Enable async mode for non-blocking log writes
-        try:
-            logger.enable_async()
-            logger.info("Logger async mode enabled")
-        except Exception as e:  # noqa: BLE001
-            logger.warning(f"Failed to enable logger async mode: {e}")
-
+    await services.data_service.connect()
     try:
-        from app import container
+        await ensure_bootstrap_admin(services.auth_service, services.config, logger)
+    except Exception as e:
+        logger.error(f"Bootstrap admin creation failed: {e}")
 
-        data_service = getattr(app.state, "data_service", None)
+    oauth = services.oauth_service
+    if oauth is not None and oauth.oauth_enabled:
+        logger.info(f"OAuth providers: {list(oauth.providers)}")
+    logger.info("Application started")
 
-        # Connect data layer
-        if data_service:
-            await data_service.connect()
-            logger.info("DataService connections established")
-
-        # Initialize RBAC system
-        try:
-            rbac_service = container.rbac_service()
-            await rbac_service.load_rbac_config()
-
-            logger.info("RBAC system initialized successfully")
-
-        except Exception as e:  # noqa: BLE001
-            logger.error(f"RBAC initialization failed: {e}")
-            # Don't fail startup if RBAC fails, but log the error
-
-        # Initialize OAuth providers if enabled
-        try:
-            oauth_service = container.oauth_service()
-            if oauth_service and oauth_service.oauth_enabled:
-                providers = list(oauth_service.providers.keys())
-                logger.info(f"OAuth providers initialized: {providers}")
-            else:
-                logger.info("OAuth providers disabled")
-        except Exception as e:  # noqa: BLE001
-            logger.error(f"OAuth initialization failed: {e}")
-
-        logger.info("Application startup completed successfully")
-        logger.info(
-            f"http://{app.state.config.get('app_host', '127.0.0.1')}:{app.state.config.get('app_port', 8000)}"
-        )
-
-    except Exception as exc:  # noqa: BLE001
-        logger.exception("Application startup failed", exc_info=exc)
-        raise
-
-    # Yield control to the running app
-    yield
-
-    # --- Shutdown Phase ---
-    logger.info("Beginning graceful shutdown...")
-
+    janitor = (
+        asyncio.create_task(purge_abandoned_uploads_forever(services))
+        if services.config["file_cleanup_interval"]
+        else None
+    )
     try:
-        data_service = getattr(app.state, "data_service", None)
-        metrics_service = getattr(app.state, "metrics_service", None)
-        tracing_service = getattr(app.state, "tracing_service", None)
-        shutdown_timeout = 30.0
-
-        # Wait for in-flight requests if metrics available
-        if metrics_service:
-            start_time = asyncio.get_event_loop().time()
-            while True:
-                active_requests = 0
-                try:
-                    for metric in metrics_service.active_requests._metrics.values():
-                        active_requests += metric._value.get()
-                except Exception:  # noqa: BLE001
-                    break
-
-                if active_requests == 0:
-                    break
-
-                if asyncio.get_event_loop().time() - start_time > shutdown_timeout:
-                    if logger:
-                        logger.warning(
-                            "Shutdown timeout reached with %d active requests",
-                            active_requests,
-                        )
-                    break
-
-                await asyncio.sleep(0.1)
-
-        # Close bulkheads or pools if available
-        bulkhead_manager = getattr(app.state, "bulkhead_manager", None)
-        if bulkhead_manager:
-            bulkhead_manager.shutdown_all()
-            logger.info("Bulkheads shut down")
-
-        # Close tracing resources if any
-        if tracing_service and hasattr(tracing_service, "close"):
-            try:
-                tracing_service.close()
-                logger.info("Tracing resources closed")
-            except Exception as exc:  # noqa: BLE001
-                logger.error("Error closing tracing resources: %s", exc)
-
-        # Flush async logger if implemented
-        if logger and hasattr(logger, "shutdown"):
-            try:
-                await logger.shutdown()
-                logger.info("Logger shutdown complete")
-            except Exception as e:  # noqa: BLE001
-                print(f"Logger shutdown error: {e}", file=sys.stderr)
-
-        # Close database and cache
-        if data_service:
-            await data_service.close()
-            logger.info("Database connections closed")
-
-            cache_service = getattr(data_service, "cache_service", None)
-            if cache_service and hasattr(cache_service, "close"):
-                await cache_service.close()
-                logger.info("Cache connections closed")
-
-        # Cancel RBAC refresh task
-        rbac_refresh_task = getattr(app.state, "rbac_refresh_task", None)
-        if rbac_refresh_task:
-            rbac_refresh_task.cancel()
-            try:
-                await rbac_refresh_task
-            except asyncio.CancelledError:
-                pass
-            logger.info("RBAC refresh task cancelled")
-
-        # Execute any app cleanup tasks
-        cleanup_tasks = getattr(app.state, "cleanup_tasks", [])
-        for task in cleanup_tasks:
-            try:
-                await task()
-            except Exception as exc:  # noqa: BLE001
-                logger.error("Error during cleanup task: %s", exc)
-
-        logger.info("Graceful shutdown complete")
-
-    except Exception as exc:  # noqa: BLE001
-        logger.exception("Error during shutdown", exc_info=exc)
+        yield
     finally:
-        # Clear app state to free resources
-        try:
-            for attr in list(app.state.__dict__.keys()):
-                delattr(app.state, attr)
-        except Exception:  # noqa: BLE001
-            pass
+        logger.info("Shutting down")
+        if janitor is not None:
+            janitor.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await janitor
+        await services.data_service.close()
+        if services.sentry_service is not None:
+            services.sentry_service.flush()
+        logger.shutdown()
 
 
-def generate_session_id() -> str:
-    """Generate a secure URL-safe session identifier.
+def client_ip(request: Request) -> str:
+    """The caller's IP address, resistant to header spoofing.
 
-    Returns
-    -------
-        str: The generated session identifier.
-
+    ``X-Forwarded-For`` is client-controlled unless a reverse proxy we trust appended
+    to it. Set ``trusted_proxy_count`` (the number of proxies in front of the app) to
+    use it: the address is then taken that many entries from the right, which is the
+    last one a trusted proxy wrote. With the default of 0 only the socket peer is used.
     """
-    return secrets.token_urlsafe(32)
+    peer = request.client.host if request.client else "unknown"
+    config = getattr(request.app.state, "services", None)
+    trusted_proxies = config.config["trusted_proxy_count"] if config else 0
+    if not trusted_proxies:
+        return peer
 
-
-def get_client_ip(request: Request) -> str:
-    """Return the client's IP address from headers or connection info."""
-    forwarded_for = request.headers.get("X-Forwarded-For")
-    if forwarded_for:
-        return forwarded_for.split(",")[0].strip()
-
-    real_ip = request.headers.get("X-Real-IP")
-    if real_ip:
-        return real_ip.strip()
-
-    if request.client:
-        return request.client.host
-
-    return "unknown"
-
-
-def parse_bearer_token(authorization: str | None) -> str | None:
-    """Extract a Bearer token from the Authorization header if valid."""
-    if not authorization:
-        return None
-    parts = authorization.split()
-    if len(parts) == 2 and parts[0].lower() == "bearer":
-        return parts[1]
-    return None
-
-
-class GracefulShutdown:
-    """Context manager for handling graceful shutdown in background tasks."""
-
-    def __init__(self, logger: Logger | None = None) -> None:
-        """Initialize the GracefulShutdown context manager.
-
-        Args:
-        ----
-            logger: The logger.
-
-        """
-        self.logger = logger
-        self.tasks: list[asyncio.Task] = []
-        self._shutdown_event = get_shutdown_event()
-
-    def create_task(self, coro, name: str | None = None) -> asyncio.Task:
-        """Register a background task that should stop on shutdown.
-
-        Args:
-        ----
-            coro: The coroutine to register.
-            name: The name of the task.
-
-        Returns:
-        -------
-            asyncio.Task: The registered task.
-
-        """
-        task = asyncio.create_task(coro, name=name)
-        self.tasks.append(task)
-        return task
-
-    async def wait_for_shutdown(self) -> None:
-        """Block until a shutdown signal is received."""
-        await self._shutdown_event.wait()
-
-    async def shutdown(self, timeout: float = 10.0) -> None:
-        """Cancel all background tasks and wait for their completion.
-
-        Args:
-        ----
-            timeout: The timeout in seconds.
-
-        Returns:
-        -------
-            None
-
-        """
-        if not self.tasks:
-            return
-
-        if self.logger:
-            self.logger.info("Cancelling %d background tasks...", len(self.tasks))
-
-        for task in self.tasks:
-            task.cancel()
-
-        try:
-            await asyncio.wait_for(
-                asyncio.gather(*self.tasks, return_exceptions=True), timeout=timeout
-            )
-        except asyncio.TimeoutError:
-            if self.logger:
-                self.logger.warning(
-                    "Timeout waiting for %d tasks to complete", len(self.tasks)
-                )
-
-    async def __aenter__(self) -> GracefulShutdown:
-        """Enter the context manager."""
-        return self
-
-    async def __aexit__(
-        self,
-        exc_type: type | None,
-        exc_val: Exception | None,
-        exc_tb: TracebackType | None,
-    ) -> None:
-        """Exit the context manager."""
-        """Exit the context manager.
-
-        Args:
-            exc_type: The exception type.
-            exc_val: The exception value.
-            exc_tb: The exception traceback.
-
-        Returns:
-            None
-
-        """
-        await self.shutdown()
-
-
-def handle_shutdown_signal(signum: int, frame: FrameType) -> None:
-    """Handle termination signals and trigger application shutdown.
-
-    Args:
-    ----
-        signum: The signal number.
-        frame: The frame.
-
-    Returns:
-    -------
-        None
-
-    """
-    shutdown_event = get_shutdown_event()
-    shutdown_event.set()
-
-    try:
-        import logging
-
-        logger = logging.getLogger(__name__)
-        logger.info(
-            "Received signal %s, initiating shutdown...",
-            signal.Signals(signum).name,
-        )
-    except Exception:
-        print(f"Received signal {signum}, initiating shutdown...")
-
-
-def __generate_device_fingerprint(ip: str, user_agent: str, extra: str = "") -> str:
-    """Generate a device fingerprint using a hash.
-
-    Args:
-    ----
-        ip: The IP address.
-        user_agent: The user agent.
-        extra: Extra information to include in the fingerprint.
-
-    Returns:
-    -------
-        The fingerprint.
-
-    """
-    # Combine values
-    base_string = f"{ip}|{user_agent[:200]}|{extra}"
-
-    # Use SHA256 hash for uniqueness
-    fingerprint_hash = hashlib.sha256(base_string.encode()).hexdigest()
-
-    # Keep first 12 chars for debugging reference
-    debug_fingerprint = f"{fingerprint_hash[:12]}:{base_string[:50]}"
-
-    return debug_fingerprint
+    hops = [h.strip() for h in request.headers.get("x-forwarded-for", "").split(",") if h.strip()]
+    return hops[-trusted_proxies] if len(hops) >= trusted_proxies else peer
 
 
 def extract_device_info(request: Request) -> DeviceInfo:
-    """Extract device information from request.
-
-    Args:
-    ----
-        request: The request to extract device info from.
-
-    Returns:
-    -------
-        Device information.
-
-    """
+    """Describe the caller's device from the request."""
     user_agent = request.headers.get("user-agent", "")
-    ip_address = request.headers.get(
-        "x-forwarded-for", request.client.host if request.client else "unknown"
-    )
-    language = request.headers.get("accept-language", None)
+    ip_address = client_ip(request)
+    language = request.headers.get("accept-language")
+    agent = parse(user_agent)
 
-    # Parse user agent
-    ua = parse(user_agent)
-    platform = ua.os.family
-    os_version = ua.os.version_string
-    browser = ua.browser.family
-    browser_version = ua.browser.version_string
-    device_type = "Mobile" if ua.is_mobile else "Tablet" if ua.is_tablet else "PC"
-    is_bot = ua.is_bot
-
-    # Generate fingerprint
-    extra_info = language or ""
-    fingerprint = __generate_device_fingerprint(ip_address, user_agent, extra_info)
-
-    # Optional: add geo-location lookup here
-
+    fingerprint_source = f"{ip_address}|{user_agent[:200]}|{language or ''}"
     return DeviceInfo(
         user_agent=user_agent,
         ip_address=ip_address,
-        fingerprint=fingerprint,
-        platform=platform,
-        os_version=os_version,
-        browser=browser,
-        browser_version=browser_version,
-        device_type=device_type,
+        fingerprint=hashlib.sha256(fingerprint_source.encode()).hexdigest()[:32],
+        platform=agent.os.family,
+        os_version=agent.os.version_string,
+        browser=agent.browser.family,
+        browser_version=agent.browser.version_string,
+        device_type="Mobile" if agent.is_mobile else "Tablet" if agent.is_tablet else "PC",
         language=language,
-        is_bot=is_bot,
-        geo_location=None,  # placeholder for future
+        is_bot=agent.is_bot,
+        geo_location=None,
     )
-
-
-# Register OS signal handlers
-signal.signal(signal.SIGTERM, handle_shutdown_signal)
-signal.signal(signal.SIGINT, handle_shutdown_signal)

@@ -1,0 +1,19 @@
+# Copy to config.local.toml (git-ignored) for development on your machine.
+app_debug = true
+environment = "development"
+uvicorn_log_level = "info"
+log_uvicorn = true
+log_level = "DEBUG"
+
+# Run without Redis/Mongo credentials by using the in-process cache:
+# app_cache_provider = "memory"
+
+# Bootstrap the first administrator once (then remove these lines):
+# bootstrap_admin_username = "admin"
+# bootstrap_admin_email = "admin@example.com"
+# bootstrap_admin_password = "change-me-Please1!"
+
+# Email for password resets (without it the message is only logged):
+# smtp_host = "localhost"
+# smtp_port = 1025
+# smtp_starttls = false

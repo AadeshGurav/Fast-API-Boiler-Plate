@@ -1,197 +1,149 @@
 from __future__ import annotations
 
+import re
+from functools import lru_cache
 from typing import TYPE_CHECKING, Any
 
-from starlette.middleware.base import BaseHTTPMiddleware
-
-from app.utils.utils import extract_device_info
+from starlette.datastructures import MutableHeaders
+from starlette.requests import Request
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from fastapi import Request, Response
-    from starlette.types import ASGIApp
+    from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-    from app.models.session import DeviceInfo
     from app.services.logger import Logger
     from config import Config
 
 
-class BaseMiddleware(BaseHTTPMiddleware):
-    """Base middleware class with common functionality for all middleware."""
+def path_matches(path: str, patterns: list[str]) -> bool:
+    """Whether ``path`` equals, or sits under, any pattern.
+
+    Matching is on whole path segments, so ``/api/v1/auth/login`` covers itself and
+    ``/api/v1/auth/login/x`` but never ``/api/v1/auth/login-admin``. ``/`` matches only
+    the root (a plain ``startswith("/")`` would make every path match). ``{name}``
+    stands for exactly one segment.
+
+    Args:
+    ----
+        path: Request path.
+        patterns: Exact paths or path prefixes, optionally with ``{param}`` segments.
+
+    Returns:
+    -------
+        True if any pattern matches.
+
+    """
+    return _compile_patterns(tuple(patterns)).fullmatch(path) is not None
+
+
+@lru_cache(maxsize=64)
+def _compile_patterns(patterns: tuple[str, ...]) -> re.Pattern[str]:
+    """One regex for the whole pattern list (compiled once per distinct list, not per request)."""
+    alternatives = [
+        "/"
+        if pattern == "/"
+        else re.sub(r"\\\{[^/]+?\\\}", "[^/]+", re.escape(pattern.rstrip("/"))) + r"(?:/.*)?"
+        for pattern in patterns
+    ]
+    return re.compile("|".join(alternatives) if alternatives else r"(?!)")
+
+
+class BaseMiddleware:
+    """Base for pure-ASGI middleware.
+
+    Starlette's ``BaseHTTPMiddleware`` re-buffers every response through a task and a
+    memory stream; this base talks ASGI directly, so there is no extra task per request,
+    streaming bodies stay streams, and ``contextvars`` set here reach the route.
+
+    Subclasses implement :meth:`handle`. Helpers:
+
+    * :meth:`forward` runs the rest of the stack and lets you observe or change the
+      response *head* (status, headers) as it passes.
+    * ``await response(request.scope, receive, send)`` answers without calling the app.
+    """
 
     def __init__(
-        self: BaseMiddleware,
+        self,
         app: ASGIApp,
         config: Config,
         logger: Logger,
-        *args: dict[str, Any],
-        **kwargs: dict[str, Any],
+        *args: Any,
+        **kwargs: Any,
     ) -> None:
-        """Initialize the base middleware.
-
-        Args:
-        ----
-            app: The ASGI application.
-            config: The configuration.
-            logger: The logger.
-            exclude_paths: The paths to exclude.
-            public_paths: The paths to public.
-            admin_only_paths: The paths to admin-only.
-            role_permissions: The role permissions.
-            kwargs: Additional keyword arguments.
-
-        Returns:
-        -------
-            The base middleware.
-
-        """
-        super().__init__(app)
-
-        self.exclude_paths = []
-        self.kwargs = kwargs
-
+        self.app = app
         self.config = config
         self.logger = logger
-
+        self.exclude_paths: list[str] = []
         for key, value in kwargs.items():
             setattr(self, key, value)
 
-        for arg in args:
-            setattr(self, arg, arg)
-
-        # Common paths and permissions
-        self.public_paths = self.config.get(
-            "public_paths",
-            ["/", "/docs", "/redoc", "/openapi.json"],
-        )
-
-        self.admin_only_paths = self.config.get(
-            "admin_only_paths",
-            ["/admin", "/users/list", "/users/{id}/permissions", "/users/{id}/role"],
-        )
-
-        self.role_permissions = self.config.get(
-            "role_permissions",
-            {
-                "admin": ["*"],
-                "manager": ["read", "write", "update"],
-                "user": ["read", "write"],
-                "guest": ["read"],
-            },
-        )
-
-        # Initialize the middleware
+        self.public_paths: list[str] = config["public_paths"]
+        self.admin_only_paths: list[str] = config["admin_only_paths"]
         self.initialize(**kwargs)
 
-    def initialize(self: BaseMiddleware, **kwargs) -> None:
-        """Initialize middleware with specific configuration.
-        Override this in subclasses to handle specific initialization.
+    def initialize(self, **kwargs: Any) -> None:
+        """Hook for subclasses to read configuration."""
 
-        Args:
-        ----
-            kwargs: Additional keyword arguments.
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """ASGI entry point: only HTTP requests on non-excluded paths reach ``handle``."""
+        if scope["type"] != "http" or not self.should_process(scope["path"]):
+            await self.app(scope, receive, send)
+            return
+        await self.handle(Request(scope, receive), receive, send)
 
-        Returns:
-        -------
-            None
+    async def handle(self, request: Request, receive: Receive, send: Send) -> None:
+        """Process one request. Default: pass through."""
+        await self.app(request.scope, receive, send)
 
-        """
-        pass
+    async def forward(
+        self,
+        request: Request,
+        receive: Receive,
+        send: Send,
+        on_start: Callable[[Message], None] | None = None,
+    ) -> int | None:
+        """Run the rest of the stack.
 
-    def should_process_request(self: BaseMiddleware, request: Request) -> bool:
-        """Determine if the middleware should process this request based on path.
-
-        Args:
-        ----
-            request: The request to check.
-
-        Returns:
-        -------
-            True if the middleware should process this request, False otherwise.
-
-        """
-        if not self.exclude_paths:
-            return True
-
-        path = request.url.path
-        return not any(path.startswith(excluded) for excluded in self.exclude_paths)
-
-    def is_public_path(self: BaseMiddleware, path: str) -> bool:
-        """Check if path is public (doesn't require authentication).
-
-        Args:
-        ----
-            path: The path to check.
+        ``on_start`` is called with the ``http.response.start`` message before it is sent;
+        mutate ``message["headers"]`` (e.g. via :func:`set_headers`) to alter the response.
 
         Returns:
         -------
-            True if path is public, False otherwise.
+            The response status code, or None if no response was started.
 
         """
-        return any(path.startswith(p) for p in self.public_paths)
+        status: int | None = None
 
-    def is_admin_only_path(self: BaseMiddleware, path: str) -> bool:
-        """Check if path is admin-only.
+        async def send_wrapper(message: Message) -> None:
+            nonlocal status
+            if message["type"] == "http.response.start":
+                status = message["status"]
+                if on_start:
+                    on_start(message)
+            await send(message)
 
-        Args:
-        ----
-            path: The path to check.
+        await self.app(request.scope, receive, send_wrapper)
+        return status
 
-        Returns:
-        -------
-            True if path is admin-only, False otherwise.
+    def should_process(self, path: str) -> bool:
+        """False for paths this middleware is configured to skip."""
+        return not path_matches(path, self.exclude_paths) if self.exclude_paths else True
 
-        """
-        return any(path.startswith(p.split("{")[0]) for p in self.admin_only_paths)
+    def is_public_path(self, path: str) -> bool:
+        """Whether ``path`` needs no authentication."""
+        return path_matches(path, self.public_paths)
 
-    async def dispatch(
-        self: BaseMiddleware, request: Request, call_next: Callable
-    ) -> Response:
-        """Default dispatch method that implements path exclusion logic.
+    def is_admin_only_path(self, path: str) -> bool:
+        """Whether ``path`` is restricted to administrators."""
+        return path_matches(path, self.admin_only_paths)
 
-        Args:
-        ----
-            request: The request to process.
-            call_next: The next middleware to call.
 
-        Returns:
-        -------
-            The response from the next middleware.
-
-        """
-        if not self.should_process_request(request):
-            return await call_next(request)
-
-        return await self.process_request(request, call_next)
-
-    async def process_request(
-        self: BaseMiddleware, request: Request, call_next: Callable
-    ) -> Response:
-        """Process the request. Override in subclasses.
-
-        Args:
-        ----
-            request: The request to process.
-            call_next: The next middleware to call.
-
-        Returns:
-        -------
-            The response from the next middleware.
-
-        """
-        return await call_next(request)
-
-    def _extract_device_info(self: BaseMiddleware, request: Request) -> DeviceInfo:
-        """Extract device information from request.
-
-        Args:
-        ----
-            request: The request to extract device information from.
-
-        Returns:
-        -------
-            The device information.
-
-        """
-        return extract_device_info(request)
+def set_headers(message: Message, values: dict[str, str], *, remove: tuple[str, ...] = ()) -> None:
+    """Set (replace) and remove headers on an ``http.response.start`` message."""
+    headers = MutableHeaders(scope=message)
+    for name in remove:
+        if name in headers:
+            del headers[name]
+    for name, value in values.items():
+        headers[name] = value

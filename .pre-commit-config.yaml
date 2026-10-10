@@ -1,0 +1,9 @@
+# Optional: `pip install pre-commit && pre-commit install` runs these before every commit.
+exclude: ^graphify-out/
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.10
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format

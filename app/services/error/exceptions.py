@@ -59,25 +59,3 @@ class UserFacingExceptionError(AppExceptionError):
 
         """
         super().__init__(message, code, status_code, details)
-
-
-class RetryExhaustedError(AppExceptionError):
-    """Raised when all retry attempts are exhausted."""
-
-    def __init__(
-        self: RetryExhaustedError, message: str, last_exception: Exception | None = None
-    ) -> None:
-        """Initialize the RetryExhausted exception.
-
-        Args:
-        ----
-            message: The message to display.
-            last_exception: The last exception that occurred.
-
-        Returns:
-        -------
-            None
-
-        """
-        super().__init__(message)
-        self.last_exception: Exception | None = last_exception

@@ -2,14 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-
-from pydantic import Field
-
-from app.core.dynamic_config import DynamicConfig
+from pydantic import BaseModel, Field
 
 
-class DeviceInfo(DynamicConfig):
+class DeviceInfo(BaseModel):
     """Device information model."""
 
     user_agent: str = Field(..., description="User agent string")
@@ -25,34 +21,4 @@ class DeviceInfo(DynamicConfig):
     geo_location: dict | None = Field(None, description="Geo location")
 
 
-class RefreshToken(DynamicConfig):
-    """Refresh token model."""
-
-    token_hash: str = Field(..., description="Hashed refresh token")
-    user_id: str = Field(..., description="User identifier")
-    device_info: DeviceInfo = Field(..., description="Device information")
-    issued_at: datetime = Field(
-        default_factory=datetime.utcnow, description="Token issue time"
-    )
-    expires_at: datetime = Field(..., description="Token expiration time")
-    last_used_at: datetime | None = Field(None, description="Last usage time")
-    revoked_at: datetime | None = Field(None, description="Revocation time")
-
-
-class Session(DynamicConfig):
-    """Session model."""
-
-    id: str = Field(..., description="Unique session identifier")
-    user_id: str = Field(..., description="User identifier")
-    refresh_token_id: str | None = Field(
-        None, description="Associated refresh token ID"
-    )
-    device_info: DeviceInfo = Field(..., description="Device information")
-    created_at: datetime = Field(
-        default_factory=datetime.utcnow, description="Session creation time"
-    )
-    expires_at: datetime = Field(..., description="Session expiration time")
-    revoked_at: datetime | None = Field(None, description="Session revocation time")
-
-
-__all__ = ["DeviceInfo", "RefreshToken", "Session"]
+__all__ = ["DeviceInfo"]

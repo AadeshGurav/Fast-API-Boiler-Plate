@@ -20,9 +20,7 @@ class GoogleOAuthProvider:
         """
         self.logger = logger
 
-    async def get_user_info(
-        self, provider_config: dict, access_token: str
-    ) -> OAuthUserInfo:
+    async def get_user_info(self, provider_config: dict, access_token: str) -> OAuthUserInfo:
         """Get user information from Google OAuth provider.
 
         Args:
@@ -48,8 +46,9 @@ class GoogleOAuthProvider:
             user_data = response.json()
 
             oauth_user_info = OAuthUserInfo(
-                provider_user_id=user_data["id"],
+                provider_user_id=user_data["sub"],
                 email=user_data["email"],
+                email_verified=bool(user_data.get("email_verified", False)),
                 name=user_data.get("name", ""),
                 picture=user_data.get("picture"),
             )
@@ -61,7 +60,6 @@ class GoogleOAuthProvider:
                     "action": "get_user_info",
                     "provider": OAuthProvider.GOOGLE.value,
                     "provider_user_id": oauth_user_info.provider_user_id,
-                    "email": oauth_user_info.email,
                 },
             )
 

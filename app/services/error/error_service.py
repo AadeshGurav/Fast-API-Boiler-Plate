@@ -2,20 +2,23 @@
 
 from __future__ import annotations
 
-import traceback
+from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 
-from fastapi import status
+from fastapi.exceptions import RequestValidationError
+from starlette import status
+from starlette.exceptions import HTTPException
 from starlette.responses import JSONResponse
 
+from app.cache import CacheUnavailableError
 from app.services.base_service import BaseService
+from app.services.error.exceptions import AppExceptionError
 
 if TYPE_CHECKING:
-    from fastapi import HTTPException
-
-    from app.services.error.exceptions import AppExceptionError
     from app.services.logger import Logger
     from config import Config
+
+PROBLEM_JSON = "application/problem+json"
 
 
 class ErrorService(BaseService):
@@ -43,106 +46,99 @@ class ErrorService(BaseService):
 
         """
         super().__init__(config, logger, *args, **kwargs)
-        self.debug = config.get("app_debug", False)
-
-    def log_exception(
-        self: ErrorService, exc: Exception, extra: dict | None = None
-    ) -> str:
-        """Log an exception and optionally send it to Sentry.
-
-        Args:
-        ----
-            exc: The exception to log.
-            extra: Optional extra context to include in logs.  # noqa: E501
-
-        Returns:
-        -------
-            Formatted traceback string.
-
-        """
-        tb: str = traceback.format_exc()
-        self.logger.error(f"Exception occurred: {str(exc)}", exc_info=True, extra=extra)
-
-        # Capture exception in Sentry if available
-        # try:
-        #     if sentry_service and sentry_service.is_enabled():
-        #         sentry_service.capture_exception(exc, extra=extra)
-        #         self.logger.debug("Exception captured in Sentry")
-        # except Exception as sentry_error:  # noqa: BLE001
-        #     self.logger.warning(f"Failed to capture exception in Sentry: {sentry_error}")
-
-        return tb
+        self.debug = config["app_debug"]
 
     def format_error(
         self: ErrorService,
         exc: Exception,
         user_message: str | None = None,
+        status_code: int | None = None,
+        instance: str | None = None,
     ) -> dict[str, Any]:
-        """Format an exception for HTTP response.
+        """Describe an exception as an RFC 9457 problem document.
+
+        Internal exception text is only included in debug mode (``developer_message``);
+        unexpected errors always show a generic message to the caller.
 
         Args:
         ----
             exc: Exception instance to format.
             user_message: Optional message to show to the user.
+            status_code: HTTP status of the response.
+            instance: Request path the problem occurred on.
 
         Returns:
         -------
-            A dictionary containing error details.
+            A problem-details dictionary.
 
         """
-        developer_message: str | None = str(exc) if self.debug else None
-
         if isinstance(exc, AppExceptionError):
-            return {
-                "error": exc.code,
-                "message": user_message or exc.message,
-                "details": exc.details,
-                "developer_message": developer_message,
-            }
-        if isinstance(exc, HTTPException):
-            return {
-                "error": "http_error",
-                "message": user_message or exc.detail,
-                "details": None,
-                "developer_message": developer_message,
-            }
+            code, detail, extra = exc.code, exc.message, {"details": exc.details}
+            status_code = status_code or exc.status_code
+        elif isinstance(exc, HTTPException):
+            code, detail, extra = "http_error", exc.detail, {}
+            status_code = status_code or exc.status_code
+        elif isinstance(exc, RequestValidationError):
+            code, detail = "validation_error", "The request is invalid."
+            extra = {"errors": jsonable_validation_errors(exc)}
+            status_code = status_code or status.HTTP_422_UNPROCESSABLE_ENTITY
+        elif isinstance(exc, CacheUnavailableError):
+            code, extra = "dependency_unavailable", {}
+            detail = "A required service is temporarily unavailable. Try again shortly."
+            status_code = status_code or status.HTTP_503_SERVICE_UNAVAILABLE
+        else:
+            code, detail, extra = "internal_error", "An unexpected error occurred.", {}
+            status_code = status_code or status.HTTP_500_INTERNAL_SERVER_ERROR
 
-        return {
-            "error": "internal_error",
-            "message": user_message or "An unexpected error occurred.",
-            "details": None,
-            "developer_message": developer_message,
+        problem: dict[str, Any] = {
+            "type": "about:blank",
+            "title": HTTPStatus(status_code).phrase,
+            "status": status_code,
+            "detail": user_message or detail,
+            "code": code,
+            **{k: v for k, v in extra.items() if v is not None},
         }
+        if instance:
+            problem["instance"] = instance
+        if self.debug and not isinstance(exc, (AppExceptionError, HTTPException)):
+            problem["developer_message"] = str(exc)
+        return problem
 
     def http_response(
         self: ErrorService,
         exc: Exception,
         user_message: str | None = None,
         status_code: int | None = None,
+        headers: dict[str, str] | None = None,
+        instance: str | None = None,
     ) -> JSONResponse:
-        """Build a JSONResponse for an exception.
+        """Build an ``application/problem+json`` response for an exception.
 
         Args:
         ----
             exc: The exception to respond with.
             user_message: Optional user-facing message.
             status_code: Optional override HTTP status code.
+            headers: Extra response headers (e.g. ``WWW-Authenticate``).
+            instance: Request path the problem occurred on.
 
         Returns:
         -------
-            JSONResponse with formatted error.
+            JSONResponse with the problem document.
 
         """
-        if isinstance(exc, AppExceptionError):
-            code = exc.status_code
-        elif isinstance(exc, HTTPException):
-            code = exc.status_code
-        else:
-            code = status.HTTP_500_INTERNAL_SERVER_ERROR
+        problem = self.format_error(exc, user_message, status_code, instance)
+        return JSONResponse(
+            status_code=problem["status"],
+            content=problem,
+            media_type=PROBLEM_JSON,
+            headers=headers,
+        )
 
-        if status_code is not None:
-            code = status_code
 
-        response_content = self.format_error(exc, user_message)
-        self.logger.debug(f"Formatted HTTP error response: {response_content}")
-        return JSONResponse(status_code=code, content=response_content)
+def jsonable_validation_errors(exc: RequestValidationError) -> list[dict[str, Any]]:
+    """Validation errors without the submitted input (it may contain passwords)."""
+    return [
+        {"loc": list(error["loc"]), "msg": error["msg"], "type": error["type"]}
+        for error in exc.errors()
+    ]

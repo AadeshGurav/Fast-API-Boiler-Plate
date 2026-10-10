@@ -2,18 +2,17 @@
 
 from __future__ import annotations
 
-from app.core.interfaces.oauth_service_interface import OAuthServiceInterface
 from app.models.oauth import OAuthProvider, OAuthToken, OAuthUserInfo
 from app.models.user import User
 from app.services.data import DataService
 from app.services.logger import Logger
 from app.services.oauth.base import OAuthBase
-from app.services.oauth.providers import AppleOAuthProvider, GoogleOAuthProvider
+from app.services.oauth.providers import GoogleOAuthProvider
 from config import Config
 
 
-class OAuthService(OAuthServiceInterface, OAuthBase):
-    """OAuth service implementation for Google and Apple providers."""
+class OAuthService(OAuthBase):
+    """OAuth service implementation for Google."""
 
     def __init__(
         self,
@@ -34,22 +33,17 @@ class OAuthService(OAuthServiceInterface, OAuthBase):
 
         # Initialize provider-specific implementations
         self.google_provider = GoogleOAuthProvider(logger)
-        self.apple_provider = AppleOAuthProvider(logger)
 
     # Interface implementation methods
     def get_authorization_url(self, provider: OAuthProvider, state: str) -> str:
         """Get OAuth authorization URL."""
         return super().get_authorization_url(provider, state)
 
-    async def exchange_code_for_token(
-        self, provider: OAuthProvider, code: str
-    ) -> OAuthToken:
+    async def exchange_code_for_token(self, provider: OAuthProvider, code: str) -> OAuthToken:
         """Exchange authorization code for tokens."""
         return await super().exchange_code_for_token(provider, code)
 
-    async def get_user_info(
-        self, provider: OAuthProvider, access_token: str
-    ) -> OAuthUserInfo:
+    async def get_user_info(self, provider: OAuthProvider, access_token: str) -> OAuthUserInfo:
         """Get user information from OAuth provider.
 
         Args:
@@ -82,13 +76,7 @@ class OAuthService(OAuthServiceInterface, OAuthBase):
 
         # Use provider-specific implementation
         if provider == OAuthProvider.GOOGLE:
-            return await self.google_provider.get_user_info(
-                provider_config, access_token
-            )
-        elif provider == OAuthProvider.APPLE:
-            return await self.apple_provider.get_user_info(
-                provider_config, access_token
-            )
+            return await self.google_provider.get_user_info(provider_config, access_token)
         else:
             raise ValueError(f"Unsupported OAuth provider: {provider.value}")
 

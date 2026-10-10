@@ -1,282 +1,107 @@
+"""Authentication and role-based access control for every non-public route."""
+
 from __future__ import annotations
 
-from collections.abc import Callable
-
-from fastapi import HTTPException, Request, Response
-from starlette.datastructures import MutableHeaders
+from fastapi import HTTPException
+from starlette.requests import Request
+from starlette.types import Receive, Send
 
 from app.services.error.exceptions import UserFacingExceptionError
-from app.services.logger import create_log_context
 
 from .base import BaseMiddleware
 
+METHOD_TO_ACTION = {
+    "GET": "read",
+    "HEAD": "read",
+    "POST": "write",
+    "PUT": "write",
+    "PATCH": "write",
+    "DELETE": "delete",
+}
+
 
 class RBACMiddleware(BaseMiddleware):
-    """Enhanced Role-Based Access Control (RBAC) middleware using RBAC service."""
+    """Authenticates the caller, then checks the permission the route requires.
 
-    def initialize(
-        self: RBACMiddleware,
-        **kwargs,
-    ) -> None:
-        """Initialize RBAC middleware with RBAC service.
+    Public paths skip everything. Admin-only paths need the ``*`` permission. Every
+    other path needs ``<resource>:<action>``, derived from the URL and HTTP method
+    (e.g. ``DELETE /api/v1/files/1`` -> ``files:delete``).
+    """
 
-        Args:
-        ----
-            kwargs: Additional keyword arguments.
-
-        """
-        self.public_paths: list[str] = self.config.get(
-            "public_paths",
-            [
-                "/",
-                "/login",
-                "/health",
-                "/docs",
-                "/redoc",
-                "/openapi.json",
-                "/api/v1/auth/register",
-                "/api/v1/auth/login",
-                "/api/v1/auth/refresh",
-                "/api/v1/oauth/google/authorize",
-                "/api/v1/oauth/google/callback",
-                "/api/v1/oauth/apple/authorize",
-                "/api/v1/oauth/apple/callback",
-            ],
-        )
-        self.admin_only_paths: list[str] = self.config.get(
-            "admin_only_paths", ["/api/v1/rbac", "/api/v1/admin"]
-        )
-
+    def initialize(self: RBACMiddleware, **kwargs) -> None:
+        """Read path lists from config, falling back to the defaults."""
+        self.public_paths: list[str] = self.config["public_paths"]
+        self.admin_only_paths: list[str] = self.config["admin_only_paths"]
         self.logger.info(
-            "Enhanced RBACMiddleware initialized",
+            "RBACMiddleware initialized",
             extra={
                 "middleware": "RBACMiddleware",
                 "public_paths": self.public_paths,
                 "admin_only_paths": self.admin_only_paths,
-                "rbac_service_available": self.rbac_service is not None,
             },
         )
 
-    async def process_request(
-        self: RBACMiddleware, request: Request, call_next: Callable
-    ) -> Response:
-        """Main request processing pipeline for RBAC checks using RBAC service.
-
-        Args:
-        ----
-            request: The request to process.
-            call_next: The next middleware to call.
-
-        Returns:
-        -------
-            The response from the next middleware.
-
-        """
+    async def handle(self, request: Request, receive: Receive, send: Send) -> None:
+        """Authenticate and authorize the request, then continue the pipeline."""
         path = request.url.path
-        method = request.method.upper()
+        # CORS preflights carry no credentials by design; CORSMiddleware answers them.
+        if request.method == "OPTIONS" or self.is_public_path(path):
+            await self.app(request.scope, receive, send)
+            return
 
-        # Allow public paths
-        if self.is_public_path(path):
-            self.logger.debug(f"Public path allowed: {path}")
-            return await call_next(request)
+        from app.utils.permissions import authenticate_request
 
         try:
-            # Use get_current_user to centralize token verification and refresh logic
-            from app.utils.permissions import get_current_user
+            user = await authenticate_request(request, request.app.state.services.auth_service)
 
-            # Call get_current_user directly (can't use Depends in middleware)
-            current_user = await get_current_user(
-                request, token=None, auth_service=None
+            required = (
+                "*"
+                if self.is_admin_only_path(path)
+                else self._path_to_permission(path, request.method.upper())
             )
-
-            user_id = current_user.user_id
-            username = current_user.username
-            roles = current_user.roles
-
-            # Check admin-only paths
-            if self.is_admin_only_path(path):
-                has_admin_permission = (
-                    await self.rbac_service.check_permission(user_id, "*")
-                    if self.rbac_service
-                    else "admin" in roles
-                )
-                if not has_admin_permission:
-                    self.logger.warning(
-                        f"Admin access denied: user={username}, path={path}",
-                        extra={
-                            "middleware": "RBACMiddleware",
-                            "action": "admin_check",
-                            "user_id": user_id,
-                            "username": username,
-                            "path": path,
-                            "method": method,
-                            "roles": roles,
-                            "result": "denied",
-                        },
-                    )
-
-                    return self.error_service.http_response(
-                        UserFacingExceptionError(
-                            "Admin access required", status_code=403
-                        ),
-                        status_code=403,
-                    )
-
-            # Check specific permissions for the path
-            if self.rbac_service:
-                # Convert path to permission format (e.g., /api/v1/users -> users:read)
-                permission = self._path_to_permission(path, method)
-                has_permission = await self.rbac_service.check_permission(
-                    user_id, permission
-                )
-                if not has_permission:
-                    self.logger.warning(
-                        f"Permission denied: user={username}, permission={permission}, path={path}",
-                        extra=create_log_context(
-                            middleware="RBACMiddleware",
-                            action="permission_check",
-                            user_id=user_id,
-                            username=username,
-                            path=path,
-                            method=method,
-                            permission=permission,
-                            roles=roles,
-                            result="denied",
-                        ),
-                    )
-
-                    return self.error_service.http_response(
-                        UserFacingExceptionError(
-                            f"Permission denied: {permission}",
-                            status_code=403,
-                        ),
-                        status_code=403,
-                    )
-
-            # Store user context
-            request.state.user = (
-                current_user.dict() if hasattr(current_user, "dict") else current_user
-            )
-            request.state.user_id = user_id
-            request.state.username = username
-            request.state.user_role = roles[0] if roles else None
-
-            # Add trace headers
-            headers = MutableHeaders(request.headers)
-            headers["X-User-Role"] = str(roles[0] if roles else "")
-            headers["X-User-ID"] = str(user_id or "")
-
-            # Log successful access
-            self.logger.debug(
-                f"Access granted: user={username}, path={path}",
-                extra={
-                    "middleware": "RBACMiddleware",
-                    "action": "access_granted",
-                    "user_id": user_id,
-                    "username": username,
-                    "path": path,
-                    "method": method,
-                    "roles": roles,
-                },
-            )
-
-            # Continue pipeline
-            response = await call_next(request)
-            response.headers["X-User-Role"] = str(roles[0] if roles else "")
-            return response
-
+            allowed = await self.rbac_service.check_permission(user.user_id, required)
         except HTTPException as e:
-            # Convert HTTPException to error response (middleware can't propagate exceptions)
-            return self.error_service.http_response(
-                UserFacingExceptionError(e.detail, status_code=e.status_code),
-                status_code=e.status_code,
-            )
-        except Exception as e:  # noqa: BLE001
-            self.logger.error(
-                f"Authentication failed: {str(e)}, path={path}",
+            # Raised before the app runs, so answer directly.
+            response = self.error_service.http_response(e, headers=e.headers, instance=path)
+            await response(request.scope, receive, send)
+            return
+
+        if not allowed:
+            self.logger.warning(
+                f"Permission denied: user={user.user_id}, permission={required}, path={path}",
                 extra={
                     "middleware": "RBACMiddleware",
-                    "action": "auth_failed",
+                    "action": "permission_check",
+                    "user_id": user.user_id,
                     "path": path,
-                    "method": method,
-                    "error": str(e),
+                    "method": request.method,
+                    "permission": required,
+                    "result": "denied",
                 },
             )
-
-            return self.error_service.http_response(
+            response = self.error_service.http_response(
                 UserFacingExceptionError(
-                    f"Authentication failed: {str(e)}", status_code=401
+                    "Admin access required"
+                    if required == "*"
+                    else f"Permission denied: {required}",
+                    status_code=403,
                 ),
-                status_code=401,
+                instance=path,
             )
+            await response(request.scope, receive, send)
+            return
 
-    # --------------------------
-    # Helpers
-    # --------------------------
+        await self.app(request.scope, receive, send)
 
-    def is_public_path(self: RBACMiddleware, path: str) -> bool:
-        """Check if path is public.
+    @staticmethod
+    def _path_to_permission(path: str, method: str) -> str:
+        """Map a request to the ``resource:action`` permission it requires."""
+        for prefix in ("/api/v1/", "/api/"):
+            if path.startswith(prefix):
+                path = path.removeprefix(prefix)
+                break
 
-        Args:
-        ----
-            path: The path to check.
-
-        Returns:
-        -------
-            True if path is public, False otherwise.
-
-        """
-        return any(path.startswith(p) for p in self.public_paths)
-
-    def is_admin_only_path(self: RBACMiddleware, path: str) -> bool:
-        """Check if path is restricted to admin.
-
-        Args:
-        ----
-            path: The path to check.
-
-        Returns:
-        -------
-            True if path is restricted to admin, False otherwise.
-
-        """
-        return any(path.startswith(p) for p in self.admin_only_paths)
-
-    def _path_to_permission(self: RBACMiddleware, path: str, method: str) -> str:
-        """Convert API path and method to permission format.
-
-        Args:
-        ----
-            path: The API path.
-            method: The HTTP method.
-
-        Returns:
-        -------
-            Permission string in format "resource:action".
-
-        """
-        # Remove API version prefix
-        if path.startswith("/api/v1/"):
-            path = path[8:]
-        elif path.startswith("/api/"):
-            path = path[5:]
-
-        # Extract resource from path
-        parts = path.strip("/").split("/")
-        if not parts or parts[0] == "":
+        resource = path.strip("/").split("/")[0]
+        if not resource:
             return "root:read"
-
-        resource = parts[0]
-
-        # Map HTTP methods to actions
-        method_to_action = {
-            "GET": "read",
-            "POST": "write",
-            "PUT": "write",
-            "PATCH": "write",
-            "DELETE": "delete",
-        }
-
-        action = method_to_action.get(method, "read")
-
-        return f"{resource}:{action}"
+        return f"{resource}:{METHOD_TO_ACTION.get(method, 'read')}"

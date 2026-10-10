@@ -1,0 +1,12 @@
+.git
+.venv
+tests
+docs
+graphify-out
+logs
+uploads
+.env
+config.local.toml
+config.secrets.toml
+CLAUDE.md
+**/__pycache__

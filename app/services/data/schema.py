@@ -1,0 +1,59 @@
+"""Indexes the application needs, declared once and applied by the data layer.
+
+The database backends stay generic; this module is the only place that knows
+which collections exist and how they are queried.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+ASCENDING = 1
+DESCENDING = -1
+
+COLLECTION_INDEXES: dict[str, list[dict[str, Any]]] = {
+    "users": [
+        {"keys": [("id", ASCENDING)], "unique": True},
+        {"keys": [("username", ASCENDING)], "unique": True},
+        # Sparse: users created through OAuth may have no email yet.
+        {"keys": [("email", ASCENDING)], "unique": True, "sparse": True},
+        {"keys": [("created_at", DESCENDING)]},
+    ],
+    "sessions": [
+        {"keys": [("id", ASCENDING)], "unique": True},
+        {"keys": [("user_id", ASCENDING), ("created_at", DESCENDING)]},
+        # Expired sessions are useless (tokens bound to them already fail); purge them.
+        {"keys": [("expires_at", ASCENDING)], "expireAfterSeconds": 0},
+    ],
+    "login_attempts": [
+        {"keys": [("user_id", ASCENDING), ("timestamp", DESCENDING)]},
+        {"keys": [("timestamp", ASCENDING)], "expireAfterSeconds": 90 * 24 * 3600},
+    ],
+    "temporary_permissions": [
+        {"keys": [("id", ASCENDING)], "unique": True},
+        {"keys": [("entity_id", ASCENDING)]},
+        {"keys": [("end_time", ASCENDING)]},
+    ],
+    "oauth_accounts": [
+        {"keys": [("user_id", ASCENDING), ("provider", ASCENDING)], "unique": True},
+    ],
+    "files": [
+        {"keys": [("file_id", ASCENDING), ("version", DESCENDING)], "unique": True},
+        {"keys": [("user_id", ASCENDING), ("hash", ASCENDING)]},
+        # Serves the listing (equality on the first three, then sorted by created_at).
+        {
+            "keys": [
+                ("user_id", ASCENDING),
+                ("is_latest", ASCENDING),
+                ("deleted_at", ASCENDING),
+                ("created_at", DESCENDING),
+            ]
+        },
+        {"keys": [("user_id", ASCENDING), ("tags", ASCENDING)]},
+    ],
+    "password_reset_tokens": [
+        {"keys": [("token_hash", ASCENDING)], "unique": True},
+        # Expired reset tokens are useless; let MongoDB purge them.
+        {"keys": [("expires_at", ASCENDING)], "expireAfterSeconds": 0},
+    ],
+}

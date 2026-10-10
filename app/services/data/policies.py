@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 
-class CachePolicy(str, Enum):
+class CachePolicy(StrEnum):
     """Cache policy enum for data operations.
 
     Defines how data operations should interact with cache and database:

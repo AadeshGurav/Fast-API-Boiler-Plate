@@ -1,17 +1,39 @@
 from __future__ import annotations
 
 import urllib.parse
+from datetime import UTC
 from typing import Any
 
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection
-from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
+from pymongo import ReturnDocument
+from pymongo.errors import (
+    ConnectionFailure,
+    OperationFailure,
+    ServerSelectionTimeoutError,
+)
 
 from app.core.interfaces.database_interface import DatabaseInterface
 
+# IndexOptionsConflict / IndexKeySpecsConflict
+INDEX_CONFLICT_CODES = {85, 86}
+# IndexNotFound / NamespaceNotFound (collection not created yet)
+INDEX_NOT_FOUND_CODES = {26, 27}
+AUTH_FAILED = 18
+# Safety net for queries that forget to paginate.
+MAX_UNPAGED_RESULTS = 10_000
+
 
 class MongoDB(DatabaseInterface):
-    """MongoDB client using Motor for async operations with connection pooling."""
+    """MongoDB backend (settings: ``mongo_host/port/username/password/auth_source``,
+    ``app_database``)."""
+
+    def __init__(self, config, logger) -> None:
+        super().__init__(config, logger)
+        self.host = config["mongo_host"]
+        self.port = config["mongo_port"]
+        self.db_name = config["app_database"]
+        self.db = None
 
     async def connect(self) -> None:
         """Connect to MongoDB with production-ready settings."""
@@ -36,6 +58,15 @@ class MongoDB(DatabaseInterface):
         except (ServerSelectionTimeoutError, ConnectionFailure) as e:
             self.logger.error(f"MongoDB connection failed: {e}")
             raise
+        except OperationFailure as e:
+            if e.code == AUTH_FAILED:
+                self.logger.error(
+                    "MongoDB rejected the credentials (mongo_username/mongo_password). If you "
+                    "regenerated .env while a Docker volume from an earlier run exists, the "
+                    "old password is still stored there: run `make reset-data` (deletes the "
+                    "local dev databases)."
+                )
+            raise
         except Exception as e:
             self.logger.error(f"Unexpected error connecting to MongoDB: {e}")
             raise
@@ -43,9 +74,9 @@ class MongoDB(DatabaseInterface):
     def _build_connection_uri(self) -> str:
         """Construct the MongoDB connection URI safely handling auth."""
         # 'or None' treats empty strings as None
-        username = self.config.get("mongo_username") or None
-        password = self.config.get("mongo_password") or None
-        auth_src = self.config.get("mongo_auth_source") or "admin"
+        username = self.config["mongo_username"] or None
+        password = self.config["mongo_password"] or None
+        auth_src = self.config["mongo_auth_source"] or "admin"
 
         self.logger.debug(
             f"MongoDB Config - host: {self.host}, port: {self.port}, "
@@ -66,104 +97,75 @@ class MongoDB(DatabaseInterface):
         """Centralize MongoDB client configuration parameters."""
         return {
             # Pool Settings
-            "maxPoolSize": self.config.get("mongo_pool_size", 100),
-            "minPoolSize": self.config.get("mongo_min_pool_size", 10),
-            "maxIdleTimeMS": self.config.get("mongo_max_idle_time_ms", 30000),
-            "waitQueueTimeoutMS": self.config.get("mongo_wait_queue_timeout_ms", 5000),
+            "maxPoolSize": self.config["mongo_pool_size"],
+            "minPoolSize": self.config["mongo_min_pool_size"],
+            "maxIdleTimeMS": self.config["mongo_max_idle_time_ms"],
+            "waitQueueTimeoutMS": self.config["mongo_wait_queue_timeout_ms"],
             # Timeouts
-            "serverSelectionTimeoutMS": 5000,
-            "connectTimeoutMS": 5000,
-            "socketTimeoutMS": 5000,
+            "serverSelectionTimeoutMS": self.config["mongo_timeout_ms"],
+            "connectTimeoutMS": self.config["mongo_timeout_ms"],
+            "socketTimeoutMS": self.config["mongo_timeout_ms"],
             # Operational
-            "directConnection": self.config.get("mongo_direct_connection", False),
+            "directConnection": self.config["mongo_direct_connection"],
             "retryWrites": True,
             "retryReads": True,
-            "appname": self.config.get("app_title", "fastapi-app"),
+            # PyMongo returns naive datetimes by default; every expiry check in the app
+            # compares against timezone-aware UTC and would raise TypeError.
+            "tz_aware": True,
+            "tzinfo": UTC,
+            "appname": self.config["app_title"],
         }
 
     async def initialize_db(self) -> None:
-        """Initialize the database with required collections and indexes."""
+        """No backend-level setup: MongoDB creates collections on first write.
+
+        Which collections and indexes exist is the data layer's decision; it
+        declares them through ``ensure_indexes``.
+        """
+        self.logger.info("MongoDB ready")
+
+    async def ensure_indexes(self, indexes: dict[str, list[dict[str, Any]]]) -> None:
+        """Create the declared indexes (idempotent).
+
+        Args:
+        ----
+            indexes: ``{collection: [{"keys": [(field, direction)], **options}]}``.
+
+        """
         try:
-            self.logger.info("Initializing MongoDB database structure...")
-
-            # Create necessary collections if they don't exist
-            collections = await self.db.list_collection_names()
-            required_collections = [
-                "users",
-                "sessions",
-                "roles",
-                "permissions",
-                "groups",
-                "temporary_permissions",
-                "oauth_accounts",
-                "settings",
-                "files",
-            ]
-
-            for collection in required_collections:
-                if collection not in collections:
-                    await self.db.create_collection(collection)
-                    self.logger.info(f"Created collection: {collection}")
-
-            # Create indexes for better performance
-            await self._create_indexes()
-
-            self.logger.info("MongoDB database structure initialization completed")
+            for collection, specs in indexes.items():
+                for spec in specs:
+                    await self._ensure_index(collection, spec)
+            self.logger.info("MongoDB indexes ensured")
         except Exception as e:
-            self.logger.error(
-                f"MongoDB database structure initialization failed: {str(e)}"
-            )
+            self.logger.error(f"MongoDB index creation failed: {e!s}")
             raise
 
-    async def _create_indexes(self) -> None:
-        """Create database indexes for optimal performance."""
+    async def drop_indexes(self, indexes: dict[str, list[str]]) -> None:
+        """Drop the named indexes; absent ones (or collections) are ignored."""
+        for collection, names in indexes.items():
+            for name in names:
+                try:
+                    await self.get_collection(collection).drop_index(name)
+                    self.logger.info(f"Dropped index {collection}.{name}")
+                except OperationFailure as e:
+                    if e.code not in INDEX_NOT_FOUND_CODES:
+                        raise
+
+    async def _ensure_index(self, collection: str, spec: dict[str, Any]) -> None:
+        """Create one index; if an index with the same keys but different options
+        exists (e.g. a plain index later declared as TTL), replace it."""
+        coll = self.get_collection(collection)
+        options = {k: v for k, v in spec.items() if k != "keys"}
         try:
-            # User collection indexes
-            await self.db.users.create_index("username", unique=True)
-            await self.db.users.create_index("email", sparse=True)
-            await self.db.users.create_index([("created_at", -1)])
-
-            # Session collection indexes
-            await self.db.sessions.create_index("user_id")
-            await self.db.sessions.create_index("expires_at")
-            await self.db.sessions.create_index("revoked_at", sparse=True)
-
-            # Role collection indexes
-            await self.db.roles.create_index("id", unique=True)
-            await self.db.roles.create_index("name", unique=True)
-
-            # Permission collection indexes
-            await self.db.permissions.create_index("id", unique=True)
-            await self.db.permissions.create_index("name", unique=True)
-
-            # Group collection indexes
-            await self.db.groups.create_index("id", unique=True)
-            await self.db.groups.create_index("name", unique=True)
-
-            # Temporary permissions indexes
-            await self.db.temporary_permissions.create_index("entity_id")
-            await self.db.temporary_permissions.create_index("end_time")
-
-            # OAuth accounts indexes
-            await self.db.oauth_accounts.create_index(
-                [("user_id", 1), ("provider", 1)], unique=True
-            )
-
-            # Settings collection indexes
-            await self.db.settings.create_index("site_name", unique=True)
-
-            # Files collection indexes
-            await self.db.files.create_index("file_id", unique=True)
-            await self.db.files.create_index("user_id")
-            await self.db.files.create_index("hash")
-            await self.db.files.create_index([("created_at", -1)])
-            await self.db.files.create_index("tags")
-            await self.db.files.create_index("deleted_at", sparse=True)
-
-            self.logger.info("MongoDB indexes created successfully")
-        except Exception as e:
-            self.logger.error(f"MongoDB index creation failed: {str(e)}")
-            raise
+            await coll.create_index(spec["keys"], **options)
+        except OperationFailure as e:
+            if e.code not in INDEX_CONFLICT_CODES:
+                raise
+            name = "_".join(f"{field}_{direction}" for field, direction in spec["keys"])
+            self.logger.warning(f"Replacing conflicting index {collection}.{name}")
+            await coll.drop_index(name)
+            await coll.create_index(spec["keys"], **options)
 
     async def close(self) -> None:
         """Close MongoDB connection."""
@@ -201,10 +203,8 @@ class MongoDB(DatabaseInterface):
                     pass
         return normalized
 
-    def _normalize_record(
-        self: MongoDB, record: dict[str, Any] | None
-    ) -> dict[str, Any] | None:
-        """Convert MongoDB record to application format.
+    def _normalize_record(self: MongoDB, record: dict[str, Any] | None) -> dict[str, Any] | None:
+        """Expose Mongo's ``_id`` as a string ``id``; nothing domain-specific.
 
         Args:
         ----
@@ -212,21 +212,18 @@ class MongoDB(DatabaseInterface):
 
         Returns:
         -------
-            Application-compatible record dictionary.
+            Record with ``id`` instead of ``_id``, or None.
 
         """
-        from app.services.data.data_service import _normalize_record
-
-        return _normalize_record(record)
-
-    async def execute_query(self, query: str, params: dict[str, Any]) -> Any:
-        """Execute a raw query (not recommended for MongoDB)."""
-        self.logger.warning(
-            "Raw query execution requested for MongoDB - consider using collection methods instead"
-        )
-        raise NotImplementedError(
-            "Use collection-specific methods for MongoDB operations"
-        )
+        if not record:
+            return None
+        normalized = record.copy()
+        if "_id" in normalized:
+            # A record's own business ``id`` (uuid, role slug) must win over the
+            # surrogate Mongo key, otherwise every read silently rewrites it.
+            normalized.setdefault("id", str(normalized["_id"]))
+            del normalized["_id"]
+        return normalized
 
     async def get_record(self, collection: str, filters: dict[str, Any]) -> dict | None:
         """Fetch a single record with timeout."""
@@ -236,32 +233,52 @@ class MongoDB(DatabaseInterface):
             result = await coll.find_one(normalized_filters, max_time_ms=5000)
             return self._normalize_record(result)
         except Exception as e:
-            self.logger.error(f"Error fetching record from {collection}: {str(e)}")
+            self.logger.error(f"Error fetching record from {collection}: {e!s}")
             raise
 
-    async def find_many(self, collection: str, filters: dict[str, Any]) -> list[dict]:
-        """Fetch multiple records with timeout."""
+    async def find_many(
+        self,
+        collection: str,
+        filters: dict[str, Any],
+        *,
+        limit: int | None = None,
+        skip: int = 0,
+        sort: list[tuple[str, int]] | None = None,
+    ) -> list[dict]:
+        """Fetch matching records (capped at ``MAX_UNPAGED_RESULTS`` without a ``limit``)."""
         try:
-            coll = self.get_collection(collection)
-            normalized_filters = self._normalize_filters(filters)
-            cursor = coll.find(normalized_filters, max_time_ms=5000)
+            cursor = self.get_collection(collection).find(
+                self._normalize_filters(filters), max_time_ms=5000
+            )
+            if sort:
+                cursor = cursor.sort(sort)
+            cursor = cursor.skip(skip).limit(limit or MAX_UNPAGED_RESULTS)
             result = await cursor.to_list(length=None)
+            if limit is None and len(result) == MAX_UNPAGED_RESULTS:
+                self.logger.warning(
+                    f"Unpaged query on {collection} hit the {MAX_UNPAGED_RESULTS}-record cap; "
+                    "page it with limit/skip"
+                )
             return [self._normalize_record(record) for record in result]
         except Exception as e:
-            self.logger.error(f"Error fetching records from {collection}: {str(e)}")
+            self.logger.error(f"Error fetching records from {collection}: {e!s}")
             raise
+
+    async def count(self, collection: str, filters: dict[str, Any]) -> int:
+        """Number of matching records."""
+        return await self.get_collection(collection).count_documents(
+            self._normalize_filters(filters), maxTimeMS=5000
+        )
 
     async def insert_record(self, collection: str, data: dict[str, Any]) -> bool:
         """Insert a new record into the collection."""
         try:
             coll = self.get_collection(collection)
             result = await coll.insert_one(data)
-            self.logger.debug(
-                f"Inserted record into {collection} with ID: {result.inserted_id}"
-            )
+            self.logger.debug(f"Inserted record into {collection} with ID: {result.inserted_id}")
             return result.inserted_id is not None
         except Exception as e:
-            self.logger.error(f"Error inserting record into {collection}: {str(e)}")
+            self.logger.error(f"Error inserting record into {collection}: {e!s}")
             raise
 
     async def update_record(
@@ -272,13 +289,20 @@ class MongoDB(DatabaseInterface):
             coll = self.get_collection(collection)
             normalized_filters = self._normalize_filters(filters)
             result = await coll.update_one(normalized_filters, {"$set": data})
-            self.logger.debug(
-                f"Updated {result.modified_count} record(s) in {collection}"
-            )
-            return result.modified_count > 0
+            self.logger.debug(f"Updated {result.modified_count} record(s) in {collection}")
+            return result.matched_count > 0
         except Exception as e:
-            self.logger.error(f"Error updating record in {collection}: {str(e)}")
+            self.logger.error(f"Error updating record in {collection}: {e!s}")
             raise
+
+    async def update_many(
+        self, collection: str, filters: dict[str, Any], data: dict[str, Any]
+    ) -> int:
+        """``$set`` ``data`` on every matching record."""
+        result = await self.get_collection(collection).update_many(
+            self._normalize_filters(filters), {"$set": data}
+        )
+        return result.matched_count
 
     async def delete_record(self, collection: str, filters: dict[str, Any]) -> bool:
         """Delete records from the collection."""
@@ -286,12 +310,27 @@ class MongoDB(DatabaseInterface):
             coll = self.get_collection(collection)
             normalized_filters = self._normalize_filters(filters)
             result = await coll.delete_one(normalized_filters)
-            self.logger.debug(
-                f"Deleted {result.deleted_count} record(s) from {collection}"
-            )
+            self.logger.debug(f"Deleted {result.deleted_count} record(s) from {collection}")
             return result.deleted_count > 0
         except Exception as e:
-            self.logger.error(f"Error deleting record from {collection}: {str(e)}")
+            self.logger.error(f"Error deleting record from {collection}: {e!s}")
+            raise
+
+    async def increment_field(
+        self, collection: str, filters: dict[str, Any], field: str, amount: int = 1
+    ) -> int | None:
+        """Atomically ``$inc`` a field and return the new value (None if no match)."""
+        try:
+            coll = self.get_collection(collection)
+            updated = await coll.find_one_and_update(
+                self._normalize_filters(filters),
+                {"$inc": {field: amount}},
+                projection={field: 1},
+                return_document=ReturnDocument.AFTER,
+            )
+            return None if updated is None else updated.get(field)
+        except Exception as e:
+            self.logger.error(f"Error incrementing {field} in {collection}: {e!s}")
             raise
 
     async def upsert_record(
@@ -301,9 +340,7 @@ class MongoDB(DatabaseInterface):
         try:
             coll = self.get_collection(collection)
             normalized_filters = self._normalize_filters(filters)
-            result = await coll.update_one(
-                normalized_filters, {"$set": data}, upsert=True
-            )
+            result = await coll.update_one(normalized_filters, {"$set": data}, upsert=True)
             self.logger.debug(
                 f"Upserted record in {collection}: "
                 f"matched={result.matched_count}, "
@@ -312,7 +349,7 @@ class MongoDB(DatabaseInterface):
             )
             return True
         except Exception as e:
-            self.logger.error(f"Error upserting record in {collection}: {str(e)}")
+            self.logger.error(f"Error upserting record in {collection}: {e!s}")
             raise
 
     async def health_check(self) -> bool:
@@ -321,6 +358,6 @@ class MongoDB(DatabaseInterface):
             # Ping with timeout
             await self.client.admin.command("ping", maxTimeMS=1000)
             return True
-        except Exception as e:  # noqa: BLE001
-            self.logger.error(f"MongoDB health check failed: {str(e)}")
+        except Exception as e:
+            self.logger.error(f"MongoDB health check failed: {e!s}")
             return False

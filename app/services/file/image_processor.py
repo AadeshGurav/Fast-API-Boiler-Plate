@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import io
 from typing import TYPE_CHECKING, Any
 
-from PIL import Image
+from PIL import Image, ImageOps
 
 from app.services.base_service import BaseService
 
@@ -13,6 +14,12 @@ if TYPE_CHECKING:
     from app.core.interfaces.storage_interface import StorageInterface
     from app.services.logger import Logger
     from config import Config
+
+# Refuse images that decode to more than ~50 megapixels (decompression bombs): a tiny
+# upload can otherwise expand to gigabytes of RAM. Pillow itself only *warns* up to twice
+# this value, so ``_render_thumbnails`` checks the declared size before decoding.
+MAX_IMAGE_PIXELS = 50_000_000
+Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
 
 
 class ImageProcessor(BaseService):
@@ -40,13 +47,9 @@ class ImageProcessor(BaseService):
         super().__init__(config, logger, *args, **kwargs)
         self.storage_backend = storage_backend
 
-        self.logger.info(
-            "ImageProcessor initialized", extra={"service": "ImageProcessor"}
-        )
+        self.logger.info("ImageProcessor initialized", extra={"service": "ImageProcessor"})
 
-    def _generate_thumbnail_path(
-        self: ImageProcessor, original_path: str, size: int
-    ) -> str:
+    def _generate_thumbnail_path(self: ImageProcessor, original_path: str, size: int) -> str:
         """Generate thumbnail storage path.
 
         Args:
@@ -65,165 +68,73 @@ class ImageProcessor(BaseService):
             return f"{base}_thumb_{size}.{ext}"
         return f"{original_path}_thumb_{size}"
 
+    @staticmethod
+    def _render_thumbnails(image_content: bytes, thumbnail_sizes: list[int]) -> dict[int, bytes]:
+        """Decode once, then render every size from a *fresh copy* of the original.
+
+        (``Image.thumbnail`` shrinks in place, so reusing one image made every
+        thumbnail after the smallest come out at the smallest size.) CPU-bound: call
+        from a worker thread.
+        """
+        with Image.open(io.BytesIO(image_content)) as image:
+            if image.width * image.height > MAX_IMAGE_PIXELS:  # header only, nothing decoded yet
+                raise Image.DecompressionBombError(
+                    f"image has {image.width * image.height} pixels (limit {MAX_IMAGE_PIXELS})"
+                )
+            image_format = image.format or "JPEG"
+            oriented = ImageOps.exif_transpose(image)  # honour camera rotation
+            rendered: dict[int, bytes] = {}
+            for size in thumbnail_sizes:
+                thumb = oriented.copy()
+                thumb.thumbnail((size, size), Image.Resampling.LANCZOS)
+                rendered[size] = ImageProcessor._encode(thumb, image_format)
+            return rendered
+
     async def process_image(
         self: ImageProcessor,
         storage_path: str,
         image_content: bytes,
         thumbnail_sizes: list[int],
     ) -> dict[str, str]:
-        """Process image and generate thumbnails.
+        """Generate and store thumbnails; returns {size: storage path}.
 
-        Args:
-        ----
-            storage_path: Original file storage path.
-            image_content: Original image content as bytes.
-            thumbnail_sizes: List of thumbnail sizes to generate.
-
-        Returns:
-        -------
-            Dictionary mapping size to thumbnail storage path.
-
+        Failure to process an image (corrupt data, decompression bomb) is logged and
+        yields no thumbnails; the upload itself still succeeds.
         """
-        thumbnail_paths = {}
-
         try:
-            image = Image.open(io.BytesIO(image_content))
-            image_format = image.format or "JPEG"
-
-            for size in thumbnail_sizes:
-                try:
-                    thumbnail = self._create_thumbnail(image, size)
-                    thumb_path = self._generate_thumbnail_path(storage_path, size)
-
-                    thumb_bytes = await self._image_to_bytes(thumbnail, image_format)
-                    await self.storage_backend.save(
-                        thumb_path, thumb_bytes, overwrite=True
-                    )
-
-                    thumbnail_paths[str(size)] = thumb_path
-
-                    self.logger.debug(
-                        f"Generated thumbnail {size}px for {storage_path}",
-                        extra={"service": "ImageProcessor"},
-                    )
-
-                except Exception as e:
-                    self.logger.warning(
-                        f"Failed to generate thumbnail {size}px: {e}",
-                        extra={"service": "ImageProcessor"},
-                    )
-
-        except Exception as e:
-            self.logger.error(
-                f"Failed to process image {storage_path}: {e}",
+            rendered = await asyncio.to_thread(
+                self._render_thumbnails, image_content, thumbnail_sizes
+            )
+        except (OSError, ValueError, Image.DecompressionBombError) as e:
+            self.logger.warning(
+                f"Could not process image {storage_path}: {e}",
                 extra={"service": "ImageProcessor"},
             )
+            return {}
 
+        thumbnail_paths: dict[str, str] = {}
+        for size, thumb_bytes in rendered.items():
+            thumb_path = self._generate_thumbnail_path(storage_path, size)
+            if await self.storage_backend.save(thumb_path, thumb_bytes, overwrite=True):
+                thumbnail_paths[str(size)] = thumb_path
         return thumbnail_paths
 
-    def _create_thumbnail(
-        self: ImageProcessor, image: Image.Image, size: int
-    ) -> Image.Image:
-        """Create thumbnail from image.
-
-        Args:
-        ----
-            image: PIL Image object.
-            size: Target size (width/height).
-
-        Returns:
-        -------
-            Thumbnail Image object.
-
-        """
-        image.thumbnail((size, size), Image.Resampling.LANCZOS)
-        return image.copy()
-
-    async def _image_to_bytes(
-        self: ImageProcessor, image: Image.Image, format: str
-    ) -> bytes:
-        """Convert PIL Image to bytes.
-
-        Args:
-        ----
-            image: PIL Image object.
-            format: Image format (JPEG, PNG, etc.).
-
-        Returns:
-        -------
-            Image content as bytes.
-
-        """
+    @staticmethod
+    def _encode(image: Image.Image, format: str) -> bytes:
+        """Encode ``image``; JPEG cannot hold transparency, so flatten onto white."""
         buffer = io.BytesIO()
-
         if format == "JPEG":
             if image.mode in ("RGBA", "LA", "P"):
-                rgb_image = Image.new("RGB", image.size, (255, 255, 255))
-                if image.mode == "P":
-                    image = image.convert("RGBA")
-                rgb_image.paste(
-                    image, mask=image.split()[-1] if image.mode == "RGBA" else None
-                )
-                image = rgb_image
+                rgba = image.convert("RGBA")
+                flat = Image.new("RGB", rgba.size, (255, 255, 255))
+                flat.paste(rgba, mask=rgba.split()[-1])
+                image = flat
+            elif image.mode != "RGB":
+                image = image.convert("RGB")
             image.save(buffer, format="JPEG", quality=85, optimize=True)
         else:
             image.save(buffer, format=format, optimize=True)
-
         return buffer.getvalue()
-
-    async def resize_image(
-        self: ImageProcessor,
-        storage_path: str,
-        image_content: bytes,
-        max_width: int | None = None,
-        max_height: int | None = None,
-    ) -> bytes | None:
-        """Resize image to specified dimensions.
-
-        Args:
-        ----
-            storage_path: Original file storage path.
-            image_content: Original image content as bytes.
-            max_width: Maximum width (maintains aspect ratio).
-            max_height: Maximum height (maintains aspect ratio).
-
-        Returns:
-        -------
-            Resized image content as bytes, or None if failed.
-
-        """
-        try:
-            image = Image.open(io.BytesIO(image_content))
-            image_format = image.format or "JPEG"
-
-            if max_width or max_height:
-                original_width, original_height = image.size
-                new_width = max_width or original_width
-                new_height = max_height or original_height
-
-                if max_width and max_height:
-                    ratio = min(
-                        new_width / original_width, new_height / original_height
-                    )
-                    new_width = int(original_width * ratio)
-                    new_height = int(original_height * ratio)
-                elif max_width:
-                    ratio = new_width / original_width
-                    new_height = int(original_height * ratio)
-                else:
-                    ratio = new_height / original_height
-                    new_width = int(original_width * ratio)
-
-                image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
-
-            return await self._image_to_bytes(image, image_format)
-
-        except Exception as e:
-            self.logger.error(
-                f"Failed to resize image {storage_path}: {e}",
-                extra={"service": "ImageProcessor"},
-            )
-            return None
 
 
 __all__ = ["ImageProcessor"]

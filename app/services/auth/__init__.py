@@ -1,15 +1,7 @@
-"""Authentication service package initialization."""
+"""Authentication service package."""
 
 from __future__ import annotations
 
-from app.services.auth.core import AuthCoreMixin
-from app.services.auth.service import AuthService
-from app.services.auth.session_management import SessionManagementMixin
-from app.services.auth.user_management import UserManagementMixin
+from app.services.auth.service import AuthenticationError, AuthService
 
-__all__ = [
-    "AuthService",
-    "AuthCoreMixin",
-    "UserManagementMixin",
-    "SessionManagementMixin",
-]
+__all__ = ["AuthService", "AuthenticationError"]

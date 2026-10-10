@@ -1,34 +1,35 @@
 # syntax=docker/dockerfile:1
 FROM python:3.11-slim
 
-# Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    APP_HOME=/app
+    FABP_APP_HOST=0.0.0.0 \
+    FABP_REDIS_HOST=redis \
+    FABP_MONGO_HOST=mongodb
 
-WORKDIR $APP_HOME
+WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    gcc \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
+# Dependencies first: this layer is only rebuilt when requirements.txt changes.
+COPY requirements.txt requirements-s3.txt ./
+ARG INSTALL_S3=false
+RUN pip install --upgrade pip && pip install -r requirements.txt \
+    && if [ "$INSTALL_S3" = "true" ]; then pip install -r requirements-s3.txt; fi
 
-# Install Python dependencies
-COPY requirements.txt ./
-RUN pip install --upgrade pip && pip install -r requirements.txt
+COPY app ./app
+COPY config.toml ./
+COPY config.py main.py ./
 
-# Copy application code
-COPY . .
-
-# Create non-root user
-RUN useradd -m appuser && chown -R appuser $APP_HOME
+# Run unprivileged; /app/the working directory (generated secrets) and /app/uploads must be writable.
+RUN useradd --create-home appuser \
+    && mkdir -p /app/uploads /app/logs \
+    && chown -R appuser /app
 USER appuser
 
-# Expose default port (can be overridden)
 EXPOSE 8000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
+    CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/v1/live', timeout=3).status == 200 else 1)"
 
-# Entrypoint: use uvicorn to run the app, allow env overrides for host/port
-CMD ["python3", "main.py"]
+# Every setting can be given as FABP_<NAME> (docs/CONFIGURATION.md). Secrets: FABP_JWT_SECRET,
+# FABP_MONGO_PASSWORD, FABP_REDIS_PASSWORD ... or mount /app/config.secrets.toml.
+CMD ["python", "main.py"]

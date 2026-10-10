@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any
 
-from pydantic import EmailStr, Field
-
-from app.core.dynamic_config import DynamicConfig
+from pydantic import BaseModel, EmailStr, Field
 
 
-class UserRole(str, Enum):
+class UserRole(StrEnum):
     """User role enumeration."""
 
     ADMIN = "admin"
@@ -20,7 +18,7 @@ class UserRole(str, Enum):
     GUEST = "guest"
 
 
-class UserStatus(str, Enum):
+class UserStatus(StrEnum):
     """User status enumeration."""
 
     ACTIVE = "active"
@@ -29,47 +27,39 @@ class UserStatus(str, Enum):
     PENDING = "pending"
 
 
-class User(DynamicConfig):
+class User(BaseModel):
     """User model for API validation."""
 
     id: str = Field(..., description="Unique user identifier")
     username: str = Field(..., min_length=3, max_length=50, description="Username")
-    email: EmailStr = Field(..., description="User email address")
+    # Plain str: addresses are validated on the way in (UserCreate, UserUpdate); re-checking
+    # a stored address on every read or response costs a syntax/IDNA pass per request.
+    email: str = Field(..., description="User email address")
     password_hash: str | None = Field(None, description="Hashed password")
     roles: list[str] = Field(default_factory=list, description="User roles")
     groups: list[str] = Field(default_factory=list, description="User groups")
     status: UserStatus = Field(default=UserStatus.ACTIVE, description="User status")
-    metadata: dict[str, Any] = Field(
-        default_factory=dict, description="Additional user metadata"
-    )
-    sessions: list[dict[str, Any]] = Field(
-        default_factory=list, description="User session references (max 10)"
-    )
-    login_attempts: list[dict[str, Any]] = Field(
-        default_factory=list, description="Login attempt history (max 50)"
-    )
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Additional user metadata")
     created_at: datetime = Field(
-        default_factory=datetime.utcnow, description="Creation timestamp"
+        default_factory=lambda: datetime.now(UTC), description="Creation timestamp"
     )
     updated_at: datetime = Field(
-        default_factory=datetime.utcnow, description="Last update timestamp"
+        default_factory=lambda: datetime.now(UTC), description="Last update timestamp"
     )
 
 
-class UserCreate(DynamicConfig):
+class UserCreate(BaseModel):
     """User creation model."""
 
     username: str = Field(..., min_length=3, max_length=50, description="Username")
     email: EmailStr = Field(..., description="User email address")
-    password: str = Field(..., min_length=8, description="Plain text password")
+    password: str = Field(..., min_length=8, max_length=128, description="Plain text password")
     roles: list[str] = Field(default_factory=list, description="Initial roles")
     groups: list[str] = Field(default_factory=list, description="Initial groups")
-    metadata: dict[str, Any] = Field(
-        default_factory=dict, description="Additional user metadata"
-    )
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Additional user metadata")
 
 
-class UserUpdate(DynamicConfig):
+class UserUpdate(BaseModel):
     """User update model."""
 
     email: EmailStr | None = Field(None, description="Updated email address")
@@ -85,28 +75,46 @@ class UserInDB(User):
     password_hash: str = Field(..., description="Hashed password")
 
 
-class UserPublic(DynamicConfig):
+class UserPublic(BaseModel):
     """Safe user data for API responses (no password_hash)."""
 
     id: str = Field(..., description="Unique user identifier")
     username: str = Field(..., description="Username")
-    email: EmailStr = Field(..., description="User email address")
+    # Plain str: addresses are validated on the way in (UserCreate, UserUpdate); re-checking
+    # a stored address on every read or response costs a syntax/IDNA pass per request.
+    email: str = Field(..., description="User email address")
     roles: list[str] = Field(default_factory=list, description="User roles")
     groups: list[str] = Field(default_factory=list, description="User groups")
     status: UserStatus = Field(..., description="User status")
-    metadata: dict[str, Any] = Field(
-        default_factory=dict, description="Additional user metadata"
-    )
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Additional user metadata")
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
 
 
+class UserListResponse(BaseModel):
+    """One page of users."""
+
+    users: list[UserPublic]
+    total: int
+    page: int
+    page_size: int
+    has_next: bool
+
+
+class UserStatusUpdate(BaseModel):
+    """Administrative change of an account's status."""
+
+    status: UserStatus
+
+
 __all__ = [
-    "UserRole",
-    "UserStatus",
     "User",
     "UserCreate",
-    "UserUpdate",
     "UserInDB",
+    "UserListResponse",
     "UserPublic",
+    "UserRole",
+    "UserStatus",
+    "UserStatusUpdate",
+    "UserUpdate",
 ]

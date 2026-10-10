@@ -2,35 +2,19 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 
-from pydantic import Field
-
-from app.core.dynamic_config import DynamicConfig
+from pydantic import BaseModel, Field
 
 
-class OAuthProvider(str, Enum):
+class OAuthProvider(StrEnum):
     """OAuth provider enumeration."""
 
     GOOGLE = "google"
-    APPLE = "apple"
 
 
-class OAuthConfig(DynamicConfig):
-    """OAuth provider configuration."""
-
-    provider: OAuthProvider = Field(..., description="OAuth provider")
-    client_id: str = Field(..., description="OAuth client ID")
-    client_secret: str = Field(..., description="OAuth client secret")
-    redirect_uri: str = Field(..., description="OAuth redirect URI")
-    scopes: list[str] = Field(default_factory=list, description="OAuth scopes")
-    authorization_url: str = Field(..., description="Authorization URL")
-    token_url: str = Field(..., description="Token exchange URL")
-    userinfo_url: str = Field(..., description="User info URL")
-
-
-class OAuthToken(DynamicConfig):
+class OAuthToken(BaseModel):
     """OAuth token model."""
 
     access_token: str = Field(..., description="OAuth access token")
@@ -40,16 +24,19 @@ class OAuthToken(DynamicConfig):
     scope: str | None = Field(None, description="Token scope")
 
 
-class OAuthUserInfo(DynamicConfig):
+class OAuthUserInfo(BaseModel):
     """OAuth user information model."""
 
     provider_user_id: str = Field(..., description="Provider user ID")
     email: str = Field(..., description="User email")
     name: str = Field(..., description="User name")
     picture: str | None = Field(None, description="User picture URL")
+    email_verified: bool = Field(
+        default=False, description="Provider vouches that the user owns this email"
+    )
 
 
-class OAuthAccount(DynamicConfig):
+class OAuthAccount(BaseModel):
     """OAuth account link model."""
 
     user_id: str = Field(..., description="Local user ID")
@@ -58,17 +45,16 @@ class OAuthAccount(DynamicConfig):
     access_token: str = Field(..., description="OAuth access token")
     refresh_token: str | None = Field(None, description="OAuth refresh token")
     created_at: datetime = Field(
-        default_factory=datetime.utcnow, description="Account link creation time"
+        default_factory=lambda: datetime.now(UTC), description="Account link creation time"
     )
     updated_at: datetime = Field(
-        default_factory=datetime.utcnow, description="Last update time"
+        default_factory=lambda: datetime.now(UTC), description="Last update time"
     )
 
 
 __all__ = [
+    "OAuthAccount",
     "OAuthProvider",
-    "OAuthConfig",
     "OAuthToken",
     "OAuthUserInfo",
-    "OAuthAccount",
 ]

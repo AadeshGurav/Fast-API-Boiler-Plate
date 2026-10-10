@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
+import re
 import uuid
-from collections.abc import Callable
 
-from fastapi import Request, Response
+from starlette.requests import Request
+from starlette.types import Message, Receive, Send
 
 from app.services.logger import create_log_context, set_request_id
 from app.services.tracing import TracingService
-from app.utils.service_utils import is_service_enabled
 
-from .base import BaseMiddleware
+from .base import BaseMiddleware, set_headers
+
+REQUEST_ID_PATTERN = re.compile(r"[A-Za-z0-9._-]{8,64}")
 
 
 class SecurityHeadersMiddleware(BaseMiddleware):
@@ -39,38 +41,30 @@ class SecurityHeadersMiddleware(BaseMiddleware):
 
         """
         # HSTS
-        self.enable_hsts = not self.config.get("app_debug", False) or self.config.get(
-            "enable_hsts", True
-        )
-        self.hsts_max_age = self.config.get("hsts_max_age", 31536000)
-        self.hsts_include_subdomains = self.config.get("hsts_include_subdomains", True)
-        self.hsts_preload = self.config.get("hsts_preload", False)
+        self.enable_hsts = not self.config["app_debug"] or self.config["enable_hsts"]
+        self.hsts_max_age = self.config["hsts_max_age"]
+        self.hsts_include_subdomains = self.config["hsts_include_subdomains"]
+        self.hsts_preload = self.config["hsts_preload"]
 
         # Frame options
-        self.frame_options = self.config.get("frame_options", "DENY")
+        self.frame_options = self.config["frame_options"]
 
         # Other headers
-        self.content_type_nosniff = self.config.get("content_type_nosniff", True)
-        self.xss_protection = self.config.get("xss_protection", True)
-        self.referrer_policy = self.config.get(
-            "referrer_policy", "strict-origin-when-cross-origin"
-        )
+        self.content_type_nosniff = self.config["content_type_nosniff"]
+        self.xss_protection = self.config["xss_protection"]
+        self.referrer_policy = self.config["referrer_policy"]
 
         # Content Security Policy
-        self.csp_enabled = self.config.get("csp_enabled", True)
-        self.csp_directives = (
-            self.config.get("csp_directives") or self._default_csp_directives()
-        )
-        self.generate_nonce = any(
-            "nonce-" in str(v) for v in self.csp_directives.values()
-        )
+        # Strict CSP everywhere except debug, where Swagger UI and the demo pages
+        # need inline scripts and CDN assets.
+        self.csp_enabled = self.config["csp_enabled"]
+        self.csp_directives = self.config["csp_directives"] or self._default_csp_directives()
+        self.generate_nonce = any("nonce-" in str(v) for v in self.csp_directives.values())
 
         # Permissions Policy
-        self.permissions_policy_enabled = self.config.get(
-            "permissions_policy_enabled", True
-        )
+        self.permissions_policy_enabled = self.config["permissions_policy_enabled"]
         self.permissions_policy = (
-            self.config.get("permissions_policy") or self._default_permissions_policy()
+            self.config["permissions_policy"] or self._default_permissions_policy()
         )
 
         self.logger.info(
@@ -88,7 +82,7 @@ class SecurityHeadersMiddleware(BaseMiddleware):
         """
         return {
             "default-src": ["'self'"],
-            "script-src": ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+            "script-src": ["'self'"],
             "style-src": ["'self'", "'unsafe-inline'"],
             "img-src": ["'self'", "data:", "https:"],
             "font-src": ["'self'"],
@@ -120,9 +114,7 @@ class SecurityHeadersMiddleware(BaseMiddleware):
             "usb": [],
         }
 
-    def _build_csp_header(
-        self: SecurityHeadersMiddleware, nonce: str | None = None
-    ) -> str:
+    def _build_csp_header(self: SecurityHeadersMiddleware, nonce: str | None = None) -> str:
         """Build Content Security Policy header.
 
         Args:
@@ -157,9 +149,7 @@ class SecurityHeadersMiddleware(BaseMiddleware):
 
         policies = []
         for feature, allowlist in self.permissions_policy.items():
-            policies.append(
-                f"{feature}=({' '.join(allowlist)})" if allowlist else f"{feature}=()"
-            )
+            policies.append(f"{feature}=({' '.join(allowlist)})" if allowlist else f"{feature}=()")
         return ", ".join(policies)
 
     def _build_hsts_header(self: SecurityHeadersMiddleware) -> str:
@@ -177,55 +167,36 @@ class SecurityHeadersMiddleware(BaseMiddleware):
             directives.append("preload")
         return "; ".join(directives)
 
-    async def process_request(
-        self: SecurityHeadersMiddleware, request: Request, call_next: Callable
-    ) -> Response:
-        """Process request and add security headers.
-
-        Args:
-        ----
-            request: Request
-            call_next: Next callable
-
-        Returns:
-        -------
-            Response
-
-        """
+    async def handle(self, request: Request, receive: Receive, send: Send) -> None:
+        """Add the security headers to the response as it starts."""
         nonce = uuid.uuid4().hex if self.generate_nonce else None
         if nonce:
             request.state.csp_nonce = nonce
 
-        response = await call_next(request)
+        def add_headers(message: Message) -> None:
+            values: dict[str, str] = {}
+            if self.content_type_nosniff:
+                values["X-Content-Type-Options"] = "nosniff"
+            if self.frame_options:
+                values["X-Frame-Options"] = self.frame_options
+            if self.xss_protection:
+                # The legacy XSS auditor created vulnerabilities of its own; "0" disables
+                # it and CSP is the real defence.
+                values["X-XSS-Protection"] = "0"
+            if self.enable_hsts and request.url.scheme == "https":
+                values["Strict-Transport-Security"] = self._build_hsts_header()
+            if self.csp_enabled:
+                values["Content-Security-Policy"] = self._build_csp_header(nonce)
+            if self.referrer_policy:
+                values["Referrer-Policy"] = self.referrer_policy
+            if self.permissions_policy_enabled:
+                values["Permissions-Policy"] = self._build_permissions_policy()
+            request_id = getattr(request.state, "request_id", None)
+            if request_id:
+                values["X-Request-ID"] = request_id
+            set_headers(message, values, remove=("server",))
 
-        if self.content_type_nosniff:
-            response.headers["X-Content-Type-Options"] = "nosniff"
-        if self.frame_options:
-            response.headers["X-Frame-Options"] = self.frame_options
-        if self.xss_protection:
-            response.headers["X-XSS-Protection"] = "1; mode=block"
-        if self.enable_hsts and request.url.scheme == "https":
-            response.headers["Strict-Transport-Security"] = self._build_hsts_header()
-        if self.csp_enabled:
-            response.headers["Content-Security-Policy"] = self._build_csp_header(nonce)
-        if self.referrer_policy:
-            response.headers["Referrer-Policy"] = self.referrer_policy
-        if self.permissions_policy_enabled:
-            response.headers["Permissions-Policy"] = self._build_permissions_policy()
-
-        if "Server" in response.headers:
-            del response.headers["Server"]
-
-        request_id = getattr(request.state, "request_id", None)
-        if request_id:
-            response.headers["X-Request-ID"] = request_id
-
-        self.logger.debug(
-            "Security headers added to response",
-            extra=create_log_context(middleware="SecurityHeadersMiddleware"),
-        )
-
-        return response
+        await self.forward(request, receive, send, on_start=add_headers)
 
 
 class RequestIDMiddleware(BaseMiddleware):
@@ -239,63 +210,32 @@ class RequestIDMiddleware(BaseMiddleware):
             kwargs: Additional keyword arguments
 
         """
-        self.header_name = self.config.get("request_id_header", "X-Request-ID")
+        self.header_name = self.config["request_id_header"]
         self.tracing_service: TracingService = kwargs.get("tracing_service")
         self.logger.info(
             "RequestIDMiddleware initialized",
             extra=create_log_context(middleware="RequestIDMiddleware"),
         )
 
-    async def process_request(
-        self: RequestIDMiddleware, request: Request, call_next: Callable
-    ) -> Response:
-        """Process request and generate request ID.
-
-        Args:
-        ----
-            request: Request
-            call_next: Next callable
-
-        Returns:
-        -------
-            Response
-
-        """
-        request_id = request.headers.get(self.header_name) or str(uuid.uuid4())
+    async def handle(self, request: Request, receive: Receive, send: Send) -> None:
+        """Assign a request id, expose it to logs and echo it on the response."""
+        # Accept a caller's id for cross-service tracing, but only if it is harmless:
+        # anything else could forge log lines or smuggle characters into headers.
+        supplied = request.headers.get(self.header_name, "")
+        request_id = supplied if REQUEST_ID_PATTERN.fullmatch(supplied) else str(uuid.uuid4())
         request.state.request_id = request_id
 
-        # Check if trace correlation is enabled
-        enable_trace = self.config.get("log_enable_trace_correlation", True)
-
-        if enable_trace and is_service_enabled(
-            self.tracing_service, "tracing_service", self.config
-        ):
-            # Get trace ID if tracing is active and enabled
+        trace_id = None
+        if self.config["log_enable_trace_correlation"] and self.tracing_service is not None:
             trace_id = self.tracing_service.get_trace_id()
 
-            # Combine request ID and trace ID
-            if trace_id:
-                log_id = f"{request_id}|trace:{trace_id}"
-            else:
-                log_id = request_id
-        else:
-            log_id = request_id
-
-        # Propagate request ID to logger via contextvar
-        set_request_id(log_id)
-
+        set_request_id(f"{request_id}|trace:{trace_id}" if trace_id else request_id)
         try:
-            response = await call_next(request)
-            response.headers[self.header_name] = request_id
-            self.logger.debug(
-                "Request context set",
-                extra=create_log_context(
-                    middleware="RequestIDMiddleware",
-                    request_id=request_id,
-                    trace_id=trace_id if enable_trace and trace_id else None,
-                ),
+            await self.forward(
+                request,
+                receive,
+                send,
+                on_start=lambda message: set_headers(message, {self.header_name: request_id}),
             )
-            return response
         finally:
-            # Clear request ID after request completes
             set_request_id(None)
