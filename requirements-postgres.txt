@@ -1,0 +1,1 @@
+asyncpg==0.32.0   # PostgreSQL backend (app_database_provider = "postgres")

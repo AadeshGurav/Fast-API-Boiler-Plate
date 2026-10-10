@@ -4,7 +4,7 @@ VENV   ?= .venv
 BIN    := $(VENV)/bin
 
 .DEFAULT_GOAL := help
-.PHONY: help setup up down reset-data run test lint fmt config config-docs openapi graph hooks docker-build docker-up
+.PHONY: help setup up up-postgres down reset-data run test lint fmt config config-docs openapi graph hooks docker-build docker-up
 
 help:  ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*?## ' '{printf "  %-14s %s\n", $$1, $$2}'
@@ -18,9 +18,12 @@ setup:  ## Create the venv, install dependencies, generate .env (random password
 	  redis=$$($(BIN)/python -c 'import secrets;print(secrets.token_urlsafe(24))'); \
 	  jwt=$$($(BIN)/python -c 'import secrets;print(secrets.token_urlsafe(64))'); \
 	  mfa=$$($(BIN)/python -c 'import secrets;print(secrets.token_urlsafe(64))'); \
+	  pg=$$($(BIN)/python -c 'import secrets;print(secrets.token_urlsafe(24))'); pport=$$($(BIN)/python scripts/free_port.py 5432); \
 	  mport=$$($(BIN)/python scripts/free_port.py 27017); rport=$$($(BIN)/python scripts/free_port.py 6379); aport=$$($(BIN)/python scripts/free_port.py 8000); \
 	  sed -e "s/MONGO_ROOT_PASSWORD=.*/MONGO_ROOT_PASSWORD=$$mongo/" -e "s/FABP_MONGO_PASSWORD=.*/FABP_MONGO_PASSWORD=$$mongo/" \
 	      -e "s/^REDIS_PASSWORD=.*/REDIS_PASSWORD=$$redis/" -e "s/FABP_REDIS_PASSWORD=.*/FABP_REDIS_PASSWORD=$$redis/" -e "s/FABP_JWT_SECRET=.*/FABP_JWT_SECRET=$$jwt/" -e "s/FABP_MFA_ENCRYPTION_KEY=.*/FABP_MFA_ENCRYPTION_KEY=$$mfa/" \
+	      -e "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$$pg/" -e "s/FABP_POSTGRES_PASSWORD=.*/FABP_POSTGRES_PASSWORD=$$pg/" \
+	      -e "s/POSTGRES_HOST_PORT=.*/POSTGRES_HOST_PORT=$$pport/" -e "s/FABP_POSTGRES_PORT=.*/FABP_POSTGRES_PORT=$$pport/" \
 	      -e "s/APP_HOST_PORT=.*/APP_HOST_PORT=$$aport/" -e "s/FABP_APP_PORT=.*/FABP_APP_PORT=$$aport/" \
 	      -e "s/MONGO_HOST_PORT=.*/MONGO_HOST_PORT=$$mport/" -e "s/FABP_MONGO_PORT=.*/FABP_MONGO_PORT=$$mport/" \
 	      -e "s/REDIS_HOST_PORT=.*/REDIS_HOST_PORT=$$rport/" -e "s/FABP_REDIS_PORT=.*/FABP_REDIS_PORT=$$rport/" \
@@ -29,6 +32,9 @@ setup:  ## Create the venv, install dependencies, generate .env (random password
 
 up:  ## Start MongoDB and Redis
 	docker compose up -d --wait
+
+up-postgres:  ## Start PostgreSQL too (then set app_database_provider = "postgres")
+	docker compose --profile postgres up -d --wait
 
 down:  ## Stop MongoDB and Redis (data is kept)
 	docker compose down

@@ -38,6 +38,26 @@ services:
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
 
+  postgres:
+    profiles: ["postgres"]     # only with `make up-postgres` (app_database_provider = "postgres")
+    image: postgres:17
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
+    environment:
+      POSTGRES_USER: fabp
+      POSTGRES_DB: fabp
+      # make setup writes a random one; the fallback only keeps `docker compose` working
+      # for an .env created before PostgreSQL support (the port is loopback-only).
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-run-make-setup}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fabp"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   app:
     profiles: ["app"]          # only with `docker compose --profile app up` / `make docker-up`
     build: .
@@ -51,11 +71,15 @@ services:
       FABP_MONGO_PASSWORD: ${MONGO_ROOT_PASSWORD}
       FABP_REDIS_PASSWORD: ${REDIS_PASSWORD}
       FABP_JWT_SECRET: ${FABP_JWT_SECRET:?run `make setup` to create .env}
-      FABP_MFA_ENCRYPTION_KEY: ${FABP_MFA_ENCRYPTION_KEY:?run `make setup` to create .env}
+      # A fallback, not ":?": Compose checks required variables for every service, so a
+      # missing key would break `make up` for the databases too. The app refuses the
+      # placeholder at start-up with a message saying what to do.
+      FABP_MFA_ENCRYPTION_KEY: ${FABP_MFA_ENCRYPTION_KEY:-change-me-run-make-setup}
     volumes:
       - uploads:/app/uploads
 
 volumes:
+  postgres_data:
   uploads:
   mongodb_data:
   redis_data:

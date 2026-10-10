@@ -41,7 +41,9 @@ creates the bootstrap admin if configured, and starts the upload janitor.
 ### Bring your own backend
 
 Cache, database and file storage are interfaces with built-in implementations (`redis` /
-`memory`, `mongodb`, `local` / `s3`). Set `app_cache_provider`, `app_database_provider` or
+`memory`, `mongodb` / `postgres`, `local` / `s3`). Both databases pass one contract suite
+(`tests/contract/`), run in CI against real MongoDB, PostgreSQL and Redis
+([ADR 0006](adr/0006-postgresql-as-jsonb-documents.md)). Set `app_cache_provider`, `app_database_provider` or
 `file_storage_backend` to `package.module:YourClass`; the class implements `CacheInterface`,
 `DatabaseInterface` or `StorageInterface` and is constructed with `(config, logger)`. Rate
 limiting is a cache operation (`hit`), so any cache backend supports it. No driver is imported

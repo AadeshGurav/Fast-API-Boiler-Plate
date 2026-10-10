@@ -49,6 +49,11 @@ jobs:
       redis:
         image: redis:7
         ports: ["6379:6379"]
+      postgres:
+        image: postgres:17
+        env: {POSTGRES_USER: fabp, POSTGRES_PASSWORD: contract, POSTGRES_DB: fabp}
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U fabp" --health-interval 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -59,8 +64,9 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - name: Contract tests
         env:
-          CONTRACT_DATABASES: fake,mongodb
+          CONTRACT_DATABASES: fake,mongodb,postgres
           CONTRACT_CACHES: memory,redis
+          FABP_POSTGRES_PASSWORD: contract
         run: python -m pytest tests/contract -q
 
   audit:
@@ -74,7 +80,7 @@ jobs:
       - name: Audit dependencies
         run: |
           pip install pip-audit==2.10.1
-          pip-audit -r requirements.txt -r requirements-s3.txt
+          pip-audit -r requirements.txt -r requirements-s3.txt -r requirements-postgres.txt
 
   image:
     # The shipped image must build and carry no HIGH or CRITICAL fixable vulnerability.

@@ -1,4 +1,4 @@
-"""Database backends. Select with ``app_database_provider``: ``mongodb`` or
+"""Database backends. Select with ``app_database_provider``: ``mongodb``, ``postgres`` or
 ``package.module:YourDatabase`` (a ``DatabaseInterface`` implementation)."""
 
 from __future__ import annotations
@@ -12,7 +12,10 @@ if TYPE_CHECKING:
     from app.services.logger import Logger
     from config import Config
 
-BUILTIN_DATABASES = {"mongodb": "app.database.mongodb:MongoDB"}
+BUILTIN_DATABASES = {
+    "mongodb": "app.database.mongodb:MongoDB",
+    "postgres": "app.database.postgres:PostgresDatabase",
+}
 
 
 def create_database(config: Config, logger: Logger) -> DatabaseInterface:
