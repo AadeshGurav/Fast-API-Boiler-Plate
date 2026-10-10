@@ -1,4 +1,4 @@
-# FastAPI Boilerplate: production-ready FastAPI + MongoDB + Redis starter
+# FastAPI Boilerplate: production-ready, storage-agnostic FastAPI starter
 
 [![CI](https://github.com/AadeshGurav/Fast-API-Boiler-Plate/actions/workflows/ci.yml/badge.svg)](https://github.com/AadeshGurav/Fast-API-Boiler-Plate/actions/workflows/ci.yml)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-3776AB?logo=python&logoColor=white)](https://www.python.org/)
@@ -9,9 +9,14 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 **A secure, production-ready FastAPI back end you can build a real product on today.**
-Authentication with revocable sessions, role-based access control, versioned file storage
-(local or S3), rate limiting, safe retries and RFC 9457 errors are already done, tested and
-documented. You add your product's resources; the plumbing is finished.
+Authentication with revocable sessions, role-based access control, versioned file storage,
+rate limiting, safe retries and RFC 9457 errors are already done, tested and documented. You add
+your product's resources; the plumbing is finished.
+
+**Bring your own database.** Every layer above the storage engines talks to interfaces, never to
+a driver, so you can move from MongoDB to PostgreSQL, Redis to another cache, or local disk to
+any object store by writing one class: no application code changes. Complete MongoDB, Redis,
+in-memory, local-disk and S3 implementations ship ready to use.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/what-you-get-dark.svg">
@@ -27,8 +32,14 @@ documented. You add your product's resources; the plumbing is finished.
   keys, health probes, structured logs, and a cache that degrades instead of failing.
 - **Zero-touch setup.** `make setup && make up && make run`: random passwords, free ports,
   no manual steps. 197 tests run in about ten seconds without any database.
-- **Small, readable, swappable.** No DI framework, no magic. Plain wiring, clear layers, and
-  pluggable cache, database and storage backends (`package.module:Class`).
+- **Storage-agnostic architecture.** Database, cache and file storage sit behind interfaces
+  (`DatabaseInterface`, `CacheInterface`, `StorageInterface`). Swap SQL for NoSQL, or one cloud
+  for another, with one class and one setting; [the contract](docs/how-to/write-a-backend.md)
+  is documented.
+- **Small and readable.** No DI framework, no magic: plain wiring and clear layers.
+- **AI-agent ready.** A committed, always-current [code graph](graphify-out/GRAPH_REPORT.md) lets
+  AI assistants navigate the codebase without reading every file; [AGENTS.md](AGENTS.md) gives
+  them the rules.
 - **Documented for everyone.** Guides for developers, operators, designers and decision
   makers, an API and data-model reference, architecture decision records, and twelve diagrams.
 
@@ -41,6 +52,7 @@ documented. You add your product's resources; the plumbing is finished.
 | **Files** | Per-user files with version history, chunked and resumable uploads, image thumbnails, de-duplication, per-user quotas, spreadsheet read/edit (xlsx edited in place keeps charts and formulas; ods; csv), local disk or S3/MinIO/R2, streamed end to end |
 | **API safety nets** | Rate limiting (sliding or fixed window, per tier), request size and idle-body limits, timeouts and concurrency cap, `Idempotency-Key` replay, CSRF origin check, CORS, CSP/HSTS headers, RFC 9457 `application/problem+json` errors |
 | **Operations** | Liveness, readiness and startup probes; JSON logs with request ids; optional Prometheus metrics, OpenTelemetry tracing and Sentry; Docker image and Compose stack |
+| **Pluggable storage** | `DatabaseInterface` (MongoDB built in; PostgreSQL, MySQL, DynamoDB... via one class), `CacheInterface` (Redis or in-memory built in), `StorageInterface` (local disk and S3-compatible built in), selected by setting |
 | **Developer experience** | Typed settings with TOML + environment layering and typo detection, versioned migrations, Makefile, Ruff, CI, pre-commit, tests through the real middleware stack |
 
 ## Quick start
@@ -85,8 +97,8 @@ products, asset/inventory/product-lifecycle systems, and back ends for mobile or
 | --- | --- | --- |
 | Web framework | FastAPI 0.142 + Starlette, Uvicorn | Async, typed, automatic OpenAPI |
 | Validation and settings | Pydantic 2 | One typed model for every setting and payload |
-| Database | MongoDB 8 via Motor | Flexible documents, TTL indexes for sessions and tokens |
-| Cache | Redis 7 (or in-memory) | Sessions, permissions, rate limits, idempotency |
+| Database | MongoDB 8 via Motor (default; replaceable) | Flexible documents, TTL indexes for sessions and tokens |
+| Cache | Redis 7 or in-memory (default; replaceable) | Sessions, permissions, rate limits, idempotency |
 | Files | Local disk or S3 via boto3 | One host to start, any S3-compatible store to scale |
 | Auth | PyJWT, argon2-cffi, httpx (OAuth) | Standard, audited libraries |
 | Spreadsheets | openpyxl, odfpy | Pure Python, same behaviour on every OS |
@@ -103,12 +115,13 @@ app/
     routes/           # auth, oauth, users, rbac, sessions, files, health
   services/           # auth, rbac, files, oauth, cache, data layer, logging, metrics, tracing
     data/             # DataService, per-collection ops, indexes, migrations
-  cache/ database/    # pluggable backends behind interfaces
+  cache/ database/    # pluggable backends behind interfaces (bring your own)
   models/             # Pydantic request and response models
   settings.py         # every setting: type, default, description
 config.toml           # project defaults, roles and groups
 docs/                 # guides, reference, ADRs, diagrams
 tests/                # 197 tests, in-memory MongoDB and Redis stand-ins
+graphify-out/         # code knowledge graph, rebuilt on every push (start here, people and AI)
 ```
 
 ## Documentation
@@ -118,6 +131,8 @@ Everything starts at **[docs/README.md](docs/README.md)**, organised by role:
 | You are… | Start with |
 | --- | --- |
 | Building features | [Getting started](docs/tutorials/getting-started.md) → [Architecture](docs/ARCHITECTURE.md) → [Add a resource](docs/how-to/add-a-resource.md) → [API reference](docs/reference/api.md) |
+| Bringing your own database | [Write a backend](docs/how-to/write-a-backend.md) |
+| Contributing (people and AI) | [Standards](docs/STANDARDS.md) → [CONTRIBUTING](CONTRIBUTING.md) → [AGENTS.md](AGENTS.md) |
 | Running it | [Deploy](docs/how-to/deploy.md) → [Configure](docs/how-to/configure.md) → [Runbook](docs/how-to/operate.md) |
 | Designing screens | [For designers](docs/design/for-designers.md) |
 | Reviewing security | [Security model](docs/explanation/security-model.md) |
@@ -132,9 +147,13 @@ from `app/settings.py`; the reasons behind the design are in the [ADRs](docs/adr
 graceful degradation, a deploy checklist and a runbook. Read the
 [known limits](docs/ARCHITECTURE.md#known-limits) and the [scope](docs/overview/for-decision-makers.md#scope-what-it-leaves-to-you) first.
 
-**Can I use PostgreSQL instead of MongoDB?** MongoDB is the built-in backend. The data layer
-talks to a `DatabaseInterface`, so another database is one class plus
-`app_database_provider = "package.module:YourDatabase"`.
+**Is it tied to MongoDB and Redis?** No. They are the bundled, production-grade defaults.
+Routes, services and the data layer depend only on interfaces, so PostgreSQL, MySQL, SQLite,
+DynamoDB or any other store is one class plus `app_database_provider =
+"package.module:YourDatabase"`, and the application code stays untouched. The backend
+implements a small, documented [contract](docs/how-to/write-a-backend.md) (CRUD, an atomic
+increment, unique indexes, and a seven-operator filter vocabulary). The same holds for the
+cache and for file storage.
 
 **Do I need Redis?** For one process, `app_cache_provider = "memory"` works. With several
 workers or servers use Redis; the app refuses to start with an unsafe combination.

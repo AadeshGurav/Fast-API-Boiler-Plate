@@ -1,6 +1,8 @@
 # FastAPI Boilerplate
 
-> Production-ready FastAPI + MongoDB + Redis boilerplate (Python 3.11, MIT). API-only back end
+> Production-ready, storage-agnostic FastAPI boilerplate (Python 3.11, MIT). Ships with MongoDB and
+> Redis; any database, cache or object store plugs in behind interfaces without application code
+> changes. API-only back end
 > with authentication (session-bound JWT access and rotating refresh tokens, Argon2id, lockout,
 > password reset, Google OAuth), role-based access control (roles, groups, temporary grants,
 > deny-by-default permissions per route), versioned per-user file storage (local disk or S3,
@@ -13,6 +15,12 @@ Use it as the starting point for SaaS products, internal tools, admin back offic
 and spreadsheet products, and back ends for web or mobile apps. Add domain resources on its
 patterns; cache, database and storage backends are pluggable (`package.module:Class`).
 
+## For AI agents
+
+- [AGENTS.md](https://github.com/AadeshGurav/Fast-API-Boiler-Plate/blob/develop/AGENTS.md): commands, where changes go, rules
+- [Code graph report](https://github.com/AadeshGurav/Fast-API-Boiler-Plate/blob/develop/graphify-out/GRAPH_REPORT.md): god nodes, communities, structure; rebuilt on every push. Navigate with it instead of reading every file.
+- [Engineering standards](https://github.com/AadeshGurav/Fast-API-Boiler-Plate/blob/develop/docs/STANDARDS.md): binding for every pull request, human or AI
+
 ## Docs
 
 - [README](https://github.com/AadeshGurav/Fast-API-Boiler-Plate/blob/develop/README.md): features, quick start, FAQ
@@ -20,6 +28,7 @@ patterns; cache, database and storage backends are pluggable (`package.module:Cl
 - [Getting started](https://github.com/AadeshGurav/Fast-API-Boiler-Plate/blob/develop/docs/tutorials/getting-started.md): clone to first API calls
 - [Architecture](https://github.com/AadeshGurav/Fast-API-Boiler-Plate/blob/develop/docs/ARCHITECTURE.md): layers, middleware order, RBAC, files, resilience
 - [Add a resource](https://github.com/AadeshGurav/Fast-API-Boiler-Plate/blob/develop/docs/how-to/add-a-resource.md): extend it with your own domain
+- [Bring your own database](https://github.com/AadeshGurav/Fast-API-Boiler-Plate/blob/develop/docs/how-to/write-a-backend.md): PostgreSQL, MySQL, DynamoDB, other caches and stores
 - [API reference](https://github.com/AadeshGurav/Fast-API-Boiler-Plate/blob/develop/docs/reference/api.md): endpoints, permissions, errors, pagination, idempotency
 - [Configuration reference](https://github.com/AadeshGurav/Fast-API-Boiler-Plate/blob/develop/docs/CONFIGURATION.md): every setting
 - [Security model](https://github.com/AadeshGurav/Fast-API-Boiler-Plate/blob/develop/docs/explanation/security-model.md): threats and controls
