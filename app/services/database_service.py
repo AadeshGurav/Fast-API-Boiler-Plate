@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from app.core.interfaces.database_interface import DuplicateRecordError
 from app.database import create_database
 from app.services.base_service import BaseService
 
@@ -81,6 +82,8 @@ class DatabaseService(BaseService):
         """Insert a record; True if stored."""
         try:
             return await self.backend.insert_record(collection, data)
+        except DuplicateRecordError:
+            raise  # an expected outcome for the caller, not a database failure
         except Exception as e:
             self.logger.error(f"Error inserting record into {collection}: {e}")
             raise
@@ -94,6 +97,8 @@ class DatabaseService(BaseService):
         """Update an existing record; False if no record matched (never inserts)."""
         try:
             return await self.backend.update_record(collection, filters, data)
+        except DuplicateRecordError:
+            raise  # an expected outcome for the caller, not a database failure
         except Exception as e:
             self.logger.error(
                 f"Error updating record in {collection} (filter keys: {sorted(filters)}): {e}"
@@ -106,6 +111,8 @@ class DatabaseService(BaseService):
         """Update every matching record at once; returns how many matched."""
         try:
             return await self.backend.update_many(collection, filters, data)
+        except DuplicateRecordError:
+            raise  # an expected outcome for the caller, not a database failure
         except Exception as e:
             self.logger.error(f"Error updating records in {collection}: {e}")
             raise
@@ -119,6 +126,8 @@ class DatabaseService(BaseService):
         """Update the matching record, or insert it when none matches."""
         try:
             return await self.backend.upsert_record(collection, filters, data)
+        except DuplicateRecordError:
+            raise  # an expected outcome for the caller, not a database failure
         except Exception as e:
             self.logger.error(
                 f"Error upserting record in {collection} (filter keys: {sorted(filters)}): {e}"

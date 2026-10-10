@@ -10,6 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.cache.memory import MemoryCache
+from app.core.interfaces.database_interface import DuplicateRecordError
 from app.models.user import UserCreate  # noqa: F401 - re-exported for tests
 from app.services.cache import CacheService
 from app.services.data.data_service import DataService
@@ -24,6 +25,23 @@ class FakeDatabase:
 
     def __init__(self) -> None:
         self.collections: dict[str, list[dict[str, Any]]] = {}
+        self.indexes: dict[str, list[dict[str, Any]]] = {}
+
+    def _check_unique(self, collection: str, candidate: dict, current: dict | None = None) -> None:
+        """Enforce declared unique indexes like MongoDB: a missing field indexes as null,
+        except in a sparse index, which skips records without the field."""
+        for spec in self.indexes.get(collection, []):
+            if not spec.get("unique"):
+                continue
+            fields = [field for field, _ in spec["keys"]]
+            if spec.get("sparse") and any(field not in candidate for field in fields):
+                continue
+            key = tuple(candidate.get(field) for field in fields)
+            for doc in self.collections.get(collection, []):
+                if doc is current or (spec.get("sparse") and any(f not in doc for f in fields)):
+                    continue
+                if tuple(doc.get(field) for field in fields) == key:
+                    raise DuplicateRecordError(f"Duplicate key in {collection}: {fields}")
 
     @classmethod
     def _matches(cls, doc: dict[str, Any], filters: dict[str, Any]) -> bool:
@@ -36,10 +54,11 @@ class FakeDatabase:
             elif isinstance(expected, dict) and any(k.startswith("$") for k in expected):
                 value = doc.get(key)
                 ok = all(
-                    {
+                    (key in doc) == operand
+                    if op == "$exists"
+                    else {
                         "$lt": lambda v, e: v is not None and v < e,
                         "$lte": lambda v, e: v is not None and v <= e,
-                        "$exists": lambda v, e: (v is not None) == e,
                         "$gt": lambda v, e: v is not None and v > e,
                         "$in": lambda v, e: (
                             v in e or (isinstance(v, list) and bool(set(v) & set(e)))
@@ -48,7 +67,9 @@ class FakeDatabase:
                     for op, operand in expected.items()
                 )
             else:
-                ok = doc.get(key) == expected
+                value = doc.get(key)
+                # Like MongoDB, equality on a list field means "contains".
+                ok = value == expected or (isinstance(value, list) and expected in value)
             if not ok:
                 return False
         return True
@@ -70,18 +91,21 @@ class FakeDatabase:
         return len(self._matching(collection, filters))
 
     async def insert_record(self, collection, data):
+        self._check_unique(collection, data)
         self.collections.setdefault(collection, []).append(dict(data))
         return True
 
     async def update_record(self, collection, filters, data):
         found = self._matching(collection, filters)
         if found:
+            self._check_unique(collection, {**found[0], **data}, current=found[0])
             found[0].update(data)
         return bool(found)
 
     async def update_many(self, collection, filters, data):
         found = self._matching(collection, filters)
         for doc in found:
+            self._check_unique(collection, {**doc, **data}, current=doc)
             doc.update(data)
         return len(found)
 
@@ -104,7 +128,8 @@ class FakeDatabase:
         return found[0][field]
 
     async def ensure_indexes(self, indexes):
-        self.indexes = indexes
+        for collection, specs in indexes.items():
+            self.indexes.setdefault(collection, []).extend(specs)
 
     async def drop_indexes(self, indexes):
         self.dropped = [*getattr(self, "dropped", []), indexes]
