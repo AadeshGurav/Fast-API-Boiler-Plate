@@ -44,7 +44,7 @@ driver is imported outside its backend module. Python 3.11. Overview:
 
 ```bash
 make setup        # create .venv, install, write .env and config.local.toml
-make test         # pytest, 197 tests, no services needed (~10 s)
+make test         # pytest, 300+ tests, no services needed (~15 s)
 make lint         # ruff check + format check (CI runs this)
 make fmt          # ruff fix + format
 make config-docs  # regenerate docs/CONFIGURATION.md after changing app/settings.py
