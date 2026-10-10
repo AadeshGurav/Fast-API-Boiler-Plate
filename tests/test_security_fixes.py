@@ -268,10 +268,12 @@ def test_smtp_starttls_verifies_the_server_certificate(monkeypatch):
 def test_sentry_never_sends_request_bodies(monkeypatch):
     from unittest.mock import MagicMock
 
+    import sentry_sdk
+
     from app.services import sentry
 
     captured = {}
-    monkeypatch.setattr(sentry.sentry_sdk, "init", lambda **kwargs: captured.update(kwargs))
+    monkeypatch.setattr(sentry_sdk, "init", lambda **kwargs: captured.update(kwargs))
     config = {
         "sentry_dsn": "https://key@example.invalid/1",
         "sentry_environment": "t",
@@ -282,7 +284,7 @@ def test_sentry_never_sends_request_bodies(monkeypatch):
     sentry.SentryService(MagicMock(), config)
 
     assert captured["max_request_body_size"] == "never"
-    assert "new_password" in captured["event_scrubber"].denylist
+    assert {"new_password", "mfa_token"} <= set(captured["event_scrubber"].denylist)
 
 
 def test_placeholder_jwt_secret_is_refused():

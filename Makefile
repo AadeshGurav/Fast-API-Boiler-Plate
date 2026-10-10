@@ -4,7 +4,7 @@ VENV   ?= .venv
 BIN    := $(VENV)/bin
 
 .DEFAULT_GOAL := help
-.PHONY: help setup up up-postgres down reset-data run test lint fmt config config-docs openapi graph hooks docker-build docker-up
+.PHONY: help setup up up-postgres up-mail down reset-data run test lint fmt config config-docs openapi graph hooks docker-build docker-up
 
 help:  ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*?## ' '{printf "  %-14s %s\n", $$1, $$2}'
@@ -35,6 +35,9 @@ up:  ## Start MongoDB and Redis
 
 up-postgres:  ## Start PostgreSQL too (then set app_database_provider = "postgres")
 	docker compose --profile postgres up -d --wait
+
+up-mail:  ## Start Mailpit: catches every email, inbox at http://127.0.0.1:8025
+	docker compose --profile mail up -d
 
 down:  ## Stop MongoDB and Redis (data is kept)
 	docker compose down

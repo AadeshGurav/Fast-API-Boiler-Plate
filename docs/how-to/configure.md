@@ -118,6 +118,10 @@ password_reset_url_template = "https://app.example.com/reset?token={token}"
 Set `FABP_SMTP_PASSWORD` in the environment. Without `smtp_host` the message is not sent and an
 error is logged (in debug mode the whole message is logged, so local testing works).
 
+Locally, `make up-mail` starts [Mailpit](https://mailpit.axllent.org), which accepts every
+message and shows it at <http://127.0.0.1:8025>; uncomment the `smtp_*` lines in
+`config.local.toml` to send to it.
+
 ## Sign in with Google
 
 ```toml
@@ -170,5 +174,8 @@ otlp_endpoint = "http://otel-collector:4317"
 sentry_enabled = true                    # plus FABP_SENTRY_DSN in the environment
 ```
 
-All three are off by default. Logs are always on: readable lines on stderr and JSON lines in
+All three are off by default. Tracing and Sentry need their packages:
+`pip install -r requirements-observability.txt`, or build the image with
+`--build-arg INSTALL_OBSERVABILITY=true`; turning one on without it stops start-up with that
+instruction. Logs are always on: readable lines on stderr and JSON lines in
 `logs/app.log` (`log_to_file`), each tagged with the request id.

@@ -58,6 +58,11 @@ All notable changes are recorded here. The format follows
 
 ### Changed
 
+- Sentry and OpenTelemetry moved to `requirements-observability.txt` (nine packages out of the
+  default install, like S3 and PostgreSQL); `INSTALL_OBSERVABILITY=true` adds them to the image.
+  Enabling either without its package stops start-up with the install command.
+- `make up-mail` starts Mailpit, which catches every email locally (inbox on port 8025).
+
 - Unique-index violations surface as `DuplicateRecordError` from every database backend
   instead of a driver exception; `FakeDatabase` now enforces declared unique indexes.
 - `DELETE /api/v1/sessions/all` and `DELETE /api/v1/sessions/{id}` revoke through `AuthService`,

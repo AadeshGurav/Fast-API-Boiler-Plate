@@ -25,11 +25,11 @@ from app.services.metrics import MetricsService
 from app.services.oauth import OAuthService
 from app.services.password_service import PasswordService
 from app.services.rbac import RBACService
-from app.services.sentry import SentryService
-from app.services.tracing import TracingService
 
 if TYPE_CHECKING:
     from app.core.interfaces.storage_interface import StorageInterface
+    from app.services.sentry import SentryService
+    from app.services.tracing import TracingService
     from config import Config
 
 
@@ -76,7 +76,25 @@ def build_services(config: Config) -> Services:
     def optional(flag: str, build):
         enabled = bool(config.get(flag))
         logger.info(f"{flag}: {'enabled' if enabled else 'disabled'}")
-        return build() if enabled else None
+        if not enabled:
+            return None
+        try:
+            return build()
+        except ImportError as e:
+            raise RuntimeError(
+                f"{flag} is on but its package is not installed ({e.name}): "
+                "pip install -r requirements-observability.txt"
+            ) from e
+
+    def tracing():
+        from app.services.tracing import TracingService
+
+        return TracingService(logger=logger, config=config)
+
+    def sentry():
+        from app.services.sentry import SentryService
+
+        return SentryService(logger=logger, config=config)
 
     services = Services(
         config=config,
@@ -95,12 +113,8 @@ def build_services(config: Config) -> Services:
         metrics_service=optional(
             "metrics_enabled", lambda: MetricsService(logger=logger, config=config)
         ),
-        tracing_service=optional(
-            "tracing_enabled", lambda: TracingService(logger=logger, config=config)
-        ),
-        sentry_service=optional(
-            "sentry_enabled", lambda: SentryService(logger=logger, config=config)
-        ),
+        tracing_service=optional("tracing_enabled", tracing),
+        sentry_service=optional("sentry_enabled", sentry),
         oauth_service=optional(
             "oauth_enabled",
             lambda: OAuthService(config=config, logger=logger, data_service=data_service),

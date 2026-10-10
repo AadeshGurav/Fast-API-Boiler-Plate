@@ -46,6 +46,7 @@ Configuration is environment variables (`FABP_<NAME>`); see [configure](configur
 | First admin | `FABP_BOOTSTRAP_ADMIN_*` once, then remove | Created only while the user collection is empty. |
 | Email | `FABP_SMTP_*`, `FABP_PASSWORD_RESET_URL_TEMPLATE` | Password resets. |
 | Background jobs | `FABP_JOBS_RUN_IN_API`, or a `python -m app.jobs` service | Workers inside the API by default; separate them when jobs are heavy. |
+| Observability (optional) | image built with `INSTALL_OBSERVABILITY=true` | Needed for `tracing_enabled` and `sentry_enabled`; Prometheus metrics are always available. |
 | Backups | MongoDB, and local `uploads/` if not on S3 | The only state worth keeping; Redis is a cache. |
 
 ## Probes

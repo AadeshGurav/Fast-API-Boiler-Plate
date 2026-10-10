@@ -11,12 +11,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # Dependencies first: this layer is only rebuilt when requirements.txt changes.
-COPY requirements.txt requirements-s3.txt requirements-postgres.txt ./
+COPY requirements*.txt ./
 ARG INSTALL_S3=false
 ARG INSTALL_POSTGRES=false
+ARG INSTALL_OBSERVABILITY=false
 RUN pip install --upgrade pip && pip install -r requirements.txt \
     && if [ "$INSTALL_S3" = "true" ]; then pip install -r requirements-s3.txt; fi \
-    && if [ "$INSTALL_POSTGRES" = "true" ]; then pip install -r requirements-postgres.txt; fi
+    && if [ "$INSTALL_POSTGRES" = "true" ]; then pip install -r requirements-postgres.txt; fi \
+    && if [ "$INSTALL_OBSERVABILITY" = "true" ]; then pip install -r requirements-observability.txt; fi
 
 COPY app ./app
 COPY config.toml ./
