@@ -99,6 +99,13 @@ two-factor setup stops working until they set it up again.
 Login attempts (success and failure, with IP and user agent) are kept 90 days in the
 `login_attempts` collection.
 
+## Background jobs are failing
+
+`GET /api/v1/admin/jobs?status=dead` lists jobs that used up their attempts, each with
+`last_error`; log lines carry `job_id`. Fix the cause (credentials, a downstream outage, a bug),
+then `POST /api/v1/admin/jobs/{id}/retry`. Many `queued` jobs with old `run_at` mean no worker is
+running: check `jobs_run_in_api`, or start `python -m app.jobs`.
+
 ## Disk filling up
 
 `/api/v1/ready` reports `disk.free_gb` for the local storage path. Per-user limits are

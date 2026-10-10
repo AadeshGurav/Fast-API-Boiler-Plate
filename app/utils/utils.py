@@ -59,19 +59,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.info(f"OAuth providers: {list(oauth.providers)}")
     logger.info("Application started")
 
-    janitor = (
-        asyncio.create_task(purge_abandoned_uploads_forever(services))
-        if services.config["file_cleanup_interval"]
-        else None
-    )
+    background = []
+    if services.config["file_cleanup_interval"]:
+        background.append(asyncio.create_task(purge_abandoned_uploads_forever(services)))
+    if services.config["jobs_run_in_api"]:
+        background.append(asyncio.create_task(services.job_service.run_forever()))
     try:
         yield
     finally:
         logger.info("Shutting down")
-        if janitor is not None:
-            janitor.cancel()
+        for task in background:
+            task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
-                await janitor
+                await task
         await services.data_service.close()
         if services.sentry_service is not None:
             services.sentry_service.flush()

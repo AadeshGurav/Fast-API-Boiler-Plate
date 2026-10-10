@@ -97,6 +97,13 @@ Values are resolved in this order (later wins):
 | `mfa_challenge_minutes` | int | `5` | How long the password step of a two-factor sign-in stays valid. |
 | `api_token_max_days` | int | `365` | Longest lifetime a personal access token may be given. |
 | `api_tokens_per_user` | int | `20` | Most personal access tokens one user may hold at once. |
+| `jobs_run_in_api` | bool | `True` | Run the background job worker inside each API process. Turn off when running `python -m app.jobs` separately. |
+| `jobs_poll_seconds` | float | `2.0` | How often an idle job worker looks for due jobs. |
+| `jobs_batch_size` | int | `10` | Jobs one worker claims per pass. |
+| `jobs_max_attempts` | int | `5` | Attempts before a failing job is moved to 'dead'. |
+| `jobs_timeout_seconds` | float | `300.0` | Time limit for one job attempt; the lease is twice this. |
+| `jobs_retry_base_seconds` | float | `10.0` | Base of the exponential retry delay (with full jitter). |
+| `jobs_retention_days` | int | `14` | How long finished (done or dead) jobs are kept. |
 | `audit_retention_days` | int | `365` | How long security audit events are kept before they expire. |
 | `auth_refresh_reuse_grace_seconds` | int | `30` | A rotated refresh token still works this long (parallel tabs). |
 | `password_min_length` | int | `8` | Minimum password length. |

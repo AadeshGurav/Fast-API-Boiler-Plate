@@ -18,7 +18,9 @@ from app.services.database_service import DatabaseService
 from app.services.error.error_service import ErrorService
 from app.services.file import FileService
 from app.services.file.storage import create_storage
+from app.services.jobs import JobService
 from app.services.logger import Logger
+from app.services.mailer import send_email
 from app.services.metrics import MetricsService
 from app.services.oauth import OAuthService
 from app.services.password_service import PasswordService
@@ -47,6 +49,7 @@ class Services:
     error_service: ErrorService
     storage_backend: StorageInterface
     file_service: FileService
+    job_service: JobService
     metrics_service: MetricsService | None = None
     tracing_service: TracingService | None = None
     sentry_service: SentryService | None = None
@@ -75,7 +78,7 @@ def build_services(config: Config) -> Services:
         logger.info(f"{flag}: {'enabled' if enabled else 'disabled'}")
         return build() if enabled else None
 
-    return Services(
+    services = Services(
         config=config,
         logger=logger,
         database_service=database_service,
@@ -88,6 +91,7 @@ def build_services(config: Config) -> Services:
         error_service=ErrorService(logger, config),
         storage_backend=storage_backend,
         file_service=FileService(logger, config, data_service, storage_backend),
+        job_service=JobService(config, logger, data_service),
         metrics_service=optional(
             "metrics_enabled", lambda: MetricsService(logger=logger, config=config)
         ),
@@ -102,3 +106,16 @@ def build_services(config: Config) -> Services:
             lambda: OAuthService(config=config, logger=logger, data_service=data_service),
         ),
     )
+    register_job_handlers(services)
+    return services
+
+
+def register_job_handlers(services: Services) -> None:
+    """Every background job the application knows, in one place (API and ``app.jobs``)."""
+    jobs, config, logger = services.job_service, services.config, services.logger
+
+    @jobs.handler("email.send")
+    async def send_email_job(payload: dict) -> None:
+        # Raising makes the queue retry; send_email reports failure by returning False.
+        if not await send_email(config, logger, payload["to"], payload["subject"], payload["body"]):
+            raise RuntimeError("SMTP delivery failed")
