@@ -34,6 +34,13 @@ The product has to make that moment bearable without contradicting it.
 | Spreadsheet | `/files/{id}/spreadsheet/...` | Sheet tabs; save creates a new version (offer "view previous"); the last sheet cannot be deleted. |
 | Admin: users | `/users` | Paged list with status filter; suspend/reactivate (suspending signs the person out everywhere); admins cannot disable themselves. |
 
+Two-factor sign-in is a second screen after the password, not an error state:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../diagrams/mfa-sign-in-dark.svg">
+  <img alt="Two-factor sign-in: a correct password answers 401 mfa_required with a five-minute challenge token; the client returns it with a code; a valid, newer code is claimed with a conditional write and opens the session, while a wrong or replayed code counts towards lockout." src="../diagrams/mfa-sign-in.svg">
+</picture>
+
 ## Turning errors into states
 
 Errors arrive as [problem documents](../reference/api.md#errors) with `status`, `detail` and a

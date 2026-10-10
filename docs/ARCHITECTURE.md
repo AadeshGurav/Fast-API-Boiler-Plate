@@ -50,6 +50,11 @@ limiting is a cache operation (`hit`), so any cache backend supports it. No driv
 outside its backend, so changing storage technology changes no application code;
 [write a backend](how-to/write-a-backend.md) is the full contract.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="diagrams/backend-contract-dark.svg">
+  <img alt="One contract suite runs against the in-memory stand-ins on every test run, against real MongoDB, PostgreSQL and Redis in CI, and against your own backend when you name it." src="diagrams/backend-contract.svg">
+</picture>
+
 ### Rules worth knowing
 
 - `set()` is an **upsert**; `update()` never creates a record. Use `update()` for edits.
@@ -167,6 +172,11 @@ Logging is the standard library: readable console lines plus JSON lines in `logs
 written by a background thread through a queue, each carrying the request id.
 
 ## Background jobs
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="diagrams/job-lifecycle-dark.svg">
+  <img alt="Job states: queued, running, done or dead; failures return to the queue with backoff until the attempts run out; an expired lease returns the job to the queue; an administrator can retry a dead job." src="diagrams/job-lifecycle.svg">
+</picture>
 
 `JobService` keeps jobs in the `jobs` collection and runs them in a worker loop started by the
 lifespan (or by `python -m app.jobs`). Claiming is a conditional update that exactly one worker

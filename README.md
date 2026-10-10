@@ -41,7 +41,7 @@ in-memory, local-disk and S3 implementations ship ready to use.
   AI assistants navigate the codebase without reading every file; [AGENTS.md](AGENTS.md) gives
   them the rules.
 - **Documented for everyone.** Guides for developers, operators, designers and decision
-  makers, an API and data-model reference, architecture decision records, and twelve diagrams.
+  makers, an API and data-model reference, architecture decision records, and nineteen diagrams.
 
 ## Features
 

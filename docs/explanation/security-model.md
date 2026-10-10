@@ -50,6 +50,41 @@ are pinned by a regression test, chiefly in `tests/test_security_fixes.py` and
   current permissions (cached up to 5 minutes, dropped on any change), so removing a role
   takes effect on the next request.
 
+## Two-factor sign-in
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../diagrams/mfa-sign-in-dark.svg">
+  <img alt="Two-factor sign-in: a correct password answers 401 mfa_required with a five-minute challenge token; the client returns it with a code; a valid, newer code is claimed with a conditional write and opens the session, while a wrong or replayed code counts towards lockout." src="../diagrams/mfa-sign-in.svg">
+</picture>
+
+Turning it on needs the password and a first working code, so a stolen session alone cannot
+enrol an attacker's phone. The secret is encrypted with `mfa_encryption_key` and lives in its own
+collection, read from the database only. A code is accepted by a write conditioned on the last
+accepted time step, so it works once even when two requests race; recovery codes are hashed and
+consumed the same way. The challenge token is a JWT typed `mfa`, which no access check accepts.
+
+## API tokens
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../diagrams/api-token-check-dark.svg">
+  <img alt="API token check: an unknown, expired or suspended-owner token answers 401; the route's permission must be covered by the token's scopes and held by the owner today, otherwise 403." src="../diagrams/api-token-check.svg">
+</picture>
+
+Every permission check calls `RBACService.allows(caller, permission)`, which for a token requires
+both the token's scope and the owner's current permission. Tokens never refresh, never create
+other tokens, and stop at once when revoked, expired or when their owner is suspended.
+
+## Audit trail
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../diagrams/audit-trail-dark.svg">
+  <img alt="Audit trail: RBACMiddleware puts the caller in a request context; a service that completes a security change calls AuditService, which writes an append-only event to audit_events; administrators search it through GET /admin/audit-events." src="../diagrams/audit-trail.svg">
+</picture>
+
+Events record that something changed, who changed it, from where, and the request id that ties
+them to the logs; refused changes are not recorded, and a failed audit write never blocks the
+change it describes. They are kept for `audit_retention_days` (365).
+
 ## Sign-in protection
 
 The failure counter is incremented **before** the password is checked, atomically in the

@@ -4,6 +4,11 @@ Slow or retryable work (email, webhooks, reports, imports) goes on the job queue
 into the request. Jobs live in the configured database, so there is nothing new to deploy
 ([ADR 0007](../adr/0007-background-jobs-on-the-database.md)).
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../diagrams/job-lifecycle-dark.svg">
+  <img alt="Job states: queued, running, done or dead; failures return to the queue with backoff until the attempts run out; an expired lease returns the job to the queue; an administrator can retry a dead job." src="../diagrams/job-lifecycle.svg">
+</picture>
+
 ## 1. Register a handler
 
 Handlers live in one place, `register_job_handlers` in `app/services/registry.py`, so the API

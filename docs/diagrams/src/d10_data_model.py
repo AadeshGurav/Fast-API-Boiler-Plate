@@ -2,8 +2,8 @@ from lib import MONO, SANS, e, g4, legend, mono_w
 
 SLUG = "data-model"
 EYEBROW = "ER · for developers"
-TITLE = "Seven collections, all hanging off a user"
-DESC = ("Data model: users own sessions, login attempts, file versions, OAuth links, password-reset tokens "
+TITLE = "The core collections all hang off a user"
+DESC = ("Core data model (security records are in the next diagram): users own sessions, login attempts, file versions, OAuth links, password-reset tokens "
         "and temporary permission grants; roles and groups are configuration, not collections.")
 W, H = 960, 568
 

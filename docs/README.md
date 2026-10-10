@@ -51,7 +51,7 @@ The docs follow [Diátaxis](https://diataxis.fr): each page answers one kind of 
 
 ## Diagrams
 
-Twelve diagrams, one idea each, in light and dark. Open the `.html` file for the full page;
+Nineteen diagrams, one idea each, in light and dark. Open the `.html` file for the full page;
 the `.svg` is what the docs embed. They are rebuilt from [`diagrams/src`](diagrams/src/build.py).
 
 | Diagram | For | Shown in |
@@ -68,3 +68,10 @@ the `.svg` is what the docs embed. They are rebuilt from [`diagrams/src`](diagra
 | [File upload](diagrams/file-upload.html) | developers | [architecture](ARCHITECTURE.md#files) |
 | [Data model](diagrams/data-model.html) | developers | [data model](reference/data-model.md) |
 | [Account journey](diagrams/account-journey.html) | designers, product | [for designers](design/for-designers.md#the-account-journey) |
+| [Two-factor sign-in](diagrams/mfa-sign-in.html) | developers, designers, security | [security model](explanation/security-model.md#two-factor-sign-in), [for designers](design/for-designers.md) |
+| [API token check](diagrams/api-token-check.html) | developers, security | [security model](explanation/security-model.md#api-tokens) |
+| [Audit trail](diagrams/audit-trail.html) | operators, auditors, security | [security model](explanation/security-model.md#audit-trail) |
+| [Security data](diagrams/security-data.html) | developers, security | [data model](reference/data-model.md) |
+| [Job lifecycle](diagrams/job-lifecycle.html) | developers, operators | [background jobs](how-to/run-background-jobs.md), [architecture](ARCHITECTURE.md#background-jobs) |
+| [Backend contract](diagrams/backend-contract.html) | developers, decision makers | [write a backend](how-to/write-a-backend.md), [architecture](ARCHITECTURE.md#bring-your-own-backend) |
+| [CI pipeline](diagrams/ci-pipeline.html) | contributors, reviewers | [CONTRIBUTING](../CONTRIBUTING.md#documentation) |
