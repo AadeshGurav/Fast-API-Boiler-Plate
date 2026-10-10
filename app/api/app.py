@@ -98,6 +98,7 @@ class AppFactory:
         from app.api.routes.oauth import router as oauth_router
         from app.api.routes.rbac import router as rbac_router
         from app.api.routes.sessions import router as sessions_router
+        from app.api.routes.tokens import router as tokens_router
         from app.api.routes.users import router as users_router
 
         # Core routes
@@ -110,6 +111,7 @@ class AppFactory:
         self.app.include_router(sessions_router, prefix="/api/v1")
         self.app.include_router(users_router, prefix="/api/v1")
         self.app.include_router(admin_router, prefix="/api/v1")
+        self.app.include_router(tokens_router, prefix="/api/v1")
 
         # File management routes
         self.app.include_router(files_router, prefix="/api/v1/files")

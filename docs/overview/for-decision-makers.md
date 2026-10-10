@@ -40,6 +40,7 @@ things but not others":
 | --- | --- |
 | Accounts | Sign-up, sign-in, "remember me", sign out of one or all devices, password change and reset by email, optional Google sign-in, optional two-factor sign-in with an authenticator app and recovery codes. |
 | Access control | Roles (admin, manager, user, guest), groups, and time-limited grants, all defined in one config file. Every endpoint is locked unless a role allows it. |
+| Integrations | Personal access tokens for scripts and partner systems: limited to chosen permissions, expiring, revocable at any time. |
 | Audit trail | Every security change (roles, grants, account status, passwords, sessions) is recorded with who, when and from where, and administrators can search it. |
 | Files | Per-user uploads with version history, large uploads in chunks, image thumbnails, spreadsheet read and edit (xlsx, ods, csv), per-user storage quota. |
 | Protection | Rate limits, request size and time limits, overload shedding, safe retries, cross-site request checks, security headers. |

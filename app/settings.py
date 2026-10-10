@@ -217,6 +217,12 @@ class Settings(BaseModel):
         le=15,
         description="How long the password step of a two-factor sign-in stays valid.",
     )
+    api_token_max_days: int = Field(
+        365, ge=1, description="Longest lifetime a personal access token may be given."
+    )
+    api_tokens_per_user: int = Field(
+        20, ge=1, description="Most personal access tokens one user may hold at once."
+    )
     audit_retention_days: int = Field(
         365, ge=1, description="How long security audit events are kept before they expire."
     )

@@ -54,6 +54,13 @@ to 200 characters). Indexes: `id` (unique), `(actor_id, at desc)`,
 `audit_retention_days` (365 by default). Written by services after a change succeeds; a failed
 write is logged and never fails the change.
 
+### `api_tokens` (`ApiTokenManager`)
+
+Personal access tokens: `id` (unique), `user_id`, `name`, `prefix` (first characters, for
+recognising a token), `token_hash` (SHA-256, unique; the token itself is never stored),
+`scopes`, `created_at`, `expires_at`, `last_used_at` (written at most once a minute). **TTL on
+`expires_at`.** Read from the database on every request, so revocation is immediate.
+
 ### `mfa_totp` (`MFAService`)
 
 One record per user with an authenticator app: `user_id` (unique), `secret` (**encrypted** with

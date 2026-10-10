@@ -71,9 +71,9 @@ async def set_user_status(
 ) -> UserPublic:
     """Activate or suspend an account; suspending signs the user out everywhere."""
     # users:write lets a manager manage ordinary accounts, not lock out the administrators.
-    if await rbac_service.check_permission(
-        user_id, "*"
-    ) and not await rbac_service.check_permission(actor.user_id, "*"):
+    if await rbac_service.check_permission(user_id, "*") and not await rbac_service.allows(
+        actor, "*"
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only administrators can change an administrator account",

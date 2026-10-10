@@ -19,6 +19,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from app.api.deps import get_auth_service, get_data_service, get_rbac_service, get_services
 from app.models.auth import TokenPair, TokenPayload
 from app.services.auth import AuthenticationError, AuthService
+from app.services.auth.api_tokens import is_api_token
 from app.services.sentry import set_user as set_sentry_user
 from app.utils.cookie_manager import get_token_cookie_names
 
@@ -103,6 +104,16 @@ async def authenticate_request(
         return cached
 
     token = credentials.credentials if credentials else extract_access_token(request)
+    if is_api_token(token):
+        # Personal access tokens are stateless for the caller: no session, no silent refresh.
+        payload = await auth_service.api_tokens.authenticate(token)
+        if payload is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired API token",
+                headers=_UNAUTHENTICATED,
+            )
+        return _remember(request, payload)
     payload = auth_service.verify_token(token, "access") if token else None
     if payload and not await auth_service.is_session_active(payload.sid):
         payload = None
@@ -115,6 +126,11 @@ async def authenticate_request(
             headers=_UNAUTHENTICATED,
         )
 
+    return _remember(request, payload)
+
+
+def _remember(request: Request, payload: TokenPayload) -> TokenPayload:
+    """Keep the verified caller on the request so later checks do not verify again."""
     request.state.auth = payload
     set_sentry_user(payload.user_id, payload.username)
     request.state.user_id = payload.user_id
@@ -136,6 +152,14 @@ def _forbidden(detail: str) -> HTTPException:
     return HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail)
 
 
+async def get_session_user(user: TokenPayload = Depends(get_current_user)) -> TokenPayload:
+    """Like ``get_current_user``, but refuses API tokens: for actions a token must never take
+    on its own behalf, such as minting more tokens."""
+    if user.scopes is not None:
+        raise _forbidden("Sign in with your password to do this; API tokens cannot")
+    return user
+
+
 def require_permission(permission: str) -> Callable[..., Awaitable[TokenPayload]]:
     """Dependency factory: the user must hold ``permission`` (``*`` satisfies any)."""
 
@@ -144,7 +168,7 @@ def require_permission(permission: str) -> Callable[..., Awaitable[TokenPayload]
         rbac: RBACService = Depends(get_rbac_service),
         services: Services = Depends(get_services),
     ) -> TokenPayload:
-        if not await rbac.check_permission(user.user_id, permission):
+        if not await rbac.allows(user, permission):
             _log_denied(services, user, f"permission {permission}")
             raise _forbidden(f"Permission denied: {permission}")
         return user
@@ -163,7 +187,7 @@ def require_any_permission(
         services: Services = Depends(get_services),
     ) -> TokenPayload:
         for permission in permissions:
-            if await rbac.check_permission(user.user_id, permission):
+            if await rbac.allows(user, permission):
                 return user
         _log_denied(services, user, f"any of {permissions}")
         raise _forbidden(f"Permission denied: requires one of {permissions}")
@@ -225,6 +249,7 @@ __all__ = [
     "extract_refresh_token",
     "get_auth_service",
     "get_current_user",
+    "get_session_user",
     "require_admin",
     "require_any_permission",
     "require_any_role",

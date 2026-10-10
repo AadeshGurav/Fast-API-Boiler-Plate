@@ -28,6 +28,7 @@ The product has to make that moment bearable without contradicting it.
 | Signed-in shell | any | Session refresh is silent; only a real 401 should send the user to sign in. |
 | Profile | `GET`/`PATCH /auth/me` | First and last name. |
 | Change password | `POST /auth/change-password` | Wrong current password (403); success says how many other devices were signed out. |
+| API tokens | `/tokens` | Name, scopes as readable checkboxes, expiry picker; show the secret **once** with a copy button and a "you won't see this again" warning; list with prefix, last used and expiry; revoke with confirmation. |
 | Devices | `/sessions/active` | Device, browser, last used, "this device"; sign out one or all. |
 | Files | `/files/...` | Empty state; upload progress; type not allowed; too large; quota full; versions history; tags; soft-deleted. |
 | Spreadsheet | `/files/{id}/spreadsheet/...` | Sheet tabs; save creates a new version (offer "view previous"); the last sheet cannot be deleted. |

@@ -30,6 +30,9 @@ All notable changes are recorded here. The format follows
   that answered `401 mfa_required`. Secrets are encrypted at rest with `mfa_encryption_key`;
   each code works once; wrong codes count towards lockout. Administrators can reset a lost
   second factor (`DELETE /api/v1/admin/users/{id}/mfa`). New dependency: `cryptography`.
+- Personal access tokens for scripts and integrations (`/api/v1/tokens`): `fabp_pat_...` bearer
+  tokens limited by scopes and by their owner's current permissions, expiring, revocable at once,
+  stored hashed. Tokens cannot manage tokens.
 - The OpenAPI contract is committed as `docs/reference/openapi.json` (`make openapi`), and a
   test fails when it drifts from the application. Operation ids are the route function names,
   so generated clients get stable method names; see `docs/how-to/generate-a-client.md`.
@@ -39,7 +42,8 @@ All notable changes are recorded here. The format follows
 - Add `FABP_MFA_ENCRYPTION_KEY` (32+ random characters) to an existing `.env` or deployment; the
   Docker Compose app service now requires it. Outside containers it is generated into
   `config.secrets.toml` on first start.
-- The default `user` role gains `auth:delete` (turning off two-factor sign-in).
+- The default `user` role gains `auth:delete` (turning off two-factor sign-in) and
+  `tokens:read`, `tokens:write`, `tokens:delete` (personal access tokens).
 
 ### Changed
 

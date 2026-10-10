@@ -95,6 +95,8 @@ Values are resolved in this order (later wins):
 | `mfa_issuer` | str | None | _unset_ | Name authenticator apps show next to the account. Default: app_title. |
 | `mfa_recovery_codes` | int | `10` | Single-use recovery codes issued when two-factor is turned on. |
 | `mfa_challenge_minutes` | int | `5` | How long the password step of a two-factor sign-in stays valid. |
+| `api_token_max_days` | int | `365` | Longest lifetime a personal access token may be given. |
+| `api_tokens_per_user` | int | `20` | Most personal access tokens one user may hold at once. |
 | `audit_retention_days` | int | `365` | How long security audit events are kept before they expire. |
 | `auth_refresh_reuse_grace_seconds` | int | `30` | A rotated refresh token still works this long (parallel tabs). |
 | `password_min_length` | int | `8` | Minimum password length. |
