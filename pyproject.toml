@@ -1,7 +1,7 @@
 [project]
 name = "fastapi-boilerplate"
 version = "1.0.0"  # keep in step with app_version in app/settings.py
-description = "Production-ready FastAPI + MongoDB + Redis boilerplate: JWT sessions, RBAC, file storage, rate limiting, RFC 9457 errors."
+description = "Production-ready, storage-agnostic FastAPI boilerplate (MongoDB and Redis built in, any database pluggable): JWT sessions, RBAC, file storage, rate limiting, RFC 9457 errors."
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
@@ -9,7 +9,8 @@ authors = [{name = "Aadesh Gurav"}]
 keywords = [
     "fastapi", "boilerplate", "template", "starter", "fastapi-boilerplate", "fastapi-template",
     "mongodb", "redis", "jwt", "authentication", "rbac", "oauth2", "s3", "rate-limiting",
-    "rest-api", "production-ready", "python",
+    "rest-api", "production-ready", "python", "database-agnostic", "clean-architecture",
+    "postgresql", "ai-agents",
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",

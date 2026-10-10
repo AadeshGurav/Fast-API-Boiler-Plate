@@ -1,6 +1,6 @@
 # Documentation
 
-`fastapi_boilerplate` is a production-ready FastAPI back end on MongoDB and Redis: sign-in and
+`fastapi_boilerplate` is a production-ready, storage-agnostic FastAPI back end (MongoDB and Redis built in, any database pluggable): sign-in and
 sessions, role-based access, per-user files with versions, and the safety nets a public API
 needs. You add your product's resources on top. Release history: [CHANGELOG](../CHANGELOG.md).
 Want to help? [CONTRIBUTING](../CONTRIBUTING.md).
@@ -29,6 +29,7 @@ The docs follow [Diátaxis](https://diataxis.fr): each page answers one kind of 
 
 **How-to guides** (do one task)
 - [Add a resource](how-to/add-a-resource.md): the five places a new feature touches.
+- [Bring your own database, cache or storage](how-to/write-a-backend.md): the backend contract.
 - [Configure common features](how-to/configure.md): CORS, proxies, workers, S3, email, Google sign-in, observability.
 - [Deploy](how-to/deploy.md): the image, Docker Compose, and a production checklist.
 - [Operations runbook](how-to/operate.md): probes, outages, lockouts, secrets, data resets.
@@ -39,6 +40,7 @@ The docs follow [Diátaxis](https://diataxis.fr): each page answers one kind of 
 - [Data model](reference/data-model.md): collections, fields, indexes, expiry and migrations.
 
 **Explanation** (understand why)
+- [Engineering standards](STANDARDS.md): the rules every change, human or AI, must meet.
 - [For decision makers](overview/for-decision-makers.md): business value, use cases, cost, scope.
 - [Architecture](ARCHITECTURE.md): layers, wiring, the request pipeline, RBAC, files, resilience.
 - [Security model](explanation/security-model.md): threats and the control that answers each.

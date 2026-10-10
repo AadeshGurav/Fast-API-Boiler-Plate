@@ -44,7 +44,9 @@ Cache, database and file storage are interfaces with built-in implementations (`
 `memory`, `mongodb`, `local` / `s3`). Set `app_cache_provider`, `app_database_provider` or
 `file_storage_backend` to `package.module:YourClass`; the class implements `CacheInterface`,
 `DatabaseInterface` or `StorageInterface` and is constructed with `(config, logger)`. Rate
-limiting is a cache operation (`hit`), so any cache backend supports it.
+limiting is a cache operation (`hit`), so any cache backend supports it. No driver is imported
+outside its backend, so changing storage technology changes no application code;
+[write a backend](how-to/write-a-backend.md) is the full contract.
 
 ### Rules worth knowing
 
