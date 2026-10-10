@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/AadeshGurav/Fast-API-Boiler-Plate/security/advisories/new
+    about: Please report security issues privately.
+  - name: Documentation
+    url: https://github.com/AadeshGurav/Fast-API-Boiler-Plate/blob/develop/docs/README.md
+    about: Guides, API reference and architecture.

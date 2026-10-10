@@ -1,0 +1,40 @@
+name: Bug report
+description: Something does not work as documented.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for reporting! Security problems go privately through SECURITY.md, not here.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Commands, requests (curl is ideal) and relevant settings. Remove secrets.
+      placeholder: |
+        1. make setup && make up && make run
+        2. curl -X POST http://127.0.0.1:8000/api/v1/...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Response and logs
+      description: The problem+json response and the log lines for its X-Request-ID.
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      placeholder: v1.0.0 or a commit hash
+  - type: dropdown
+    id: env
+    attributes:
+      label: Where does it run
+      options: ["make run (local)", "Docker / Compose", "Kubernetes", "Other"]
