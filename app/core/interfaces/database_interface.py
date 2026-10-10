@@ -8,6 +8,11 @@ if TYPE_CHECKING:
     from config import Config
 
 
+class DuplicateRecordError(ValueError):
+    """A write would break a unique index. Backends raise this, never a driver exception,
+    so callers can tell "already exists" from "the database failed"."""
+
+
 class DatabaseInterface(ABC):
     """Contract for a database backend. Bring your own by implementing it and setting
     ``app_database_provider`` to ``"package.module:YourClass"``.
@@ -103,7 +108,7 @@ class DatabaseInterface(ABC):
 
     @abstractmethod
     async def insert_record(self: DatabaseInterface, collection: str, data: dict[str, Any]) -> bool:
-        """Insert a new record into the database."""
+        """Insert a new record; raise ``DuplicateRecordError`` on a unique-index violation."""
         pass
 
     @abstractmethod

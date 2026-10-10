@@ -38,7 +38,7 @@ document table, or maps the [collections](../reference/data-model.md) to tables.
 | `get_record(collection, filters)` | First matching record or `None`. |
 | `find_many(collection, filters, *, limit, skip, sort)` | Matching records; `sort` is `[(field, 1 or -1)]`. Without `limit`, cap the result (MongoDB caps at 10,000). |
 | `count(collection, filters)` | Number of matches. |
-| `insert_record(collection, data)` | Insert; `True` when stored. Must fail on a unique-index violation. |
+| `insert_record(collection, data)` | Insert; `True` when stored. On a unique-index violation raise `DuplicateRecordError` (`app.core.interfaces.database_interface`), never a driver exception; `update_record`, `update_many` and `upsert_record` do the same. |
 | `update_record(collection, filters, data)` | Set `data`'s fields on the first match; `True` if one matched. **Never inserts.** |
 | `update_many(collection, filters, data)` | Set fields on every match; return how many matched. |
 | `upsert_record(collection, filters, data)` | Update the match, or insert `filters` + `data`. |
@@ -76,9 +76,17 @@ translates the same forms into `WHERE` clauses.
 
 ### Prove it
 
-Run the test suite with your backend in place of `FakeDatabase` (see the `data_service` and
-`env` fixtures in `tests/conftest.py`), and the [tutorial](../tutorials/getting-started.md)
-against a real server.
+Run the contract suite against your class; it is the definition of "works":
+
+```bash
+CONTRACT_DATABASES=package.module:YourClass pytest tests/contract/test_database_contract.py
+CONTRACT_CACHES=package.module:YourCache pytest tests/contract/test_cache_contract.py
+```
+
+Names are comma-separated (`fake,mongodb`, `memory,redis`, or a dotted path). Connection
+settings come from the usual `FABP_*` variables, and each run uses a throwaway database name.
+If your class defines `drop_database()` it is called afterwards. Then try the
+[tutorial](../tutorials/getting-started.md) against a real server.
 
 ## A cache backend
 

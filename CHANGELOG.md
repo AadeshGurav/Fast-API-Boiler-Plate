@@ -20,7 +20,14 @@ All notable changes are recorded here. The format follows
   vulnerabilities in pinned dependencies, and a job that builds the Docker image and fails on
   HIGH or CRITICAL fixable vulnerabilities (Trivy).
 
+- Backend contract suite (`tests/contract/`): the same database and cache tests run against the
+  in-memory stand-ins by default, and against real MongoDB and Redis in CI. Backend authors run
+  it against their own class (`CONTRACT_DATABASES`, `CONTRACT_CACHES`).
+
 ### Changed
+
+- Unique-index violations surface as `DuplicateRecordError` from every database backend
+  instead of a driver exception; `FakeDatabase` now enforces declared unique indexes.
 
 - ods spreadsheets are read and written with `odfpy` directly; pandas and numpy (about 110 MB)
   are no longer dependencies. Repeated empty rows and columns no longer count against the

@@ -9,11 +9,12 @@ from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection
 from pymongo import ReturnDocument
 from pymongo.errors import (
     ConnectionFailure,
+    DuplicateKeyError,
     OperationFailure,
     ServerSelectionTimeoutError,
 )
 
-from app.core.interfaces.database_interface import DatabaseInterface
+from app.core.interfaces.database_interface import DatabaseInterface, DuplicateRecordError
 
 # IndexOptionsConflict / IndexKeySpecsConflict
 INDEX_CONFLICT_CODES = {85, 86}
@@ -277,6 +278,8 @@ class MongoDB(DatabaseInterface):
             result = await coll.insert_one(data)
             self.logger.debug(f"Inserted record into {collection} with ID: {result.inserted_id}")
             return result.inserted_id is not None
+        except DuplicateKeyError as e:
+            raise DuplicateRecordError(f"Duplicate key in {collection}") from e
         except Exception as e:
             self.logger.error(f"Error inserting record into {collection}: {e!s}")
             raise
@@ -291,6 +294,8 @@ class MongoDB(DatabaseInterface):
             result = await coll.update_one(normalized_filters, {"$set": data})
             self.logger.debug(f"Updated {result.modified_count} record(s) in {collection}")
             return result.matched_count > 0
+        except DuplicateKeyError as e:
+            raise DuplicateRecordError(f"Duplicate key in {collection}") from e
         except Exception as e:
             self.logger.error(f"Error updating record in {collection}: {e!s}")
             raise
@@ -299,9 +304,12 @@ class MongoDB(DatabaseInterface):
         self, collection: str, filters: dict[str, Any], data: dict[str, Any]
     ) -> int:
         """``$set`` ``data`` on every matching record."""
-        result = await self.get_collection(collection).update_many(
-            self._normalize_filters(filters), {"$set": data}
-        )
+        try:
+            result = await self.get_collection(collection).update_many(
+                self._normalize_filters(filters), {"$set": data}
+            )
+        except DuplicateKeyError as e:
+            raise DuplicateRecordError(f"Duplicate key in {collection}") from e
         return result.matched_count
 
     async def delete_record(self, collection: str, filters: dict[str, Any]) -> bool:
@@ -348,6 +356,8 @@ class MongoDB(DatabaseInterface):
                 f"upserted_id={result.upserted_id}"
             )
             return True
+        except DuplicateKeyError as e:
+            raise DuplicateRecordError(f"Duplicate key in {collection}") from e
         except Exception as e:
             self.logger.error(f"Error upserting record in {collection}: {e!s}")
             raise

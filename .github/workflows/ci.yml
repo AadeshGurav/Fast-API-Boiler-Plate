@@ -39,6 +39,30 @@ jobs:
       - name: Test
         run: python -m pytest -q --cov=app --cov-report=term-missing:skip-covered
 
+  contract:
+    # The storage-agnostic promise, proven against the real engines.
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:8
+        ports: ["27017:27017"]
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - run: pip install -r requirements-dev.txt
+      - name: Contract tests
+        env:
+          CONTRACT_DATABASES: fake,mongodb
+          CONTRACT_CACHES: memory,redis
+        run: python -m pytest tests/contract -q
+
   audit:
     # Known vulnerabilities in pinned runtime dependencies fail the build.
     runs-on: ubuntu-latest
