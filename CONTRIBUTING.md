@@ -3,14 +3,20 @@
 Thank you for helping. Every contribution counts: a typo fix, a clearer sentence, a test for
 an edge case, a new storage backend. This guide gets you from clone to a merged pull request.
 
+> **The standards are a gate.** Every pull request is reviewed against
+> [docs/STANDARDS.md](docs/STANDARDS.md). Only pull requests that meet them are accepted; the rest
+> are sent back or closed. This applies equally to code written by people and by AI agents
+> (agents: also read [AGENTS.md](AGENTS.md)).
+
 ## Ways to help
 
 - **Report a bug** or **suggest a feature** with the
   [issue templates](https://github.com/AadeshGurav/Fast-API-Boiler-Plate/issues/new/choose).
 - **Improve the docs.** If something confused you, it will confuse the next person.
 - **Pick an issue** labelled `good first issue` or `help wanted`.
-- **Add a backend:** a `CacheInterface`, `DatabaseInterface` or `StorageInterface`
-  implementation, or a new OAuth provider.
+- **Add a backend:** a PostgreSQL/MySQL `DatabaseInterface`, another `CacheInterface` or
+  `StorageInterface`, or a new OAuth provider; the contract is in
+  [write a backend](docs/how-to/write-a-backend.md).
 - **Security issues** go privately through [SECURITY.md](SECURITY.md), never as public issues.
 
 ## Set up (about ten minutes)
@@ -21,11 +27,20 @@ cd Fast-API-Boiler-Plate
 make setup       # venv, dependencies, .env, config.local.toml
 make test        # 197 tests, no services needed
 make up && make run   # optional: the real API against Docker MongoDB and Redis
-pre-commit install    # optional: ruff before every commit
+pipx install graphifyy==0.9.80   # the code-graph CLI
+make hooks            # ruff before every commit, graph refresh after every commit
 ```
 
 [Getting started](docs/tutorials/getting-started.md) walks through the running API;
 [Architecture](docs/ARCHITECTURE.md) explains how it fits together.
+
+### Find your way with the code graph
+
+`graphify-out/` is a knowledge graph of the codebase, rebuilt on every push to `develop`. Start
+with `graphify-out/GRAPH_REPORT.md` (core abstractions, modules, cross-links), then ask it:
+`graphify explain "AuthService"`, `graphify affected "CacheService"`,
+`graphify query "how are files versioned"`. It is faster than reading the tree, and it shows
+what your change will touch.
 
 ## Workflow
 
@@ -48,6 +63,8 @@ A client could stage chunk 9 of 2 and grow storage beyond total_size.
 ```
 
 ## Conventions
+
+The full, binding list is [docs/STANDARDS.md](docs/STANDARDS.md). The ones that come up most:
 
 - **Layers:** routes parse and respond; services hold rules; the data layer holds queries and
   cache keys; backends know only their engine. See [Layers](docs/ARCHITECTURE.md#layers).
@@ -82,11 +99,14 @@ Diagrams are built from `docs/diagrams/src/` with the
 
 ## Pull request checklist
 
+- [ ] Meets [docs/STANDARDS.md](docs/STANDARDS.md), including its definition of done
 - [ ] Tests added or updated; `make test` passes
 - [ ] `make lint` passes
 - [ ] Docs updated (and `make config-docs` if settings changed)
 - [ ] `CHANGELOG.md` has an entry under *Unreleased* for user-visible changes
+- [ ] Code graph refreshed (`make graph`, or the post-commit hook)
 - [ ] No secrets, credentials or personal data in code, tests or logs
+- [ ] AI-assisted? Say so, and paste the real `make lint` / `make test` output
 
 ## Releases
 

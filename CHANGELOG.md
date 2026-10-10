@@ -7,6 +7,15 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Engineering standards (`docs/STANDARDS.md`), binding for every pull request, human or AI.
+- Bring-your-own backend guide (`docs/how-to/write-a-backend.md`): the database, cache and
+  storage contracts, including the filter vocabulary.
+- Committed code knowledge graph (`graphify-out/`), rebuilt on every push to `develop`;
+  `make hooks` refreshes it after each local commit. `AGENTS.md` and `CLAUDE.md` point AI agents
+  to it.
+
 ## [1.0.0] - 2026-10-10
 
 First stable release: an API-only FastAPI service on MongoDB and Redis.
