@@ -1,86 +1,165 @@
-# fastapi_boilerplate
+# FastAPI Boilerplate: production-ready FastAPI + MongoDB + Redis starter
 
-An API-only FastAPI service on MongoDB and Redis, built to be started in minutes and extended
-without surprises: typed configuration, sessions and RBAC, per-user files, pluggable backends,
-problem+json errors, and tests that need no running services.
+[![CI](https://github.com/AadeshGurav/Fast-API-Boiler-Plate/actions/workflows/ci.yml/badge.svg)](https://github.com/AadeshGurav/Fast-API-Boiler-Plate/actions/workflows/ci.yml)
+[![Python 3.11](https://img.shields.io/badge/python-3.11-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.142-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![MongoDB](https://img.shields.io/badge/MongoDB-8-47A248?logo=mongodb&logoColor=white)](https://www.mongodb.com/)
+[![Redis](https://img.shields.io/badge/Redis-7-DC382D?logo=redis&logoColor=white)](https://redis.io/)
+[![Ruff](https://img.shields.io/badge/lint-ruff-D7FF64)](https://docs.astral.sh/ruff/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+**A secure, production-ready FastAPI back end you can build a real product on today.**
+Authentication with revocable sessions, role-based access control, versioned file storage
+(local or S3), rate limiting, safe retries and RFC 9457 errors are already done, tested and
+documented. You add your product's resources; the plumbing is finished.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/system-context-dark.svg">
-  <img alt="System context: clients reach one FastAPI service through an optional reverse proxy; the service uses MongoDB, Redis and file storage, and optionally Google sign-in, SMTP and observability tools." src="docs/diagrams/system-context.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/what-you-get-dark.svg">
+  <img alt="What you get: your product sits on top of included accounts and access, files and data, and safety nets, running on open-source FastAPI, MongoDB, Redis and Docker." src="docs/diagrams/what-you-get.svg">
 </picture>
+
+## Why this boilerplate
+
+- **Secure by default, not by checklist.** Session-bound JWTs that revoke instantly, refresh
+  token rotation with theft detection, account lockout, CSRF and CORS checks, strict security
+  headers, safe file handling, pinned by regression tests.
+- **Production behaviour built in.** Rate limits, timeouts, overload shedding, idempotency
+  keys, health probes, structured logs, and a cache that degrades instead of failing.
+- **Zero-touch setup.** `make setup && make up && make run`: random passwords, free ports,
+  no manual steps. 197 tests run in about ten seconds without any database.
+- **Small, readable, swappable.** No DI framework, no magic. Plain wiring, clear layers, and
+  pluggable cache, database and storage backends (`package.module:Class`).
+- **Documented for everyone.** Guides for developers, operators, designers and decision
+  makers, an API and data-model reference, architecture decision records, and twelve diagrams.
+
+## Features
+
+| Area | What you get |
+| --- | --- |
+| **Authentication** | Registration, sign-in with "remember me", Argon2id passwords, JWT access + rotating refresh tokens bound to server-side sessions, sign out of one or all devices, password change and email reset, Google sign-in (OAuth 2.0), HttpOnly cookies or Bearer tokens |
+| **Authorization (RBAC)** | Roles with inheritance, groups, time-limited grants; deny-by-default `<resource>:<action>` permissions derived from each route; `*` and `files:*` wildcards; user administration |
+| **Files** | Per-user files with version history, chunked and resumable uploads, image thumbnails, de-duplication, per-user quotas, spreadsheet read/edit (xlsx edited in place keeps charts and formulas; ods; csv), local disk or S3/MinIO/R2, streamed end to end |
+| **API safety nets** | Rate limiting (sliding or fixed window, per tier), request size and idle-body limits, timeouts and concurrency cap, `Idempotency-Key` replay, CSRF origin check, CORS, CSP/HSTS headers, RFC 9457 `application/problem+json` errors |
+| **Operations** | Liveness, readiness and startup probes; JSON logs with request ids; optional Prometheus metrics, OpenTelemetry tracing and Sentry; Docker image and Compose stack |
+| **Developer experience** | Typed settings with TOML + environment layering and typo detection, versioned migrations, Makefile, Ruff, CI, pre-commit, tests through the real middleware stack |
 
 ## Quick start
 
+You need Python 3.11, Docker and `make`.
+
 ```bash
+git clone https://github.com/AadeshGurav/Fast-API-Boiler-Plate.git
+cd Fast-API-Boiler-Plate
 make setup     # venv, dependencies, .env (random passwords, free ports), config.local.toml
 make up        # MongoDB + Redis in Docker (loopback only)
-make run       # API on http://127.0.0.1:8000, interactive docs at /docs (debug mode)
+make run       # API on http://127.0.0.1:8000, interactive docs at /docs
 make test      # 197 tests, no services needed
 ```
 
-Prefer containers for everything? `make docker-up` runs the API too. `make help` lists all targets.
-Python 3.11.
+Prefer containers for everything? `make docker-up` runs the API too. There is **no default
+user**: uncomment the `bootstrap_admin_*` lines in `config.local.toml`, start once, then comment
+them out. The [getting-started tutorial](docs/tutorials/getting-started.md) walks through
+registering, signing in and uploading a file with `curl`.
 
-There is **no default user**. To create the first administrator, uncomment the
-`bootstrap_admin_*` lines in `config.local.toml`, start once, then remove them.
+## Use it for your application
 
-## Configuration in five minutes
+1. **Start from it.** Clone or fork it, then set `app_title`, `app_description` and
+   `app_database` in `config.toml` to your product's names.
+2. **Add your domain.** A new resource (orders, projects, parts) touches five small places:
+   model, data ops, optional service, routes, permissions.
+   [Add a resource](docs/how-to/add-a-resource.md) has a complete, tested example.
+3. **Shape access.** Define roles and groups in `config.toml`; a test fails if any route needs a
+   permission no role can grant.
+4. **Connect your front end.** Set `cors_origins`; browsers use the HttpOnly cookies, mobile
+   apps and scripts use Bearer tokens. [For designers](docs/design/for-designers.md) maps every
+   API state to a screen state.
+5. **Ship it.** One image, environment-variable configuration, health probes.
+   [Deploy](docs/how-to/deploy.md) has a production checklist.
 
-Every setting is declared once, with a type, default and description, in
-[`app/settings.py`](app/settings.py); the full list is generated into
-[`docs/CONFIGURATION.md`](docs/CONFIGURATION.md). Sources, lowest priority first:
+Good fits: SaaS products, internal tools and admin back offices, document and spreadsheet
+products, asset/inventory/product-lifecycle systems, and back ends for mobile or single-page apps.
 
-| Source | Use it for |
-| --- | --- |
-| defaults in `app/settings.py` | nothing to do |
-| `config.toml` | project defaults, **roles and groups** (committed) |
-| `config.local.toml` | your machine's overrides (git-ignored; `make setup` creates it) |
-| `config.secrets.toml` | the generated JWT key (git-ignored) |
-| `.env` | `FABP_<NAME>=value` lines (git-ignored; `make setup` creates it) |
-| environment | `FABP_<NAME>=value`, e.g. `FABP_APP_PORT=9000`, `FABP_CORS_ORIGINS='["https://app.example.com"]'` |
+## Tech stack
 
-```bash
-make config                 # every effective setting and which source set it
-python -m app.settings check
+| Layer | Choice | Why |
+| --- | --- | --- |
+| Web framework | FastAPI 0.142 + Starlette, Uvicorn | Async, typed, automatic OpenAPI |
+| Validation and settings | Pydantic 2 | One typed model for every setting and payload |
+| Database | MongoDB 8 via Motor | Flexible documents, TTL indexes for sessions and tokens |
+| Cache | Redis 7 (or in-memory) | Sessions, permissions, rate limits, idempotency |
+| Files | Local disk or S3 via boto3 | One host to start, any S3-compatible store to scale |
+| Auth | PyJWT, argon2-cffi, httpx (OAuth) | Standard, audited libraries |
+| Spreadsheets | openpyxl, odfpy | Pure Python, same behaviour on every OS |
+| Observability | stdlib logging, prometheus-client, OpenTelemetry, sentry-sdk | Official SDKs, all optional |
+| Tooling | Ruff, pytest, Docker, GitHub Actions | Fast feedback, reproducible builds |
+
+## Project structure
+
+```text
+app/
+  api/
+    app.py            # application factory and middleware order
+    middleware/       # request id, headers, body limit, CSRF, errors, timeout, rate limit, idempotency, RBAC
+    routes/           # auth, oauth, users, rbac, sessions, files, health
+  services/           # auth, rbac, files, oauth, cache, data layer, logging, metrics, tracing
+    data/             # DataService, per-collection ops, indexes, migrations
+  cache/ database/    # pluggable backends behind interfaces
+  models/             # Pydantic request and response models
+  settings.py         # every setting: type, default, description
+config.toml           # project defaults, roles and groups
+docs/                 # guides, reference, ADRs, diagrams
+tests/                # 197 tests, in-memory MongoDB and Redis stand-ins
 ```
 
-Mistakes fail at startup and say what and where, e.g.
-`unknown setting 'mongo_hots' (from config.local.toml). Did you mean 'mongo_host'?`.
-The committed defaults are production-safe (debug off, loopback bind, Secure cookies, strict
-CSP); `config.local.toml` opts into development conveniences.
+## Documentation
 
-## What is in the box
+Everything starts at **[docs/README.md](docs/README.md)**, organised by role:
 
-| Area | Where | Notes |
-| --- | --- | --- |
-| Auth | `services/auth/`, `routes/auth/` | Argon2id, JWT access + rotating refresh tokens bound to a server-side session, lockout, audit log, change/reset password, profile |
-| Users | `routes/users.py` | Paged list, suspend/activate, delete (permission-gated) |
-| Access control | `middleware/rbac.py`, `services/rbac.py`, `config.toml` | Roles, groups, temporary grants; `<resource>:<action>` derived from the URL; `files:*` and `*` wildcards |
-| Files | `services/file/`, `routes/files/` | Per-user files with versions, chunked uploads, thumbnails, spreadsheet read/edit |
-| Safety nets | `middleware/` | Rate limits, request-size and time limits, concurrency cap, `Idempotency-Key` replay, CORS, security headers, request ids |
-| Backends | `database/`, `cache/`, `services/file/storage/` | MongoDB, Redis or in-memory, local disk or S3; bring your own with `package.module:Class` |
-| Operations | `routes/health.py`, `services/{metrics,tracing,sentry}.py` | `/api/v1/{health,live,ready,startup}`; optional Prometheus, OpenTelemetry, Sentry |
+| You are… | Start with |
+| --- | --- |
+| Building features | [Getting started](docs/tutorials/getting-started.md) → [Architecture](docs/ARCHITECTURE.md) → [Add a resource](docs/how-to/add-a-resource.md) → [API reference](docs/reference/api.md) |
+| Running it | [Deploy](docs/how-to/deploy.md) → [Configure](docs/how-to/configure.md) → [Runbook](docs/how-to/operate.md) |
+| Designing screens | [For designers](docs/design/for-designers.md) |
+| Reviewing security | [Security model](docs/explanation/security-model.md) |
+| Deciding | [For decision makers](docs/overview/for-decision-makers.md) |
 
-**All documentation starts at [`docs/README.md`](docs/README.md)**, organised by role (decision
-makers, developers, operators, designers, security reviewers) with a diagram for each. Quick
-links: [getting started](docs/tutorials/getting-started.md), [architecture](docs/ARCHITECTURE.md),
-[API reference](docs/reference/api.md), [add a resource](docs/how-to/add-a-resource.md),
-[deploy](docs/how-to/deploy.md), [runbook](docs/how-to/operate.md), [decisions](docs/adr/).
+Every setting is listed in the [configuration reference](docs/CONFIGURATION.md), generated
+from `app/settings.py`; the reasons behind the design are in the [ADRs](docs/adr/).
 
-## Development
+## FAQ
 
-* Tests use in-memory stand-ins for MongoDB and Redis; the end-to-end tests run the real
-  middleware stack through `TestClient`. `make lint` / `make fmt` run ruff; CI runs both.
-* `make graph` refreshes the code knowledge graph in `graphify-out/`.
-* Optional: `pre-commit install` runs ruff before each commit.
+**Is it production-ready?** Yes for a single organisation: secure defaults, health probes,
+graceful degradation, a deploy checklist and a runbook. Read the
+[known limits](docs/ARCHITECTURE.md#known-limits) and the [scope](docs/overview/for-decision-makers.md#scope-what-it-leaves-to-you) first.
 
-## Operating notes
+**Can I use PostgreSQL instead of MongoDB?** MongoDB is the built-in backend. The data layer
+talks to a `DatabaseInterface`, so another database is one class plus
+`app_database_provider = "package.module:YourDatabase"`.
 
-* Behind a reverse proxy set `trusted_proxy_count` so rate limits and the audit log see client
-  IPs. With more than one worker use the `redis` cache (`memory` is per process).
-* In containers set `FABP_JWT_SECRET`, `FABP_MONGO_PASSWORD`, `FABP_REDIS_PASSWORD` (or mount
-  `config.secrets.toml`) so tokens survive restarts.
-* Email for password resets: set `smtp_host` (and friends); without it the message is only logged.
-* `make setup` picks free host ports, so a MongoDB already on your machine cannot shadow the
-  Docker one. After regenerating `.env`, run `make reset-data` (old Docker volumes keep the old
-  database password).
+**Do I need Redis?** For one process, `app_cache_provider = "memory"` works. With several
+workers or servers use Redis; the app refuses to start with an unsafe combination.
+
+**Does it include a front end?** No, it is API-only by design ([ADR 0002](docs/adr/0002-api-only.md)).
+Any web or mobile client works; the API serves cookies to browsers and Bearer tokens to apps.
+
+**How do I add an endpoint?** Follow [add a resource](docs/how-to/add-a-resource.md); the
+access-control middleware derives the required permission from the URL and method.
+
+**How are errors returned?** Always as RFC 9457 problem documents with a stable `code`
+([errors](docs/reference/api.md#errors)).
+
+**Which sign-in providers are supported?** Username and password, plus Google. More providers
+are added in `services/oauth/providers/`.
+
+## Contributing
+
+Contributions are welcome, from typo fixes to new backends. Read
+[CONTRIBUTING.md](CONTRIBUTING.md) for setup, conventions and the pull request checklist, and
+the [Code of Conduct](CODE_OF_CONDUCT.md). Report vulnerabilities privately as described in
+[SECURITY.md](SECURITY.md). Release history is in the [CHANGELOG](CHANGELOG.md).
+
+If this saves you time, a ⭐ helps other developers find it.
+
+## License
+
+[MIT](LICENSE)

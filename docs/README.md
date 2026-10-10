@@ -1,8 +1,9 @@
 # Documentation
 
-`fastapi_boilerplate` is an API-only FastAPI service on MongoDB and Redis: sign-in and
-sessions, role-based access, per-user files with versions, and the safety nets a public
-API needs. It contains no product logic yet; it is the base you build a product on.
+`fastapi_boilerplate` is a production-ready FastAPI back end on MongoDB and Redis: sign-in and
+sessions, role-based access, per-user files with versions, and the safety nets a public API
+needs. You add your product's resources on top. Release history: [CHANGELOG](../CHANGELOG.md).
+Want to help? [CONTRIBUTING](../CONTRIBUTING.md).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="diagrams/system-context-dark.svg">
@@ -13,7 +14,7 @@ API needs. It contains no product logic yet; it is the base you build a product 
 
 | You are… | Read first | Then |
 | --- | --- | --- |
-| **Deciding** whether to build on it | [For decision makers](overview/for-decision-makers.md) | [What changed](overview/what-changed.md) |
+| **Deciding** whether to build on it | [For decision makers](overview/for-decision-makers.md) | [Security model](explanation/security-model.md), [Deploy](how-to/deploy.md) |
 | **Building** features on it | [Getting started](tutorials/getting-started.md) | [Architecture](ARCHITECTURE.md), [Add a resource](how-to/add-a-resource.md), [API reference](reference/api.md) |
 | **Running** it | [Deploy](how-to/deploy.md) | [Operations runbook](how-to/operate.md), [Configure common features](how-to/configure.md) |
 | **Designing** the product's screens | [For designers](design/for-designers.md) | [Errors](reference/api.md#errors), [Account journey](design/for-designers.md#the-account-journey) |
@@ -38,8 +39,7 @@ The docs follow [Diátaxis](https://diataxis.fr): each page answers one kind of 
 - [Data model](reference/data-model.md): collections, fields, indexes, expiry and migrations.
 
 **Explanation** (understand why)
-- [For decision makers](overview/for-decision-makers.md): what you get, what it costs, what it does not do.
-- [What changed](overview/what-changed.md): the polished boilerplate against the original.
+- [For decision makers](overview/for-decision-makers.md): business value, use cases, cost, scope.
 - [Architecture](ARCHITECTURE.md): layers, wiring, the request pipeline, RBAC, files, resilience.
 - [Security model](explanation/security-model.md): threats and the control that answers each.
 - [For designers](design/for-designers.md): what the API means for screens, states and copy.
@@ -53,7 +53,7 @@ the `.svg` is what the docs embed. They are rebuilt from [`diagrams/src`](diagra
 | Diagram | For | Shown in |
 | --- | --- | --- |
 | [System context](diagrams/system-context.html) | decision makers | [here](#documentation), [decision makers](overview/for-decision-makers.md) |
-| [What the polish changed](diagrams/before-after.html) | decision makers | [what changed](overview/what-changed.md) |
+| [What you get](diagrams/what-you-get.html) | decision makers | [decision makers](overview/for-decision-makers.md) |
 | [Deployment](diagrams/deployment.html) | operators | [deploy](how-to/deploy.md) |
 | [Configuration layers](diagrams/config-layers.html) | operators, developers | [configure](how-to/configure.md) |
 | [Cache outage states](diagrams/cache-outage.html) | operators, SRE | [runbook](how-to/operate.md#redis-is-down) |

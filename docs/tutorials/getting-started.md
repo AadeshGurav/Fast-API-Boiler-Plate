@@ -9,7 +9,7 @@ through the API. It takes about ten minutes.
 ## 1. Set up
 
 ```bash
-git clone git@github.com:AadeshGurav/Fast-API-Boiler-Plate.git
+git clone https://github.com/AadeshGurav/Fast-API-Boiler-Plate.git
 cd Fast-API-Boiler-Plate
 make setup
 ```
