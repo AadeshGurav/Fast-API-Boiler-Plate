@@ -69,7 +69,8 @@ layer, prove it with tests, document it in the same change.
 - Every route's permission (`<resource>:<action>`) is granted to a role in `config.toml`.
 - Ownership is checked in the service; other users' resources answer 404.
 - The OpenAPI schema (`/openapi.json`) is the contract: routes declare `response_model` and
-  status codes, and [the API reference](reference/api.md) changes with them.
+  status codes, and [the API reference](reference/api.md) changes with them. The schema is committed
+  as `docs/reference/openapi.json`; run `make openapi` and commit the diff (a test enforces it).
 
 ## 5. Code
 

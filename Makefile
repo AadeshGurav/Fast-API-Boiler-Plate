@@ -4,7 +4,7 @@ VENV   ?= .venv
 BIN    := $(VENV)/bin
 
 .DEFAULT_GOAL := help
-.PHONY: help setup up down reset-data run test lint fmt config config-docs graph hooks docker-build docker-up
+.PHONY: help setup up down reset-data run test lint fmt config config-docs openapi graph hooks docker-build docker-up
 
 help:  ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*?## ' '{printf "  %-14s %s\n", $$1, $$2}'
@@ -54,6 +54,9 @@ config:  ## Show every effective setting and where it came from; fails on mistak
 
 config-docs:  ## Regenerate docs/CONFIGURATION.md from the settings model
 	$(BIN)/python -m app.settings docs > docs/CONFIGURATION.md
+
+openapi:  ## Regenerate the committed API contract, docs/reference/openapi.json
+	$(BIN)/python -m app.api.openapi > docs/reference/openapi.json
 
 graph:  ## Refresh the code knowledge graph in graphify-out/ (needs: pipx install graphifyy==0.9.80)
 	graphify update .

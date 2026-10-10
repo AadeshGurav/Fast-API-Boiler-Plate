@@ -1,7 +1,9 @@
 # API reference
 
 Base path `/api/v1`. In debug mode the live OpenAPI UI is at `/docs` (and `/redoc`,
-`/openapi.json`); it is disabled in production.
+`/openapi.json`); it is disabled in production. The same schema is committed as
+[`openapi.json`](openapi.json) and checked by a test: [generate a client](../how-to/generate-a-client.md)
+from it.
 
 ## Conventions
 

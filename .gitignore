@@ -32,3 +32,4 @@ uploads/
 config.local.toml
 config.secrets.toml
 .env
+.coverage
