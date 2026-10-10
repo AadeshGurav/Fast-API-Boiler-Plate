@@ -33,6 +33,11 @@ All notable changes are recorded here. The format follows
 - Personal access tokens for scripts and integrations (`/api/v1/tokens`): `fabp_pat_...` bearer
   tokens limited by scopes and by their owner's current permissions, expiring, revocable at once,
   stored hashed. Tokens cannot manage tokens.
+- PostgreSQL backend (`app_database_provider = "postgres"`, ADR 0006): one JSONB document table
+  per collection, expression indexes, `FOR UPDATE` first-match writes, a time-to-live purge.
+  Passes the same contract suite as MongoDB; CI runs it and an end-to-end application test
+  against PostgreSQL 17. `make up-postgres`, `requirements-postgres.txt` (`asyncpg`),
+  `INSTALL_POSTGRES=true` for the image.
 - Durable background jobs on the configured database (`JobService`, ADR 0007): conditional
   claims, retries with exponential backoff and jitter, a `dead` state with
   `GET /api/v1/admin/jobs` and `POST /api/v1/admin/jobs/{id}/retry`, lease expiry after a crash,
@@ -43,9 +48,11 @@ All notable changes are recorded here. The format follows
 
 ### Upgrading
 
-- Add `FABP_MFA_ENCRYPTION_KEY` (32+ random characters) to an existing `.env` or deployment; the
-  Docker Compose app service now requires it. Outside containers it is generated into
-  `config.secrets.toml` on first start.
+- Add `FABP_MFA_ENCRYPTION_KEY` (32+ random characters) to an existing `.env` or deployment
+  before running the app container (it refuses the placeholder). Outside containers it is
+  generated into `config.secrets.toml` on first start. For PostgreSQL, also add
+  `POSTGRES_PASSWORD`, `FABP_POSTGRES_PASSWORD` and `FABP_POSTGRES_PORT` (see `.env.example`), or
+  delete `.env` and the dev volumes and run `make setup` again.
 - The default `user` role gains `auth:delete` (turning off two-factor sign-in) and
   `tokens:read`, `tokens:write`, `tokens:delete` (personal access tokens).
 

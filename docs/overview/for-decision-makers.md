@@ -16,7 +16,7 @@ instead of plumbing.
 | **Faster to market** | Sign-in, roles, file handling and admin endpoints exist on day one. A new feature touches [five small places](../how-to/add-a-resource.md). |
 | **Lower risk** | Security-reviewed defaults: revocable sessions, lockout, CSRF and CORS checks, safe file handling, secrets kept out of the code. [Security model](../explanation/security-model.md). |
 | **Lower running cost** | One container plus MongoDB and Redis; no licences. Starts on a single small server and scales out by adding containers. |
-| **No lock-in** | Database, cache and file storage are swappable behind interfaces: start on MongoDB and Redis, move to PostgreSQL or a managed cloud service later without rewriting the application ([how](../how-to/write-a-backend.md)). |
+| **No lock-in** | Database, cache and file storage are swappable behind interfaces: run on MongoDB or PostgreSQL out of the box, and move between them, or to a managed cloud service, without rewriting the application ([how](../how-to/write-a-backend.md)). |
 | **Easy to staff** | Python, FastAPI, MongoDB, Redis, Docker: mainstream, well-documented tools. Clone to running in about ten minutes. |
 | **Changes stay cheap** | 197 automated tests run in seconds on every change; architecture decisions are written down ([ADRs](../adr/)). |
 | **Operable by others** | Health probes, structured logs with request ids, a [runbook](../how-to/operate.md), and optional metrics, tracing and error reporting. |

@@ -52,7 +52,7 @@ in-memory, local-disk and S3 implementations ship ready to use.
 | **Files** | Per-user files with version history, chunked and resumable uploads, image thumbnails, de-duplication, per-user quotas, spreadsheet read/edit (xlsx edited in place keeps charts and formulas; ods; csv), local disk or S3/MinIO/R2, streamed end to end |
 | **API safety nets** | Rate limiting (sliding or fixed window, per tier), request size and idle-body limits, timeouts and concurrency cap, `Idempotency-Key` replay, CSRF origin check, CORS, CSP/HSTS headers, RFC 9457 `application/problem+json` errors |
 | **Operations** | Liveness, readiness and startup probes; JSON logs with request ids; optional Prometheus metrics, OpenTelemetry tracing and Sentry; Docker image and Compose stack |
-| **Pluggable storage** | `DatabaseInterface` (MongoDB built in; PostgreSQL, MySQL, DynamoDB... via one class), `CacheInterface` (Redis or in-memory built in), `StorageInterface` (local disk and S3-compatible built in), selected by setting |
+| **Pluggable storage** | `DatabaseInterface` (MongoDB and PostgreSQL built in, both proven by the same contract suite in CI; MySQL, DynamoDB... via one class), `CacheInterface` (Redis or in-memory built in), `StorageInterface` (local disk and S3-compatible built in), selected by setting |
 | **Developer experience** | Typed settings with TOML + environment layering and typo detection, versioned migrations, Makefile, Ruff, CI, pre-commit, tests through the real middleware stack |
 
 ## Quick start
@@ -147,8 +147,10 @@ from `app/settings.py`; the reasons behind the design are in the [ADRs](docs/adr
 graceful degradation, a deploy checklist and a runbook. Read the
 [known limits](docs/ARCHITECTURE.md#known-limits) and the [scope](docs/overview/for-decision-makers.md#scope-what-it-leaves-to-you) first.
 
-**Is it tied to MongoDB and Redis?** No. They are the bundled, production-grade defaults.
-Routes, services and the data layer depend only on interfaces, so PostgreSQL, MySQL, SQLite,
+**Is it tied to MongoDB and Redis?** No. They are the bundled, production-grade defaults, and
+PostgreSQL ships too: set `app_database_provider = "postgres"`
+([configure](docs/how-to/configure.md#use-postgresql-instead-of-mongodb)).
+Routes, services and the data layer depend only on interfaces, so MySQL, SQLite,
 DynamoDB or any other store is one class plus `app_database_provider =
 "package.module:YourDatabase"`, and the application code stays untouched. The backend
 implements a small, documented [contract](docs/how-to/write-a-backend.md) (CRUD, an atomic

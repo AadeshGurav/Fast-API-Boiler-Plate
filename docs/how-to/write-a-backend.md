@@ -5,8 +5,10 @@ interfaces, never to a driver: no `motor`, `pymongo`, `redis` or `boto3` import 
 its backend module. Swap MongoDB for PostgreSQL, Redis for Memcached, or local disk for Azure
 Blob by writing one class and changing one setting. **No application code changes.**
 
-MongoDB, Redis, in-memory cache, local disk and S3 ship as complete implementations; they are
-the defaults, not requirements.
+MongoDB, PostgreSQL, Redis, in-memory cache, local disk and S3 ship as complete
+implementations; MongoDB and Redis are the defaults, not requirements. Two database backends
+with very different engines (`app/database/mongodb.py`, `app/database/postgres.py`) pass the
+same contract suite: read either as a reference.
 
 | To replace | Implement | Select it with |
 | --- | --- | --- |
@@ -81,7 +83,13 @@ Run the contract suite against your class; it is the definition of "works":
 ```bash
 CONTRACT_DATABASES=package.module:YourClass pytest tests/contract/test_database_contract.py
 CONTRACT_CACHES=package.module:YourCache pytest tests/contract/test_cache_contract.py
+CONTRACT_DATABASES=package.module:YourClass pytest tests/contract/test_app_on_real_databases.py
 ```
+
+The last runs the whole application on your backend: migrations, indexes, sign-in, two-factor,
+files, the audit log and the job queue. Unique-index violations must raise
+`DuplicateRecordError`; give your class a `drop_database()` so test runs clean up after
+themselves.
 
 Names are comma-separated (`fake,mongodb`, `memory,redis`, or a dotted path). Connection
 settings come from the usual `FABP_*` variables, and each run uses a throwaway database name.

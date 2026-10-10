@@ -67,6 +67,25 @@ file_storage_backend = "s3"    # required with more than one server (plus s3_buc
 `app_workers > 1` with the memory cache is refused at start-up: each worker would keep its own
 rate-limit counters and sessions, silently multiplying every limit.
 
+## Use PostgreSQL instead of MongoDB
+
+```bash
+make up-postgres                        # PostgreSQL 17 in Docker (loopback only)
+pip install -r requirements-postgres.txt  # asyncpg (already in requirements-dev.txt)
+```
+
+```toml
+# config.local.toml
+app_database_provider = "postgres"
+```
+
+`make setup` already wrote `FABP_POSTGRES_PASSWORD` and `FABP_POSTGRES_PORT` into `.env`. In
+production set `FABP_POSTGRES_HOST`, `FABP_POSTGRES_USERNAME`, `FABP_POSTGRES_PASSWORD` and
+`FABP_POSTGRES_DATABASE`, and build the image with `--build-arg INSTALL_POSTGRES=true`.
+PostgreSQL 15 or newer. Each collection becomes a JSONB table in the schema named by
+`app_database` ([ADR 0006](../adr/0006-postgresql-as-jsonb-documents.md)); nothing in the
+application changes.
+
 ## Store files in S3 (or MinIO, R2, ...)
 
 ```bash

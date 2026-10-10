@@ -46,6 +46,9 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S105", "S106", "S311", "ASYNC"]
+# SQL is assembled from identifiers checked by postgres_sql.identifier(); every value is a
+# bound parameter ($n). tests/test_postgres_sql.py pins both rules.
+"app/database/postgres.py" = ["S608"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

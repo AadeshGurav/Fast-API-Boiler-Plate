@@ -223,29 +223,6 @@ class Settings(BaseModel):
     api_tokens_per_user: int = Field(
         20, ge=1, description="Most personal access tokens one user may hold at once."
     )
-    jobs_run_in_api: bool = Field(
-        True,
-        description="Run the background job worker inside each API process. Turn off when running `python -m app.jobs` separately.",
-    )
-    jobs_poll_seconds: float = Field(
-        2.0, gt=0, description="How often an idle job worker looks for due jobs."
-    )
-    jobs_batch_size: int = Field(10, ge=1, le=500, description="Jobs one worker claims per pass.")
-    jobs_max_attempts: int = Field(
-        5, ge=1, description="Attempts before a failing job is moved to 'dead'."
-    )
-    jobs_timeout_seconds: float = Field(
-        300.0, gt=0, description="Time limit for one job attempt; the lease is twice this."
-    )
-    jobs_retry_base_seconds: float = Field(
-        10.0, gt=0, description="Base of the exponential retry delay (with full jitter)."
-    )
-    jobs_retention_days: int = Field(
-        14, ge=1, description="How long finished (done or dead) jobs are kept."
-    )
-    audit_retention_days: int = Field(
-        365, ge=1, description="How long security audit events are kept before they expire."
-    )
     auth_refresh_reuse_grace_seconds: int = Field(
         30, ge=0, description="A rotated refresh token still works this long (parallel tabs)."
     )
@@ -278,11 +255,38 @@ class Settings(BaseModel):
         None, repr=False, description="First administrator's password."
     )
 
+    # ------------------------------------------------------ background jobs and audit
+    jobs_run_in_api: bool = Field(
+        True,
+        description="Run the background job worker inside each API process. Turn off when running `python -m app.jobs` separately.",
+    )
+    jobs_poll_seconds: float = Field(
+        2.0, gt=0, description="How often an idle job worker looks for due jobs."
+    )
+    jobs_batch_size: int = Field(10, ge=1, le=500, description="Jobs one worker claims per pass.")
+    jobs_max_attempts: int = Field(
+        5, ge=1, description="Attempts before a failing job is moved to 'dead'."
+    )
+    jobs_timeout_seconds: float = Field(
+        300.0, gt=0, description="Time limit for one job attempt; the lease is twice this."
+    )
+    jobs_retry_base_seconds: float = Field(
+        10.0, gt=0, description="Base of the exponential retry delay (with full jitter)."
+    )
+    jobs_retention_days: int = Field(
+        14, ge=1, description="How long finished (done or dead) jobs are kept."
+    )
+    audit_retention_days: int = Field(
+        365, ge=1, description="How long security audit events are kept before they expire."
+    )
+
     # ---------------------------------------------------------------------- database
     app_database_provider: str = Field(
-        "mongodb", description="'mongodb' or 'package.module:YourDatabase'."
+        "mongodb", description="'mongodb', 'postgres' or 'package.module:YourDatabase'."
     )
-    app_database: str = Field("fastapi_boilerplate", description="Database name.")
+    app_database: str = Field(
+        "fastapi_boilerplate", description="Database name (MongoDB) or schema name (PostgreSQL)."
+    )
     mongo_host: str = Field("localhost", description="MongoDB host.")
     mongo_port: int = Field(27017, ge=1, le=65535, description="MongoDB port.")
     mongo_username: str = Field("", description="MongoDB user (empty = no authentication).")
@@ -301,6 +305,28 @@ class Settings(BaseModel):
     )
     mongo_wait_queue_timeout_ms: int = Field(
         5000, ge=0, description="Wait for a free connection this long."
+    )
+
+    postgres_host: str = Field(
+        "localhost", description="PostgreSQL host (app_database_provider = 'postgres')."
+    )
+    postgres_port: int = Field(5432, ge=1, le=65535, description="PostgreSQL port.")
+    postgres_username: str = Field("fabp", description="PostgreSQL user.")
+    postgres_password: str = Field("", repr=False, description="PostgreSQL password.")
+    postgres_database: str = Field(
+        "fabp", description="PostgreSQL database; each app_database is a schema inside it."
+    )
+    postgres_pool_size: int = Field(
+        20, ge=1, description="Most PostgreSQL connections per process."
+    )
+    postgres_min_pool_size: int = Field(1, ge=0, description="Connections kept open when idle.")
+    postgres_timeout_seconds: float = Field(
+        10.0, gt=0, description="Connect and per-statement time limit."
+    )
+    postgres_ttl_purge_seconds: int = Field(
+        60,
+        ge=0,
+        description="Seconds between deletions of records past their time-to-live (0 = never).",
     )
 
     # ------------------------------------------------------------------------- cache
@@ -518,6 +544,7 @@ SECTIONS = {
     "rate_limit_enabled": "Rate limiting",
     "enable_security_headers": "Security headers",
     "jwt_secret": "Authentication",
+    "jobs_run_in_api": "Background jobs and audit",
     "app_database_provider": "Database",
     "app_cache_provider": "Cache",
     "file_storage_backend": "Files",
