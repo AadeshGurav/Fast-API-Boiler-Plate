@@ -1,0 +1,45 @@
+name: Code graph
+
+# Keeps graphify-out/ in step with the code on develop, so people and AI agents can navigate
+# the codebase from GRAPH_REPORT.md and graph.json instead of reading every file.
+on:
+  push:
+    branches: [develop]
+    paths-ignore: ["graphify-out/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: code-graph
+  cancel-in-progress: true
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+
+      - name: Install graphify
+        run: pip install graphifyy==0.9.80
+
+      # AST-only rebuild: local, deterministic input, no API key or LLM.
+      - name: Rebuild the graph
+        run: graphify update .
+
+      - name: Commit if it changed
+        run: |
+          git add graphify-out
+          if git diff --cached --quiet; then
+            echo "Graph already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore(graph): refresh graphify-out for ${GITHUB_SHA::7}"
+          git push
