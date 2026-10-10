@@ -4,13 +4,18 @@ An API-only FastAPI service on MongoDB and Redis, built to be started in minutes
 without surprises: typed configuration, sessions and RBAC, per-user files, pluggable backends,
 problem+json errors, and tests that need no running services.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/system-context-dark.svg">
+  <img alt="System context: clients reach one FastAPI service through an optional reverse proxy; the service uses MongoDB, Redis and file storage, and optionally Google sign-in, SMTP and observability tools." src="docs/diagrams/system-context.svg">
+</picture>
+
 ## Quick start
 
 ```bash
 make setup     # venv, dependencies, .env (random passwords, free ports), config.local.toml
 make up        # MongoDB + Redis in Docker (loopback only)
 make run       # API on http://127.0.0.1:8000, interactive docs at /docs (debug mode)
-make test      # 137 tests, no services needed
+make test      # 197 tests, no services needed
 ```
 
 Prefer containers for everything? `make docker-up` runs the API too. `make help` lists all targets.
@@ -56,8 +61,11 @@ CSP); `config.local.toml` opts into development conveniences.
 | Backends | `database/`, `cache/`, `services/file/storage/` | MongoDB, Redis or in-memory, local disk or S3; bring your own with `package.module:Class` |
 | Operations | `routes/health.py`, `services/{metrics,tracing,sentry}.py` | `/api/v1/{health,live,ready,startup}`; optional Prometheus, OpenTelemetry, Sentry |
 
-How the pieces fit: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Why they are this way:
-[`docs/adr/`](docs/adr). Adding your own resource: [`docs/EXTENDING.md`](docs/EXTENDING.md).
+**All documentation starts at [`docs/README.md`](docs/README.md)**, organised by role (decision
+makers, developers, operators, designers, security reviewers) with a diagram for each. Quick
+links: [getting started](docs/tutorials/getting-started.md), [architecture](docs/ARCHITECTURE.md),
+[API reference](docs/reference/api.md), [add a resource](docs/how-to/add-a-resource.md),
+[deploy](docs/how-to/deploy.md), [runbook](docs/how-to/operate.md), [decisions](docs/adr/).
 
 ## Development
 
