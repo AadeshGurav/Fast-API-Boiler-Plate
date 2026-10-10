@@ -24,6 +24,7 @@ are pinned by a regression test, chiefly in `tests/test_security_fixes.py` and
 | Spreadsheet formula injection | Text starting with `=`/`@` (or `+`/`-` when not a number) is stored with a leading apostrophe | `spreadsheet_processor.neutralize` |
 | Secret leakage | No secrets in the repo; generated key written 0600; placeholder secrets refused; request bodies never sent to Sentry; secrets masked in `make config` | `config.py`, `settings.py`, `services/sentry.py` |
 | Log forging | Line breaks in request-controlled text are escaped; caller request ids must match a safe pattern | `services/logger.py`, `middleware/security.py` |
+| Untraceable administrative changes | Role, group, grant, account-status, deletion, password and session changes are written to `audit_events` with actor, IP, user agent and request id | `services/audit.py`, `GET /admin/audit-events` |
 | Stale or forged client IPs | `X-Forwarded-For` trusted only for `trusted_proxy_count` hops | `utils/utils.client_ip` |
 
 ## Sessions and tokens
@@ -79,7 +80,9 @@ implemented (501).
 
 ## Not covered
 
-- Multi-factor authentication, CAPTCHA, and account-level audit beyond sign-in attempts.
+- Multi-factor authentication and CAPTCHA.
+- Audit events record *that* something changed and who changed it, not the before and after
+  values; they are as tamper-proof as the database that stores them.
 - Slow-but-steady request bodies are bounded only by the request timeout: keep a reverse proxy
   with its own timeouts in front of internet traffic.
 - Registration says when a username or email is already taken (sign-in and reset never do).

@@ -6,8 +6,9 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.api.deps import get_data_service
+from app.api.deps import get_auth_service, get_data_service
 from app.models.auth import TokenPayload
+from app.services.auth import AuthService
 from app.services.data import DataService
 from app.services.data.sessions_ops import is_session_active
 from app.utils.permissions import get_current_user
@@ -51,10 +52,10 @@ async def list_active_sessions(
 @router.delete("/all")
 async def revoke_all_sessions(
     user: TokenPayload = Depends(get_current_user),
-    data_service: DataService = Depends(get_data_service),
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> dict[str, Any]:
     """Revoke every session of the caller, including the current one."""
-    revoked = await data_service.sessions.revoke_user_sessions(user.user_id)
+    revoked = await auth_service.logout_all_devices(user.user_id)
     return {"message": "All sessions revoked successfully", "revoked_count": revoked}
 
 
@@ -73,10 +74,11 @@ async def revoke_session(
     session_id: str,
     user: TokenPayload = Depends(get_current_user),
     data_service: DataService = Depends(get_data_service),
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> dict[str, str]:
     """Revoke one of the caller's sessions."""
     await _own_session(session_id, user, data_service)
-    if not await data_service.sessions.revoke_session(session_id):
+    if not await auth_service.logout(session_id):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to revoke session"
         )

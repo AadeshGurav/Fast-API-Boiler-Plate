@@ -40,6 +40,7 @@ things but not others":
 | --- | --- |
 | Accounts | Sign-up, sign-in, "remember me", sign out of one or all devices, password change and reset by email, optional Google sign-in. |
 | Access control | Roles (admin, manager, user, guest), groups, and time-limited grants, all defined in one config file. Every endpoint is locked unless a role allows it. |
+| Audit trail | Every security change (roles, grants, account status, passwords, sessions) is recorded with who, when and from where, and administrators can search it. |
 | Files | Per-user uploads with version history, large uploads in chunks, image thumbnails, spreadsheet read and edit (xlsx, ods, csv), per-user storage quota. |
 | Protection | Rate limits, request size and time limits, overload shedding, safe retries, cross-site request checks, security headers. |
 | Operations | Health probes for orchestrators, structured logs, optional metrics, tracing and error reporting. |
@@ -81,8 +82,7 @@ things but not others":
 - **Your domain.** Products, orders, parts, projects: added as resources on the same patterns.
 - **Multi-tenancy.** One organisation per deployment; users are separated by ownership and
   roles. Add tenant ownership before the first domain object if customers will share one.
-- **Sign-in providers beyond Google, MFA, and a stored audit history of changes** beyond
-  sign-in attempts.
+- **Sign-in providers beyond Google, and MFA.**
 
 ## Decisions to make before building on it
 

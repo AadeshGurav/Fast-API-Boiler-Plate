@@ -22,6 +22,9 @@ All notable changes are recorded here. The format follows
 - Backend contract suite (`tests/contract/`): the same database and cache tests run against the
   in-memory stand-ins by default, and against real MongoDB and Redis in CI. Backend authors run
   it against their own class (`CONTRACT_DATABASES`, `CONTRACT_CACHES`).
+- Security audit log: role, group, grant, account-status, deletion, password and session
+  changes are recorded in `audit_events` with actor, IP, user agent and request id, kept for
+  `audit_retention_days` (365), and searchable by administrators at `GET /api/v1/admin/audit-events`.
 - The OpenAPI contract is committed as `docs/reference/openapi.json` (`make openapi`), and a
   test fails when it drifts from the application. Operation ids are the route function names,
   so generated clients get stable method names; see `docs/how-to/generate-a-client.md`.
@@ -30,6 +33,8 @@ All notable changes are recorded here. The format follows
 
 - Unique-index violations surface as `DuplicateRecordError` from every database backend
   instead of a driver exception; `FakeDatabase` now enforces declared unique indexes.
+- `DELETE /api/v1/sessions/all` and `DELETE /api/v1/sessions/{id}` revoke through `AuthService`,
+  so they are audited like sign-out.
 - OpenAPI `operationId`s changed from FastAPI's generated `<name>_<path>_<method>` to the route
   function name. Regenerate any client built from the old schema.
 - ods spreadsheets are read and written with `odfpy` directly; pandas and numpy (about 110 MB)

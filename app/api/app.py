@@ -91,6 +91,7 @@ class AppFactory:
 
     def __setup_routes(self: AppFactory) -> None:
         """Include API routers and root endpoint."""
+        from app.api.routes.admin import router as admin_router
         from app.api.routes.auth import router as auth_router
         from app.api.routes.files import router as files_router
         from app.api.routes.health import router as health_router
@@ -108,6 +109,7 @@ class AppFactory:
         self.app.include_router(rbac_router, prefix="/api/v1")
         self.app.include_router(sessions_router, prefix="/api/v1")
         self.app.include_router(users_router, prefix="/api/v1")
+        self.app.include_router(admin_router, prefix="/api/v1")
 
         # File management routes
         self.app.include_router(files_router, prefix="/api/v1/files")

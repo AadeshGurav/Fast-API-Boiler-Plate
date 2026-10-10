@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import HTTPException, Request, status
 
+from app.services.audit import AuditService
 from app.services.auth import AuthService
 from app.services.data import DataService
 from app.services.file import FileService
@@ -15,6 +16,10 @@ from app.services.registry import Services
 def get_services(request: Request) -> Services:
     """All services of this application instance."""
     return request.app.state.services
+
+
+def get_audit_service(request: Request) -> AuditService:
+    return get_services(request).audit_service
 
 
 def get_auth_service(request: Request) -> AuthService:

@@ -244,6 +244,7 @@ def test_providers_resolve_builtin_names_and_dotted_paths(config):
 
 @pytest.fixture
 def rbac(data_service, config):
+    from app.services.audit import AuditService
     from app.services.rbac import RBACService
 
     config.data["rbac_roles"] = {
@@ -256,7 +257,8 @@ def rbac(data_service, config):
         "loop_b": {"permissions": ["b"], "inherits": ["loop_a"]},
     }
     config.data["rbac_groups"] = {"staff": {"roles": ["manager"]}}
-    return RBACService(config, MagicMock(), data_service, data_service.cache_service)
+    audit = AuditService(config, MagicMock(), data_service)
+    return RBACService(config, MagicMock(), data_service, data_service.cache_service, audit)
 
 
 async def test_inheritance_diamonds_work_and_cycles_terminate(rbac):
