@@ -15,6 +15,15 @@ All notable changes are recorded here. The format follows
 - Committed code knowledge graph (`graphify-out/`), rebuilt on every push to `develop`;
   `make hooks` refreshes it after each local commit. `AGENTS.md` and `CLAUDE.md` point AI agents
   to it.
+- Competitive analysis and roadmap (`docs/proposals/2026-10-competitive-analysis.md`).
+- CI: tests on Python 3.11 and 3.13 with a coverage report, a `pip-audit` job for known
+  vulnerabilities in pinned dependencies, and a job that builds the Docker image and fails on
+  HIGH or CRITICAL fixable vulnerabilities (Trivy).
+
+### Fixed
+
+- `ruff` is pinned in `requirements-dev.txt`, and the pre-commit hook uses the same version
+  (it was v0.9.10 while CI installed the latest release).
 
 ## [1.0.0] - 2026-10-10
 

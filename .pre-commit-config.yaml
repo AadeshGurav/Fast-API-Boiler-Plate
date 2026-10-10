@@ -2,7 +2,7 @@
 exclude: ^graphify-out/
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.9.10
+    rev: v0.17.0  # keep in step with ruff in requirements-dev.txt
     hooks:
       - id: ruff
         args: [--fix]

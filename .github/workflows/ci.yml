@@ -13,12 +13,17 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The supported floor (.python-version) and the newest release we test against.
+        python-version: ["3.11", "3.13"]
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version-file: .python-version
+          python-version: ${{ matrix.python-version }}
           cache: pip
           cache-dependency-path: requirements*.txt
 
@@ -32,4 +37,32 @@ jobs:
 
       # The suite uses in-memory stand-ins for MongoDB and Redis: no services needed.
       - name: Test
-        run: python -m pytest -q
+        run: python -m pytest -q --cov=app --cov-report=term-missing:skip-covered
+
+  audit:
+    # Known vulnerabilities in pinned runtime dependencies fail the build.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+      - name: Audit dependencies
+        run: |
+          pip install pip-audit==2.10.1
+          pip-audit -r requirements.txt -r requirements-s3.txt
+
+  image:
+    # The shipped image must build and carry no HIGH or CRITICAL fixable vulnerability.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: docker build -t fabp:ci .
+      - name: Scan
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8  # v0.36.0
+        with:
+          image-ref: fabp:ci
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
