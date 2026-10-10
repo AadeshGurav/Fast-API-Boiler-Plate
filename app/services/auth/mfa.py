@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any
 
 from cryptography.fernet import Fernet
 
-from app.services.auth import totp
+from app.services.auth.totp import generate_secret, matching_step, provisioning_uri
 from app.services.data.policies import CachePolicy
 from app.services.data.sessions_ops import hash_token
 
@@ -106,7 +106,7 @@ class MFAService:
         user = await self._check_password(user_id, password)
         if await self.is_enabled(user_id):
             raise MFAStateError("Two-factor authentication is already on; turn it off first")
-        secret = totp.generate_secret()
+        secret = generate_secret()
         await self.data_service.set(
             COLLECTION,
             {"user_id": user_id},
@@ -123,7 +123,7 @@ class MFAService:
         account = user.get("email") or user["username"]
         return {
             "secret": secret,
-            "otpauth_uri": totp.provisioning_uri(secret, account, self.issuer),
+            "otpauth_uri": provisioning_uri(secret, account, self.issuer),
         }
 
     async def confirm_totp(self, user_id: str, code: str) -> list[str]:
@@ -199,7 +199,7 @@ class MFAService:
 
     async def _accept_totp(self, factor: dict[str, Any], code: str) -> bool:
         secret = self.fernet.decrypt(factor["secret"].encode()).decode()
-        step = totp.matching_step(secret, code)
+        step = matching_step(secret, code)
         last = factor.get("last_step", 0)
         if step is None or step <= last:
             return False
