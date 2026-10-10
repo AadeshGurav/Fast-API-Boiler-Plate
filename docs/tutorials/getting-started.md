@@ -109,7 +109,7 @@ them in `config.toml`.
 ## 8. Explore and test
 
 - Open `http://127.0.0.1:8000/docs` for the interactive API (debug mode only).
-- `make test` runs the 197 tests; they need no running services.
+- `make test` runs the 300+ tests; they need no running services.
 - `make config` lists every effective setting and the file it came from.
 - `make down` stops the databases and keeps their data; `make reset-data` deletes it.
 

@@ -25,7 +25,7 @@ an edge case, a new storage backend. This guide gets you from clone to a merged 
 git clone https://github.com/AadeshGurav/Fast-API-Boiler-Plate.git
 cd Fast-API-Boiler-Plate
 make setup       # venv, dependencies, .env, config.local.toml
-make test        # 197 tests, no services needed
+make test        # 300+ tests, no services needed
 make up && make run   # optional: the real API against Docker MongoDB and Redis
 pipx install graphifyy==0.9.80   # the code-graph CLI
 make hooks            # ruff before every commit, graph refresh after every commit

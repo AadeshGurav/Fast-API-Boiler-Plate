@@ -18,7 +18,7 @@ instead of plumbing.
 | **Lower running cost** | One container plus MongoDB and Redis; no licences. Starts on a single small server and scales out by adding containers. |
 | **No lock-in** | Database, cache and file storage are swappable behind interfaces: run on MongoDB or PostgreSQL out of the box, and move between them, or to a managed cloud service, without rewriting the application ([how](../how-to/write-a-backend.md)). |
 | **Easy to staff** | Python, FastAPI, MongoDB, Redis, Docker: mainstream, well-documented tools. Clone to running in about ten minutes. |
-| **Changes stay cheap** | 197 automated tests run in seconds on every change; architecture decisions are written down ([ADRs](../adr/)). |
+| **Changes stay cheap** | 300+ automated tests run in seconds on every change, and the same contract runs on real MongoDB, PostgreSQL and Redis in CI; architecture decisions are written down ([ADRs](../adr/)). |
 | **Operable by others** | Health probes, structured logs with request ids, a [runbook](../how-to/operate.md), and optional metrics, tracing and error reporting. |
 
 ## What you can build with it

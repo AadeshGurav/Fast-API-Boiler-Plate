@@ -31,7 +31,8 @@ in-memory, local-disk and S3 implementations ship ready to use.
 - **Production behaviour built in.** Rate limits, timeouts, overload shedding, idempotency
   keys, health probes, structured logs, and a cache that degrades instead of failing.
 - **Zero-touch setup.** `make setup && make up && make run`: random passwords, free ports,
-  no manual steps. 197 tests run in about ten seconds without any database.
+  no manual steps. 300+ tests run in about fifteen seconds without any database, and a contract
+  suite proves the same behaviour on real MongoDB, PostgreSQL and Redis in CI.
 - **Storage-agnostic architecture.** Database, cache and file storage sit behind interfaces
   (`DatabaseInterface`, `CacheInterface`, `StorageInterface`). Swap SQL for NoSQL, or one cloud
   for another, with one class and one setting; [the contract](docs/how-to/write-a-backend.md)
@@ -47,13 +48,13 @@ in-memory, local-disk and S3 implementations ship ready to use.
 
 | Area | What you get |
 | --- | --- |
-| **Authentication** | Registration, sign-in with "remember me", Argon2id passwords, JWT access + rotating refresh tokens bound to server-side sessions, sign out of one or all devices, password change and email reset, Google sign-in (OAuth 2.0), HttpOnly cookies or Bearer tokens |
+| **Authentication** | Registration, sign-in with "remember me", Argon2id passwords, JWT access + rotating refresh tokens bound to server-side sessions, sign out of one or all devices, password change and email reset, Google sign-in (OAuth 2.0), two-factor sign-in (authenticator codes + recovery codes), scoped personal access tokens for scripts, HttpOnly cookies or Bearer tokens |
 | **Authorization (RBAC)** | Roles with inheritance, groups, time-limited grants; deny-by-default `<resource>:<action>` permissions derived from each route; `*` and `files:*` wildcards; user administration |
 | **Files** | Per-user files with version history, chunked and resumable uploads, image thumbnails, de-duplication, per-user quotas, spreadsheet read/edit (xlsx edited in place keeps charts and formulas; ods; csv), local disk or S3/MinIO/R2, streamed end to end |
 | **API safety nets** | Rate limiting (sliding or fixed window, per tier), request size and idle-body limits, timeouts and concurrency cap, `Idempotency-Key` replay, CSRF origin check, CORS, CSP/HSTS headers, RFC 9457 `application/problem+json` errors |
-| **Operations** | Liveness, readiness and startup probes; JSON logs with request ids; optional Prometheus metrics, OpenTelemetry tracing and Sentry; Docker image and Compose stack |
+| **Operations** | Durable background jobs with retries and a dead-letter view (no broker needed); a searchable security audit log; liveness, readiness and startup probes; JSON logs with request ids; optional Prometheus metrics, OpenTelemetry tracing and Sentry; Docker image and Compose stack |
 | **Pluggable storage** | `DatabaseInterface` (MongoDB and PostgreSQL built in, both proven by the same contract suite in CI; MySQL, DynamoDB... via one class), `CacheInterface` (Redis or in-memory built in), `StorageInterface` (local disk and S3-compatible built in), selected by setting |
-| **Developer experience** | Typed settings with TOML + environment layering and typo detection, versioned migrations, Makefile, Ruff, CI, pre-commit, tests through the real middleware stack |
+| **Developer experience** | Typed settings with TOML + environment layering and typo detection, versioned migrations, Makefile, Ruff, CI (tests on 3.11 and 3.13, real-engine contract tests, dependency audit, image scan), a committed OpenAPI contract for generated clients, Mailpit for local email, tests through the real middleware stack |
 
 ## Quick start
 
@@ -65,7 +66,7 @@ cd Fast-API-Boiler-Plate
 make setup     # venv, dependencies, .env (random passwords, free ports), config.local.toml
 make up        # MongoDB + Redis in Docker (loopback only)
 make run       # API on http://127.0.0.1:8000, interactive docs at /docs
-make test      # 197 tests, no services needed
+make test      # 300+ tests, no services needed
 ```
 
 Prefer containers for everything? `make docker-up` runs the API too. There is **no default
@@ -97,12 +98,12 @@ products, asset/inventory/product-lifecycle systems, and back ends for mobile or
 | --- | --- | --- |
 | Web framework | FastAPI 0.142 + Starlette, Uvicorn | Async, typed, automatic OpenAPI |
 | Validation and settings | Pydantic 2 | One typed model for every setting and payload |
-| Database | MongoDB 8 via Motor (default; replaceable) | Flexible documents, TTL indexes for sessions and tokens |
+| Database | MongoDB 8 via Motor (default) or PostgreSQL 15+ via asyncpg | Flexible documents on either engine; TTL indexes for sessions and tokens; also holds background jobs |
 | Cache | Redis 7 or in-memory (default; replaceable) | Sessions, permissions, rate limits, idempotency |
 | Files | Local disk or S3 via boto3 | One host to start, any S3-compatible store to scale |
-| Auth | PyJWT, argon2-cffi, httpx (OAuth) | Standard, audited libraries |
+| Auth | PyJWT, argon2-cffi, httpx (OAuth), cryptography (two-factor secrets), stdlib TOTP | Standard, audited libraries |
 | Spreadsheets | openpyxl, odfpy | Pure Python, same behaviour on every OS |
-| Observability | stdlib logging, prometheus-client, OpenTelemetry, sentry-sdk | Official SDKs, all optional |
+| Observability | stdlib logging, prometheus-client; OpenTelemetry and sentry-sdk as an optional install | Official SDKs, installed only when used |
 | Tooling | Ruff, pytest, Docker, GitHub Actions | Fast feedback, reproducible builds |
 
 ## Project structure
@@ -120,7 +121,7 @@ app/
   settings.py         # every setting: type, default, description
 config.toml           # project defaults, roles and groups
 docs/                 # guides, reference, ADRs, diagrams
-tests/                # 197 tests, in-memory MongoDB and Redis stand-ins
+tests/                # 300+ tests; tests/contract/ runs on real engines too
 graphify-out/         # code knowledge graph, rebuilt on every push (start here, people and AI)
 ```
 
