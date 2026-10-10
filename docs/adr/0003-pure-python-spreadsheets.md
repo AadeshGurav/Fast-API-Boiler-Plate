@@ -7,7 +7,7 @@ OS. The LibreOffice path exported only the first sheet and wrote it back (silent
 built temp file names from user-supplied sheet names (arbitrary file write), and behaved
 differently per platform.
 
-**Decision.** One implementation: openpyxl (xlsx), csv, odfpy via pandas (ods), run in a
+**Decision.** One implementation: openpyxl (xlsx), csv, odfpy (ods), run in a
 worker thread, validating sheet names, capping size and defusing formula injection. Edits
 create a new file version.
 
@@ -20,3 +20,8 @@ not); ods/csv edits rebuild from values. The previous version is always kept. Le
 
 **Amendment (0005).** xlsx edits now patch the zip package instead of rebuilding it, so charts
 and images survive too.
+
+**Amendment (2026-10).** ods is read and written with odfpy directly (`app/services/file/ods.py`)
+instead of through pandas, which removed pandas and numpy (about 110 MB) from the install. The
+reader expands `number-*-repeated` runs arithmetically and checks the expanded size against the
+cell cap before building the grid.

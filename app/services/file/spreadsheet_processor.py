@@ -1,7 +1,7 @@
 """Spreadsheet reading and writing (xlsx, ods, csv) in pure Python.
 
-One implementation on every platform: ``openpyxl`` for xlsx, ``odfpy`` (through pandas)
-for ods, the ``csv`` module for csv. No office suite is launched as a subprocess.
+One implementation on every platform: ``openpyxl`` for xlsx, ``odfpy`` (``ods``) for
+ods, the ``csv`` module for csv. No office suite is launched as a subprocess.
 
 Reads return computed values. xlsx edits patch the package in place (``xlsx_patch``):
 formulas, styles, charts and images of everything not overwritten survive. ods/csv edits
@@ -149,13 +149,9 @@ class SpreadsheetProcessor(BaseService):
             finally:
                 workbook.close()
 
-        import pandas
+        from app.services.file import ods
 
-        frames = pandas.read_excel(io.BytesIO(content), sheet_name=None, engine="odf", header=None)
-        return {
-            name: take(frame.astype(object).where(frame.notna(), None).values.tolist())
-            for name, frame in frames.items()
-        }
+        return ods.read(content, max_cells)
 
     @staticmethod
     def _serialize(data: dict[str, Rows], fmt: str, headers: dict[str, list[str]] | None) -> bytes:
@@ -181,15 +177,9 @@ class SpreadsheetProcessor(BaseService):
             workbook.save(output)
             return output.getvalue()
 
-        import pandas
+        from app.services.file import ods
 
-        output = io.BytesIO()
-        with pandas.ExcelWriter(output, engine="odf") as writer:
-            for name, rows in data.items():
-                pandas.DataFrame(with_headers(name, rows)).to_excel(
-                    writer, sheet_name=name, index=False, header=False
-                )
-        return output.getvalue()
+        return ods.write({name: with_headers(name, rows) for name, rows in data.items()})
 
     @staticmethod
     def _diff(rows: Rows, current: Rows) -> xlsx_patch.Edits:

@@ -20,6 +20,12 @@ All notable changes are recorded here. The format follows
   vulnerabilities in pinned dependencies, and a job that builds the Docker image and fails on
   HIGH or CRITICAL fixable vulnerabilities (Trivy).
 
+### Changed
+
+- ods spreadsheets are read and written with `odfpy` directly; pandas and numpy (about 110 MB)
+  are no longer dependencies. Repeated empty rows and columns no longer count against the
+  cell cap, and expanding a hostile file past the cap is refused before allocation.
+
 ### Fixed
 
 - `ruff` is pinned in `requirements-dev.txt`, and the pre-commit hook uses the same version
