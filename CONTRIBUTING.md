@@ -97,6 +97,13 @@ Diagrams are built from `docs/diagrams/src/` with the
 [diagram-design](https://github.com/cathrynlavery/diagram-design) skill installed:
 `python3 docs/diagrams/src/build.py` regenerates both light and dark versions.
 
+Continuous integration runs four independent gates on every push and pull request:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/ci-pipeline-dark.svg">
+  <img alt="CI: every push or pull request runs tests, the contract suite, a dependency audit and an image scan in parallel; all four must pass to merge; after a merge to develop a workflow refreshes the code graph." src="docs/diagrams/ci-pipeline.svg">
+</picture>
+
 ## Pull request checklist
 
 - [ ] Meets [docs/STANDARDS.md](docs/STANDARDS.md), including its definition of done

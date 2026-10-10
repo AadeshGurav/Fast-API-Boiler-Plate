@@ -1,13 +1,19 @@
 # Data model
 
-MongoDB database `app_database` (default `fastapi_boilerplate`). Collections are created on
-first write; their indexes are declared in `app/services/data/schema.py` and applied on every
+MongoDB database `app_database` (default `fastapi_boilerplate`), or, with
+`app_database_provider = "postgres"`, a PostgreSQL schema of that name holding one JSONB table per
+collection. Collections are created on first write; their indexes are declared in `app/services/data/schema.py` and applied on every
 start-up. Each collection is read and written only through its ops class in
 `app/services/data/`.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../diagrams/data-model-dark.svg">
   <img alt="Data model: users own sessions, login attempts, file versions, OAuth links, password-reset tokens and temporary permission grants." src="../diagrams/data-model.svg">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../diagrams/security-data-dark.svg">
+  <img alt="Security data: a user owns hashed API tokens, at most one encrypted two-factor record, and is the actor or target of append-only audit events." src="../diagrams/security-data.svg">
 </picture>
 
 Roles, groups and their permissions are **not** in the database: they are configuration

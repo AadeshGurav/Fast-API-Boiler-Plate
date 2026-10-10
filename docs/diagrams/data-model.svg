@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg viewBox="0 0 960 568" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="data-model-title data-model-desc" id="data-model-root"><title id="data-model-title">Seven collections, all hanging off a user</title><desc id="data-model-desc">Data model: users own sessions, login attempts, file versions, OAuth links, password-reset tokens and temporary permission grants; roles and groups are configuration, not collections.</desc><defs>
+<svg viewBox="0 0 960 568" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="data-model-title data-model-desc" id="data-model-root"><title id="data-model-title">The core collections all hang off a user</title><desc id="data-model-desc">Core data model (security records are in the next diagram): users own sessions, login attempts, file versions, OAuth links, password-reset tokens and temporary permission grants; roles and groups are configuration, not collections.</desc><defs>
       <style>#data-model-root { font-family: 'Geist', system-ui, sans-serif; color: #2d3142; }
       #data-model-root .diagram-container { width: 100%; overflow-x: auto; }
       #data-model-root .diagram-container { overflow-x: visible; }</style>

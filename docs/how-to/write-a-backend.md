@@ -10,6 +10,11 @@ implementations; MongoDB and Redis are the defaults, not requirements. Two datab
 with very different engines (`app/database/mongodb.py`, `app/database/postgres.py`) pass the
 same contract suite: read either as a reference.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../diagrams/backend-contract-dark.svg">
+  <img alt="One contract suite runs against the in-memory stand-ins on every test run, against real MongoDB, PostgreSQL and Redis in CI, and against your own backend when you name it." src="../diagrams/backend-contract.svg">
+</picture>
+
 | To replace | Implement | Select it with |
 | --- | --- | --- |
 | Database (MongoDB) | `DatabaseInterface` (`app/core/interfaces/database_interface.py`) | `app_database_provider = "package.module:YourDatabase"` |
