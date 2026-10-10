@@ -80,7 +80,7 @@ jobs:
       - name: Audit dependencies
         run: |
           pip install pip-audit==2.10.1
-          pip-audit -r requirements.txt -r requirements-s3.txt -r requirements-postgres.txt
+          pip-audit -r requirements.txt -r requirements-s3.txt -r requirements-postgres.txt -r requirements-observability.txt
 
   image:
     # The shipped image must build and carry no HIGH or CRITICAL fixable vulnerability.

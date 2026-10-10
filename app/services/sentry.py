@@ -6,14 +6,8 @@ needed. PII is not sent (``send_default_pii=False``).
 
 from __future__ import annotations
 
+import sys
 from typing import TYPE_CHECKING
-
-import sentry_sdk
-from sentry_sdk.integrations.fastapi import FastApiIntegration
-from sentry_sdk.integrations.httpx import HttpxIntegration
-from sentry_sdk.integrations.pymongo import PyMongoIntegration
-from sentry_sdk.integrations.redis import RedisIntegration
-from sentry_sdk.scrubber import DEFAULT_DENYLIST, EventScrubber
 
 from app.services.base_service import BaseService
 
@@ -32,6 +26,14 @@ class SentryService(BaseService):
         if not self.enabled:
             logger.warning("sentry_enabled is on but sentry_dsn is not set: nothing is reported")
             return
+        # Imported here: the SDK is optional (requirements-observability.txt).
+        import sentry_sdk
+        from sentry_sdk.integrations.fastapi import FastApiIntegration
+        from sentry_sdk.integrations.httpx import HttpxIntegration
+        from sentry_sdk.integrations.pymongo import PyMongoIntegration
+        from sentry_sdk.integrations.redis import RedisIntegration
+        from sentry_sdk.scrubber import DEFAULT_DENYLIST, EventScrubber
+
         sentry_sdk.init(
             dsn=self.dsn,
             environment=config["sentry_environment"],
@@ -43,7 +45,13 @@ class SentryService(BaseService):
             # SDK's default denylist does not know. The scrubber is a second line.
             max_request_body_size="never",
             event_scrubber=EventScrubber(
-                denylist=[*DEFAULT_DENYLIST, "new_password", "current_password", "refresh_token"],
+                denylist=[
+                    *DEFAULT_DENYLIST,
+                    "new_password",
+                    "current_password",
+                    "refresh_token",
+                    "mfa_token",
+                ],
                 recursive=True,
             ),
             integrations=[
@@ -62,12 +70,14 @@ class SentryService(BaseService):
     def flush(self, timeout: float = 2.0) -> None:
         """Send queued events (call on shutdown)."""
         if self.enabled:
-            sentry_sdk.flush(timeout)
+            sys.modules["sentry_sdk"].flush(timeout)
 
 
 def set_user(user_id: str, username: str | None = None) -> None:
     """Attach the authenticated user to subsequent events (no-op while Sentry is off)."""
-    sentry_sdk.set_user({"id": user_id, "username": username})
+    sentry_sdk = sys.modules.get("sentry_sdk")  # loaded only by SentryService
+    if sentry_sdk is not None:
+        sentry_sdk.set_user({"id": user_id, "username": username})
 
 
 __all__ = ["SentryService", "set_user"]

@@ -13,7 +13,8 @@ log_level = "DEBUG"
 # bootstrap_admin_email = "admin@example.com"
 # bootstrap_admin_password = "change-me-Please1!"
 
-# Email for password resets (without it the message is only logged):
+# Email (password resets, the email.send job): `make up-mail` starts Mailpit, which catches
+# every message; read them at http://127.0.0.1:8025. Without smtp_host mail is only logged.
 # smtp_host = "localhost"
 # smtp_port = 1025
 # smtp_starttls = false

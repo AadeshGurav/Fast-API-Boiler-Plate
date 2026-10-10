@@ -4,14 +4,17 @@ from __future__ import annotations
 
 import re
 import uuid
+from typing import TYPE_CHECKING
 
 from starlette.requests import Request
 from starlette.types import Message, Receive, Send
 
 from app.services.logger import create_log_context, set_request_id
-from app.services.tracing import TracingService
 
 from .base import BaseMiddleware, set_headers
+
+if TYPE_CHECKING:
+    from app.services.tracing import TracingService
 
 REQUEST_ID_PATTERN = re.compile(r"[A-Za-z0-9._-]{8,64}")
 
