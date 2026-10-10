@@ -1,8 +1,25 @@
 # Competitive analysis and roadmap proposal (October 2026)
 
-Status: **proposal**, nothing here is approved. Items that add a dependency or change the
-architecture need an issue and agreement first (AGENTS.md, STANDARDS §9), and the large ones
-need an ADR.
+Status: **P0 and P1 delivered** on branch `docs/competitive-analysis` (2026-10-11); P2 and P3
+remain proposals. New dependencies (`asyncpg`, `cryptography`, `pip-audit`, `pytest-cov`) were
+approved by the maintainer for this work; the large items have ADRs.
+
+## Progress
+
+| Item | State | Where |
+| --- | --- | --- |
+| P0-1 CI hygiene | Done: 3.11 + 3.13 matrix, coverage, pip-audit, Trivy image scan, `ruff` pinned (pre-commit was v0.9.10) | `.github/workflows/ci.yml` |
+| P0-2 Drop pandas | Done: odfpy-only reader/writer with a pre-allocation cell cap; about 110 MB less | `app/services/file/ods.py`, ADR 0003 amendment |
+| P0-3 Real-engine contract tests | Done: database, cache and whole-app suites on fake, MongoDB 8, PostgreSQL 17, Redis 7 | `tests/contract/` |
+| P1-1 PostgreSQL | Done: JSONB document tables, passes the same contract | `app/database/postgres.py`, ADR 0006 |
+| P1-2 Background jobs | Done, with one deviation: the password-reset email stays inline, because its payload would hold a live reset token and tokens are stored only hashed. A built-in `email.send` job is the first handler instead | `app/services/jobs.py`, ADR 0007 |
+| P1-3 MFA | Done: TOTP, recovery codes, admin reset (added: users who lose both factors would otherwise be locked out forever) | `app/services/auth/mfa.py` |
+| P1-4 API tokens | Done | `app/services/auth/api_tokens.py` |
+| P1-5 Audit log | Done, with one deviation: `login_attempts` stays as the sign-in log (it drives lockout); `audit_events` covers changes | `app/services/audit.py` |
+| P1-6 OpenAPI snapshot | Done | `docs/reference/openapi.json`, `make openapi` |
+| P2-5 Mailpit | Done | `make up-mail` |
+| P2-6 Observability extra | Done | `requirements-observability.txt` |
+| P2-1 Schemathesis, P2-2 OIDC, P2-3 uv, P2-4 passkeys, P2-7 cursor pagination, P3 | Open | this document |
 
 ## 1. Who we compete with
 
@@ -36,7 +53,8 @@ threads. The same points come up again and again:
 
 ## 2. Gaps found in our own repository while checking
 
-These are facts from the code, not opinions:
+These are facts from the code at the start of the work, not opinions; each is fixed on this
+branch (see Progress).
 
 - **The real MongoDB and Redis are never tested.** All 177 test functions run against
   in-memory stand-ins. A Motor or Redis behaviour change would reach users before CI noticed.
