@@ -1,3 +1,33 @@
+[project]
+name = "fastapi-boilerplate"
+version = "1.0.0"  # keep in step with app_version in app/settings.py
+description = "Production-ready FastAPI + MongoDB + Redis boilerplate: JWT sessions, RBAC, file storage, rate limiting, RFC 9457 errors."
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [{name = "Aadesh Gurav"}]
+keywords = [
+    "fastapi", "boilerplate", "template", "starter", "fastapi-boilerplate", "fastapi-template",
+    "mongodb", "redis", "jwt", "authentication", "rbac", "oauth2", "s3", "rate-limiting",
+    "rest-api", "production-ready", "python",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Framework :: FastAPI",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+]
+# Runtime dependencies are pinned in requirements.txt (see the Makefile).
+
+[project.urls]
+Homepage = "https://github.com/AadeshGurav/Fast-API-Boiler-Plate"
+Documentation = "https://github.com/AadeshGurav/Fast-API-Boiler-Plate/blob/develop/docs/README.md"
+Changelog = "https://github.com/AadeshGurav/Fast-API-Boiler-Plate/blob/develop/CHANGELOG.md"
+Issues = "https://github.com/AadeshGurav/Fast-API-Boiler-Plate/issues"
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"
