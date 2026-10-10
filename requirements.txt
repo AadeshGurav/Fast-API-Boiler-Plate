@@ -25,8 +25,7 @@ argon2-cffi==25.1.0
 aiofiles==25.1.0
 pillow==12.3.0
 openpyxl==3.1.5
-pandas==3.0.6                 # ODS spreadsheets only
-odfpy==1.4.1                  # ODS spreadsheets only
+odfpy==1.4.1                  # ODS spreadsheets
 
 # Observability
 sentry-sdk==2.71.0
