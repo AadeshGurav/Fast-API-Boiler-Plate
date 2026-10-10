@@ -44,7 +44,7 @@ class TracingService(BaseService):
                 )
             )
         else:
-            logger.warning("tracing_service is on but otlp_endpoint is not set: spans are dropped")
+            logger.warning("tracing_enabled is on but otlp_endpoint is not set: spans are dropped")
         self.provider = provider
 
     def instrument_app(self, app: FastAPI) -> None:

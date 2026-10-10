@@ -86,7 +86,7 @@ async def metrics_endpoint(services: Services = Depends(get_services)) -> Respon
     """Prometheus metrics (admin only, see ``admin_only_paths``)."""
     if services.metrics_service is None:
         return Response(
-            content="# metrics are disabled; set metrics_service=true\n",
+            content="# metrics are disabled; set metrics_enabled = true\n",
             media_type="text/plain",
         )
     return Response(

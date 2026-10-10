@@ -30,7 +30,7 @@ class SentryService(BaseService):
         self.dsn: str | None = config["sentry_dsn"]
         self.enabled = bool(self.dsn)
         if not self.enabled:
-            logger.warning("sentry_service is on but sentry_dsn is not set: nothing is reported")
+            logger.warning("sentry_enabled is on but sentry_dsn is not set: nothing is reported")
             return
         sentry_sdk.init(
             dsn=self.dsn,
