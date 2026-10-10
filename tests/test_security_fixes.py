@@ -374,7 +374,7 @@ def test_localhost_origins_are_only_trusted_in_debug(tmp_path):
 
     from tests.conftest import build_test_app
 
-    app, _ = build_test_app(tmp_path)
+    app, _ = build_test_app(tmp_path, app_debug=False)  # config.local.toml turns debug on
     reply = TestClient(app).get("/api/v1/auth/me", headers={"Origin": "http://localhost:3000"})
     assert "access-control-allow-origin" not in reply.headers
 
