@@ -1,8 +1,0 @@
-{
-  "mongo_host": "localhost",
-  "mongo_port": 27017,
-  "mongo_username": "root",
-  "mongo_password": "ag",
-  "mongo_auth_source": "admin",
-  "mongo_direct_connection": true
-}

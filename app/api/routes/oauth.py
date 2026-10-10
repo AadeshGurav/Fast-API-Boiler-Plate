@@ -5,37 +5,23 @@ from __future__ import annotations
 import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 
-from app import container
-from app.models.auth import LoginResponse
+from app.api.deps import get_auth_service, get_oauth_service
 from app.models.oauth import OAuthProvider
-from app.models.session import DeviceInfo
-from app.models.user import UserPublic
 from app.services.auth import AuthService
-from app.services.data import DataService
 from app.services.oauth import OAuthService
-from app.utils.dependencies import get_oauth_service
+from app.utils.cookie_manager import CookieManager
 from app.utils.permissions import get_current_user
+from app.utils.utils import extract_device_info
 
 router = APIRouter(prefix="/oauth", tags=["OAuth"])
 
+STATE_COOKIE_MAX_AGE_SECONDS = 600
 
-def get_device_info(request: Request) -> DeviceInfo:
-    """Extract device information from request."""
-    user_agent = request.headers.get("user-agent", "")
-    ip_address = request.client.host if request.client else "unknown"
 
-    # Simple fingerprint generation
-    fingerprint = f"{ip_address}:{user_agent[:50]}"
-
-    return DeviceInfo(
-        user_agent=user_agent,
-        ip_address=ip_address,
-        fingerprint=fingerprint,
-        platform=None,
-        browser=None,
-    )
+def _state_cookie_name(provider: str) -> str:
+    return f"oauth_state_{provider}"
 
 
 @router.get("/{provider}/authorize")
@@ -65,22 +51,31 @@ async def authorize_oauth(
         # Validate provider
         try:
             oauth_provider = OAuthProvider(provider)
-        except ValueError:
+        except ValueError as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Unsupported OAuth provider: {provider}",
-            )
+            ) from e
 
-        # Generate state parameter for CSRF protection
+        # CSRF protection: bind the state to this browser with an HttpOnly cookie and
+        # compare it in the callback. An attacker can't make a victim's browser
+        # carry a cookie they chose, so a forged callback fails the comparison.
         state = secrets.token_urlsafe(32)
-
-        # Store state in session or cache for verification
-        # This is a simplified approach - in production, store in Redis with expiry
-
-        # Get authorization URL
         auth_url = oauth_service.get_authorization_url(oauth_provider, state)
 
-        return RedirectResponse(url=auth_url)
+        response = RedirectResponse(url=auth_url)
+        from app.utils.cookie_manager import default_cookie_secure
+
+        config = request.app.state.services.config
+        response.set_cookie(
+            _state_cookie_name(provider),
+            state,
+            max_age=STATE_COOKIE_MAX_AGE_SECONDS,
+            httponly=True,
+            secure=default_cookie_secure(config),
+            samesite="lax",  # must accompany the provider's top-level redirect back
+        )
+        return response
 
     except HTTPException:
         raise
@@ -98,7 +93,7 @@ async def oauth_callback(
     state: str,
     request: Request,
     oauth_service: OAuthService = Depends(get_oauth_service),
-    auth_service: AuthService = Depends(lambda: container.auth_service()),
+    auth_service: AuthService = Depends(get_auth_service),
 ):
     """Handle OAuth callback and complete authentication.
 
@@ -124,14 +119,18 @@ async def oauth_callback(
         # Validate provider
         try:
             oauth_provider = OAuthProvider(provider)
-        except ValueError:
+        except ValueError as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Unsupported OAuth provider: {provider}",
-            )
+            ) from e
 
-        # Verify state parameter (in production, check against stored state)
-        # This is a simplified approach
+        expected_state = request.cookies.get(_state_cookie_name(provider))
+        if not expected_state or not secrets.compare_digest(expected_state, state):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired OAuth state. Start the sign-in again.",
+            )
 
         # Exchange code for token
         oauth_token = await oauth_service.exchange_code_for_token(oauth_provider, code)
@@ -144,99 +143,19 @@ async def oauth_callback(
         # Create or link user
         user = await oauth_service.create_or_link_user(oauth_user_info, oauth_provider)
 
-        # Update OAuth tokens
-        await oauth_service.update_oauth_tokens(user.id, oauth_provider, oauth_token)
-
-        # Create session and tokens
-        device_info = get_device_info(request)
-
-        # Create login request for auth service
-        from app.models.auth import LoginRequest
-
-        login_request = LoginRequest(  # noqa: F841
-            username=user.username,
-            password="",  # OAuth users don't have passwords
-            device_info=device_info,
-        )
-
-        # For OAuth users, we need to create a special login flow
-        # This is a simplified approach - in production, you'd handle OAuth users differently
-
-        # Create user public data
-        user_public = UserPublic(
-            id=user.id,
-            username=user.username,
-            email=user.email,
-            roles=user.roles,
-            groups=user.groups,
-            status=user.status,
-            created_at=user.created_at,
-            updated_at=user.updated_at,
-        )
-
-        # Resolve permissions
-        permissions = []
-        rbac_service = container.rbac_service()
-        if rbac_service:
-            permissions = await rbac_service.resolve_user_permissions(user.id)
-
-        # Create token payload
-        from datetime import datetime, timedelta, timezone
-
-        from app.models.auth import TokenPayload
-
-        token_payload = TokenPayload(
-            user_id=user.id,
-            username=user.username,
-            roles=user.roles,
-            permissions=permissions,
-            exp=datetime.now(timezone.utc) + timedelta(minutes=15),
-            iat=datetime.now(timezone.utc),
-            type="access",
-        )
-
-        # Create tokens
-        access_token = auth_service.create_access_token(token_payload.dict())
-        refresh_token = auth_service.create_refresh_token(token_payload.dict())
-
-        # Create session
-        data_service: DataService = container.data_service()
-        session_data = {
-            "user_id": user.id,
-            "refresh_token": refresh_token,
-            "device_info": device_info.dict(),
-            "expires_at": datetime.now(timezone.utc) + timedelta(hours=168),  # 7 days
-        }
-
-        await data_service.sessions.create_session(session_data)  # noqa: F841
-
-        # Create token pair
-        from app.models.auth import TokenPair
-
-        token_pair = TokenPair(
-            access_token=access_token,
-            refresh_token=refresh_token,
-            token_type="Bearer",
-            expires_in=15 * 60,  # 15 minutes
-        )
-
-        login_response = LoginResponse(
-            user=user_public, tokens=token_pair, permissions=permissions
-        )
-
-        # Set cookies for server-side rendered pages
-        from fastapi.responses import JSONResponse
-
-        from app.utils.cookie_manager import CookieManager
+        # Same session/token machinery as password login
+        login_response = await auth_service.login_oauth_user(user, extract_device_info(request))
 
         response = JSONResponse(content=login_response.model_dump(mode="json"))
-        CookieManager.set_auth_cookies(response, token_pair)
-
+        CookieManager.set_auth_cookies(
+            response, login_response.tokens, request.app.state.services.config
+        )
+        response.delete_cookie(_state_cookie_name(provider))  # state is single-use
         return response
 
     except HTTPException:
         raise
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="OAuth callback failed",
@@ -272,15 +191,17 @@ async def link_oauth_account(
         # Validate provider
         try:
             oauth_provider = OAuthProvider(provider)  # noqa: F841
-        except ValueError:
+        except ValueError as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Unsupported OAuth provider: {provider}",
-            )
+            ) from e
 
-        # This would need to be implemented with proper OAuth flow
-        # For now, we'll return a success message
-        return {"message": f"OAuth account linked successfully: {provider}"}
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail="Linking a provider to a signed-in account is not supported yet. "
+            "Sign in with the provider using the same verified email to link it.",
+        )
 
     except HTTPException:
         raise
@@ -320,16 +241,14 @@ async def unlink_oauth_account(
         # Validate provider
         try:
             oauth_provider = OAuthProvider(provider)
-        except ValueError:
+        except ValueError as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Unsupported OAuth provider: {provider}",
-            )
+            ) from e
 
         # Unlink OAuth account
-        success = await oauth_service.unlink_oauth_account(
-            current_user["user_id"], oauth_provider
-        )
+        success = await oauth_service.unlink_oauth_account(current_user.user_id, oauth_provider)
 
         if not success:
             raise HTTPException(

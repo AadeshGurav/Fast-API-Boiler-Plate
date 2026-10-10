@@ -9,80 +9,48 @@ from app.services.base_service import BaseService
 from app.services.logger import Logger
 from config import Config
 
+from .files_ops import FilesOps
+from .migrations import run_migrations
+from .oauth_ops import OAuthOps
 from .policies import CachePolicy
+from .schema import COLLECTION_INDEXES
+from .sessions_ops import SessionsOps
+from .temp_permissions_ops import TemporaryPermissionsOps
+from .users_ops import UsersOps
+
+
+def _convert_datetime_strings(obj: Any) -> Any:
+    """Recursively turn ISO strings under ``*_at`` / ``*_date`` / ``exp`` keys into datetimes.
+
+    The cache stores JSON, which flattens datetimes to strings; reads from cache and
+    database must hand callers the same types.
+    """
+    if isinstance(obj, dict):
+        result = {}
+        for key, value in obj.items():
+            if isinstance(value, str) and (
+                key.endswith("_at") or key.endswith("_date") or key == "exp"
+            ):
+                try:
+                    result[key] = datetime.fromisoformat(value.replace("Z", "+00:00"))
+                except ValueError:
+                    result[key] = value
+            else:
+                result[key] = _convert_datetime_strings(value)
+        return result
+    if isinstance(obj, list):
+        return [_convert_datetime_strings(item) for item in obj]
+    return obj
 
 
 def _normalize_record(record: dict[str, Any] | None) -> dict[str, Any] | None:
-    """Normalize MongoDB record to application format.
+    """Give cached and database records the same shape; collection-agnostic.
 
-    Args:
-    ----
-        record: MongoDB record dictionary.
-
-    Returns:
-    -------
-        Application-compatible record dictionary.
-
+    Collection-specific rules (e.g. user fields) live in that collection's ops.
     """
     if not record:
         return None
-
-    normalized = record.copy()
-    if "_id" in normalized:
-        normalized["id"] = str(normalized.pop("_id"))
-
-    if "password" in normalized and "password_hash" not in normalized:
-        normalized["password_hash"] = normalized.pop("password")
-
-    if "email" not in normalized and "profile" in normalized:
-        profile = normalized.get("profile", {})
-        if isinstance(profile, dict) and "email" in profile:
-            normalized["email"] = profile["email"]
-
-    # Handle login_attempts - convert from int to list if needed (for User model)
-    if "login_attempts" in normalized and isinstance(normalized["login_attempts"], int):
-        # Old format: convert integer counter to empty list
-        normalized["login_attempts"] = []
-
-    # Handle login_attempts_history (new format) - prioritize it as source of truth
-    if "login_attempts_history" in normalized:
-        history = normalized["login_attempts_history"]
-        if isinstance(history, list) and len(history) > 0:
-            # login_attempts_history is source of truth - use it
-            normalized["login_attempts"] = history
-        # Remove the history field after merging
-        normalized.pop("login_attempts_history", None)
-    elif "login_attempts" not in normalized:
-        # No history and no attempts - initialize empty list
-        normalized["login_attempts"] = []
-
-    # Ensure sessions array exists
-    if "sessions" not in normalized:
-        normalized["sessions"] = []
-
-    def _convert_datetime_strings(obj: Any) -> Any:
-        """Recursively convert datetime strings to datetime objects."""
-        if isinstance(obj, dict):
-            result = {}
-            for key, value in obj.items():
-                if isinstance(value, str) and (
-                    key.endswith("_at") or key.endswith("_date") or key == "exp"
-                ):
-                    try:
-                        value = value.replace("Z", "+00:00")
-                        result[key] = datetime.fromisoformat(value)
-                    except (ValueError, AttributeError):
-                        result[key] = _convert_datetime_strings(value)
-                else:
-                    result[key] = _convert_datetime_strings(value)
-            return result
-        elif isinstance(obj, list):
-            return [_convert_datetime_strings(item) for item in obj]
-        return obj
-
-    normalized = _convert_datetime_strings(normalized)
-
-    return normalized
+    return _convert_datetime_strings(record)
 
 
 def _default_cache_key(collection: str, filters: dict[str, Any]) -> str:
@@ -99,7 +67,7 @@ def _default_cache_key(collection: str, filters: dict[str, Any]) -> str:
 
     """
     payload = json.dumps([collection, filters], sort_keys=True, default=str)
-    return hashlib.md5(payload.encode()).hexdigest()
+    return hashlib.md5(usedforsecurity=False, string=payload.encode()).hexdigest()
 
 
 class DataService(BaseService):
@@ -126,46 +94,11 @@ class DataService(BaseService):
 
         """
         super().__init__(config, logger, *args, **kwargs)
-        # Attach ops (lazy imported to keep this file small)
-        try:
-            from . import users_ops
-
-            self.users = users_ops.UsersOps(self)
-        except ImportError as e:
-            self.logger.warning(f"Failed to import users_ops: {e}")
-            self.users = None
-
-        try:
-            from . import sessions_ops
-
-            self.sessions = sessions_ops.SessionsOps(self)
-        except ImportError as e:
-            self.logger.warning(f"Failed to import sessions_ops: {e}")
-            self.sessions = None
-
-        try:
-            from . import rbac_ops
-
-            self.rbac = rbac_ops.RBACOps(self)
-        except ImportError as e:
-            self.logger.warning(f"Failed to import rbac_ops: {e}")
-            self.rbac = None
-
-        try:
-            from . import oauth_ops
-
-            self.oauth = oauth_ops.OAuthOps(self)
-        except ImportError as e:
-            self.logger.warning(f"Failed to import oauth_ops: {e}")
-            self.oauth = None
-
-        try:
-            from . import files_ops
-
-            self.files = files_ops.FilesOps(self)
-        except ImportError as e:
-            self.logger.warning(f"Failed to import files_ops: {e}")
-            self.files = None
+        self.users = UsersOps(self)
+        self.sessions = SessionsOps(self)
+        self.temp_permissions = TemporaryPermissionsOps(self)
+        self.oauth = OAuthOps(self)
+        self.files = FilesOps(self)
 
         self.logger.info("DataService initialized", extra={"service": "DataService"})
 
@@ -180,7 +113,8 @@ class DataService(BaseService):
         """
         await self.database_service.connect()
         await self.cache_service.connect()
-        await self.database_service.initialize_application_data()
+        await run_migrations(self.database_service, self.logger)
+        await self.database_service.ensure_indexes(COLLECTION_INDEXES)
         self.logger.info("DataService: All backends connected and initialized.")
 
     async def close(self: DataService) -> None:
@@ -194,6 +128,14 @@ class DataService(BaseService):
         await self.database_service.close()
         await self.cache_service.close()
         self.logger.info("DataService: All backends closed.")
+
+    @property
+    def is_connected(self: DataService) -> dict[str, bool]:
+        """Whether each backend has opened its connection."""
+        return {
+            "database": self.database_service.is_connected,
+            "cache": self.cache_service.is_connected,
+        }
 
     # ---- Core CRUD with cache policy ----------------------------------
     async def get(
@@ -242,6 +184,9 @@ class DataService(BaseService):
         *,
         key: str | None = None,
         policy: CachePolicy = CachePolicy.DB_ONLY,
+        limit: int | None = None,
+        skip: int = 0,
+        sort: list[tuple[str, int]] | None = None,
     ) -> list[dict]:
         """Find multiple records from collection with cache policy.
 
@@ -259,17 +204,16 @@ class DataService(BaseService):
         """
         # By default, lists come from DB to avoid cache stampede complexity
         if policy == CachePolicy.CACHE_ONLY:
-            cached = await self.cache_service.get(
-                key or _default_cache_key(collection, filters)
-            )
+            cached = await self.cache_service.get(key or _default_cache_key(collection, filters))
             if cached:
                 return [_normalize_record(record) for record in cached]
             return []
-        records = await self.database_service.find_many(collection, filters)
-        if policy == CachePolicy.AUTO:
-            await self.cache_service.set(
-                key or _default_cache_key(collection, filters), records
-            )
+        # Lists are never read through the cache: any write to the collection would
+        # leave them stale and there is no per-collection invalidation. CACHE_ONLY
+        # remains for callers that manage their own list keys.
+        records = await self.database_service.find_many(
+            collection, filters, limit=limit, skip=skip, sort=sort
+        )
         # Normalize all records before returning
         return [_normalize_record(record) for record in (records or [])]
 
@@ -308,8 +252,83 @@ class DataService(BaseService):
         # Write to DB
         result = await self.database_service.upsert_record(collection, filters, data)
         if result and policy != CachePolicy.DB_ONLY:
-            await self.cache_service.set(cache_key, data, ttl)
+            # ``data`` may be a partial update, so caching it would serve a
+            # truncated record. Drop the entry; the next read repopulates it.
+            await self.cache_service.delete(cache_key)
         return result
+
+    async def count(self: DataService, collection: str, filters: dict[str, Any]) -> int:
+        """Number of records matching ``filters`` (always from the database)."""
+        return await self.database_service.count(collection, filters)
+
+    async def insert(self: DataService, collection: str, data: dict[str, Any]) -> bool:
+        """Insert a new record (append-only data such as audit logs); never cached."""
+        return await self.database_service.insert_record(collection, data)
+
+    async def increment(
+        self: DataService,
+        collection: str,
+        filters: dict[str, Any],
+        field: str,
+        amount: int = 1,
+        *,
+        key: str | None = None,
+    ) -> int | None:
+        """Atomically add to a numeric field and drop the record's cache entry.
+
+        Returns:
+        -------
+            The new value, or None if no record matched.
+
+        """
+        value = await self.database_service.increment_field(collection, filters, field, amount)
+        await self.cache_service.delete(key or _default_cache_key(collection, filters))
+        return value
+
+    async def update(
+        self: DataService,
+        collection: str,
+        filters: dict[str, Any],
+        data: dict[str, Any],
+        *,
+        key: str | None = None,
+        policy: CachePolicy = CachePolicy.AUTO,
+    ) -> bool:
+        """Update an existing record; returns False (and writes nothing) if absent.
+
+        Unlike ``set`` this never creates a record, so a stale or mistyped ID cannot
+        leave a half-empty document behind.
+
+        Args:
+        ----
+            collection: Collection name.
+            filters: Filter selecting the record.
+            data: Fields to change.
+            key: Optional cache key.
+            policy: Cache policy to use.
+
+        Returns:
+        -------
+            True if a record matched and was updated.
+
+        """
+        result = await self.database_service.update_record(collection, filters, data)
+        if result and policy != CachePolicy.DB_ONLY:
+            await self.cache_service.delete(key or _default_cache_key(collection, filters))
+        return result
+
+    async def update_many(
+        self: DataService,
+        collection: str,
+        filters: dict[str, Any],
+        data: dict[str, Any],
+    ) -> int:
+        """Apply ``data`` to every matching record in one round trip; returns the match count.
+
+        Bulk writes bypass the record cache, so use them only on collections read with
+        ``CachePolicy.DB_ONLY`` (or whose cached entries are short-lived).
+        """
+        return await self.database_service.update_many(collection, filters, data)
 
     async def delete(
         self: DataService,
@@ -343,453 +362,6 @@ class DataService(BaseService):
         if result and policy != CachePolicy.DB_ONLY:
             await self.cache_service.delete(cache_key)
         return result
-
-    # Facade passthroughs for ops (to minimize app changes)
-    # USERS
-    async def create_user(
-        self: DataService, *args: dict[str, Any], **kwargs: dict[str, Any]
-    ) -> Any:
-        """Create a user.
-
-        Args:
-        ----
-            *args: Positional arguments.
-            **kwargs: Keyword arguments.
-
-        Returns:
-        -------
-            User ID.
-
-        """
-        return await self.users.create_user(*args, **kwargs)
-
-    async def get_user_by_id(
-        self: DataService, *args: dict[str, Any], **kwargs: dict[str, Any]
-    ) -> Any:
-        """Get user by ID.
-
-        Args:
-        ----
-            *args: Positional arguments.
-            **kwargs: Keyword arguments.
-
-        Returns:
-        -------
-            User dictionary or None.
-
-        """
-        return await self.users.get_user_by_id(*args, **kwargs)
-
-    async def get_user_by_username(
-        self: DataService, *args: dict[str, Any], **kwargs: dict[str, Any]
-    ) -> Any:
-        """Get user by username.
-
-        Args:
-        ----
-            *args: Positional arguments.
-            **kwargs: Keyword arguments.
-
-        Returns:
-        -------
-            User dictionary or None.
-
-        """
-        return await self.users.get_user_by_username(*args, **kwargs)
-
-    async def get_user_by_email(
-        self: DataService, *args: dict[str, Any], **kwargs: dict[str, Any]
-    ) -> Any:
-        """Get user by email.
-
-        Args:
-        ----
-            *args: Positional arguments.
-            **kwargs: Keyword arguments.
-
-        Returns:
-        -------
-            User dictionary or None.
-
-        """
-        return await self.users.get_user_by_email(*args, **kwargs)
-
-    async def update_user(
-        self: DataService, *args: dict[str, Any], **kwargs: dict[str, Any]
-    ) -> Any:
-        """Update user.
-
-        Args:
-        ----
-            *args: Positional arguments.
-            **kwargs: Keyword arguments.
-
-        Returns:
-        -------
-            True if successful, False otherwise.
-
-        """
-        return await self.users.update_user(*args, **kwargs)
-
-    async def delete_user(
-        self: DataService, *args: dict[str, Any], **kwargs: dict[str, Any]
-    ) -> Any:
-        """Delete user.
-
-        Args:
-        ----
-            *args: Positional arguments.
-            **kwargs: Keyword arguments.
-
-        Returns:
-        -------
-            True if successful, False otherwise.
-
-        """
-        return await self.users.delete_user(*args, **kwargs)
-
-    # SESSIONS
-    async def create_session(
-        self: DataService, *args: dict[str, Any], **kwargs: dict[str, Any]
-    ) -> Any:
-        """Create a session.
-
-        Args:
-        ----
-            *args: Positional arguments.
-            **kwargs: Keyword arguments.
-
-        Returns:
-        -------
-            Session ID.
-
-        """
-        return await self.sessions.create_session(*args, **kwargs)
-
-    async def get_session(
-        self: DataService, *args: dict[str, Any], **kwargs: dict[str, Any]
-    ) -> Any:
-        """Get session by ID.
-
-        Args:
-        ----
-            *args: Positional arguments.
-            **kwargs: Keyword arguments.
-
-        Returns:
-        -------
-            Session dictionary or None.
-
-        """
-        return await self.sessions.get_session(*args, **kwargs)
-
-    async def get_user_sessions(
-        self: DataService, *args: dict[str, Any], **kwargs: dict[str, Any]
-    ) -> Any:
-        """Get all sessions for a user.
-
-        Args:
-        ----
-            *args: Positional arguments.
-            **kwargs: Keyword arguments.
-
-        Returns:
-        -------
-            List of session dictionaries.
-
-        """
-        return await self.sessions.get_user_sessions(*args, **kwargs)
-
-    async def update_session(
-        self: DataService, *args: dict[str, Any], **kwargs: dict[str, Any]
-    ) -> Any:
-        """Update session.
-
-        Args:
-        ----
-            *args: Positional arguments.
-            **kwargs: Keyword arguments.
-
-        Returns:
-        -------
-            True if successful, False otherwise.
-
-        """
-        return await self.sessions.update_session(*args, **kwargs)
-
-    async def revoke_session(
-        self: DataService, *args: dict[str, Any], **kwargs: dict[str, Any]
-    ) -> Any:
-        """Revoke session.
-
-        Args:
-        ----
-            *args: Positional arguments.
-            **kwargs: Keyword arguments.
-
-        Returns:
-        -------
-            True if successful, False otherwise.
-
-        """
-        return await self.sessions.revoke_session(*args, **kwargs)
-
-    async def revoke_user_sessions(
-        self: DataService, *args: dict[str, Any], **kwargs: dict[str, Any]
-    ) -> Any:
-        """Revoke all sessions for a user.
-
-        Args:
-        ----
-            *args: Positional arguments.
-            **kwargs: Keyword arguments.
-
-        Returns:
-        -------
-            Number of sessions revoked.
-
-        """
-        return await self.sessions.revoke_user_sessions(*args, **kwargs)
-
-    # RBAC
-    async def sync_roles_to_db(
-        self: DataService, *args: dict[str, Any], **kwargs: dict[str, Any]
-    ) -> Any:
-        """Sync roles to database.
-
-        Args:
-        ----
-            *args: Positional arguments.
-            **kwargs: Keyword arguments.
-
-        Returns:
-        -------
-            True if successful, False otherwise.
-
-        """
-        return await self.rbac.sync_roles_to_db(*args, **kwargs)
-
-    async def sync_permissions_to_db(
-        self: DataService, *args: dict[str, Any], **kwargs: dict[str, Any]
-    ) -> Any:
-        """Sync permissions to database.
-
-        Args:
-        ----
-            *args: Positional arguments.
-            **kwargs: Keyword arguments.
-
-        Returns:
-        -------
-            True if successful, False otherwise.
-
-        """
-        return await self.rbac.sync_permissions_to_db(*args, **kwargs)
-
-    async def sync_groups_to_db(
-        self: DataService, *args: dict[str, Any], **kwargs: dict[str, Any]
-    ) -> Any:
-        """Sync groups to database.
-
-        Args:
-        ----
-            *args: Positional arguments.
-            **kwargs: Keyword arguments.
-
-        Returns:
-        -------
-            True if successful, False otherwise.
-
-        """
-        return await self.rbac.sync_groups_to_db(*args, **kwargs)
-
-    async def get_role(
-        self: DataService, *args: dict[str, Any], **kwargs: dict[str, Any]
-    ) -> Any:
-        """Get role by ID.
-
-        Args:
-        ----
-            *args: Positional arguments.
-            **kwargs: Keyword arguments.
-
-        Returns:
-        -------
-            Role dictionary or None.
-
-        """
-        return await self.rbac.get_role(*args, **kwargs)
-
-    async def get_permission(
-        self: DataService, *args: dict[str, Any], **kwargs: dict[str, Any]
-    ) -> Any:
-        """Get permission by ID.
-
-        Args:
-        ----
-            *args: Positional arguments.
-            **kwargs: Keyword arguments.
-
-        Returns:
-        -------
-            Permission dictionary or None.
-
-        """
-        return await self.rbac.get_permission(*args, **kwargs)
-
-    async def get_group(
-        self: DataService, *args: dict[str, Any], **kwargs: dict[str, Any]
-    ) -> Any:
-        """Get group by ID.
-
-        Args:
-        ----
-            *args: Positional arguments.
-            **kwargs: Keyword arguments.
-
-        Returns:
-        -------
-            Group dictionary or None.
-
-        """
-        return await self.rbac.get_group(*args, **kwargs)
-
-    async def create_temporary_permission(
-        self: DataService, *args: dict[str, Any], **kwargs: dict[str, Any]
-    ) -> Any:
-        """Create temporary permission.
-
-        Args:
-        ----
-            *args: Positional arguments.
-            **kwargs: Keyword arguments.
-
-        Returns:
-        -------
-            Temporary permission ID.
-
-        """
-        return await self.rbac.create_temporary_permission(*args, **kwargs)
-
-    async def get_active_temporary_permissions(
-        self: DataService, *args: dict[str, Any], **kwargs: dict[str, Any]
-    ) -> Any:
-        """Get active temporary permissions.
-
-        Args:
-        ----
-            *args: Positional arguments.
-            **kwargs: Keyword arguments.
-
-        Returns:
-        -------
-            List of temporary permission dictionaries.
-
-        """
-        return await self.rbac.get_active_temporary_permissions(*args, **kwargs)
-
-    async def revoke_temporary_permission(
-        self: DataService, *args: dict[str, Any], **kwargs: dict[str, Any]
-    ) -> Any:
-        """Revoke temporary permission.
-
-        Args:
-        ----
-            *args: Positional arguments.
-            **kwargs: Keyword arguments.
-
-        Returns:
-        -------
-            True if successful, False otherwise.
-
-        """
-        return await self.rbac.revoke_temporary_permission(*args, **kwargs)
-
-    # OAUTH
-    async def link_oauth_account(
-        self: DataService, *args: dict[str, Any], **kwargs: dict[str, Any]
-    ) -> Any:
-        """Link OAuth account.
-
-        Args:
-        ----
-            *args: Positional arguments.
-            **kwargs: Keyword arguments.
-
-        Returns:
-        -------
-            True if successful, False otherwise.
-
-        """
-        return await self.oauth.link_oauth_account(*args, **kwargs)
-
-    async def get_oauth_account(
-        self: DataService, *args: dict[str, Any], **kwargs: dict[str, Any]
-    ) -> Any:
-        """Get OAuth account.
-
-        Args:
-        ----
-            *args: Positional arguments.
-            **kwargs: Keyword arguments.
-
-        Returns:
-        -------
-            OAuth account dictionary or None.
-
-        """
-        return await self.oauth.get_oauth_account(*args, **kwargs)
-
-    async def get_user_oauth_accounts(
-        self: DataService, *args: dict[str, Any], **kwargs: dict[str, Any]
-    ) -> Any:
-        """Get all OAuth accounts for a user.
-
-        Args:
-        ----
-            *args: Positional arguments.
-            **kwargs: Keyword arguments.
-
-        Returns:
-        -------
-            List of OAuth account dictionaries.
-
-        """
-        return await self.oauth.get_user_oauth_accounts(*args, **kwargs)
-
-    async def unlink_oauth_account(
-        self: DataService, *args: dict[str, Any], **kwargs: dict[str, Any]
-    ) -> Any:
-        """Unlink OAuth account.
-
-        Args:
-        ----
-            *args: Positional arguments.
-            **kwargs: Keyword arguments.
-
-        Returns:
-        -------
-            True if successful, False otherwise.
-
-        """
-        return await self.oauth.unlink_oauth_account(*args, **kwargs)
-
-    async def update_oauth_tokens(
-        self: DataService, *args: dict[str, Any], **kwargs: dict[str, Any]
-    ) -> Any:
-        """Update OAuth tokens.
-
-        Args:
-        ----
-            *args: Positional arguments.
-            **kwargs: Keyword arguments.
-
-        Returns:
-        -------
-            True if successful, False otherwise.
-
-        """
-        return await self.oauth.update_oauth_tokens(*args, **kwargs)
 
 
 __all__ = ["DataService"]

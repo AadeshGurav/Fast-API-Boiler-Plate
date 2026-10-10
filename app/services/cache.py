@@ -1,152 +1,146 @@
+"""Namespaced access to the configured cache backend, with graceful degradation.
+
+The cache is an accelerator, not a source of truth, so losing it must slow the app down
+rather than take it down:
+
+* reads behave as misses (the database answers) and writes are skipped;
+* after a failure the backend is left alone for ``cache_failure_cooldown_seconds`` instead of
+  making every request wait out a timeout (the circuit is *open*);
+* a failed delete is logged loudly and left to expire by TTL, because failing a request whose
+  database write already succeeded would be worse;
+* operations that are meaningless without the cache (rate counting, idempotency claims) raise
+  ``CacheUnavailableError`` immediately so their callers can choose: the rate limiter fails
+  open, idempotent requests get a 503.
+"""
+
 from __future__ import annotations
 
-import functools
-import hashlib
-import json
+import time
 from typing import TYPE_CHECKING, Any
 
-from app.database.redis import Redis
+from app.cache import CacheInterface, CacheUnavailableError, RateDecision, create_cache
 from app.services.base_service import BaseService
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from app.services.logger import Logger
     from config import Config
 
 
 class CacheService(BaseService):
-    """Caching service using Redis."""
+    """Prefixes keys, applies the default TTL and delegates to a ``CacheInterface``."""
 
-    def __init__(
-        self: CacheService,
-        config: Config,
-        logger: Logger,
-        *args: dict[str, Any],
-        **kwargs: dict[str, Any],
-    ) -> None:
-        """Initialize the CacheService.
-
-        Args:
-        ----
-            config: The configuration to use.
-            logger: The logger to use.
-            *args: Additional arguments.
-            **kwargs: Additional keyword arguments.
-
-        """
-        super().__init__(config, logger, *args, **kwargs)
-
-        self.default_ttl: int = self.config.get("cache_default_ttl", 300)
-        self.prefix: str = self.config.get("cache_prefix", "cache:")
-
-        cache_provider = config.get("app_cache_provider")
-
-        if cache_provider == "redis":
-            self.backend: Redis = Redis(
-                host=config.get("redis_host"),
-                port=config.get("redis_port"),
-                db_name=config.get("app_database"),
-                password=config.get("redis_password"),
-                logger=logger,
-                config=config,
-            )
-        else:
-            raise ValueError(f"Invalid cache provider: {cache_provider}")
-
+    def __init__(self, config: Config, logger: Logger) -> None:
+        super().__init__(config, logger)
+        self.default_ttl: int = config["cache_default_ttl"]
+        self.prefix: str = config["cache_prefix"]
+        self.cooldown: int = config["cache_failure_cooldown_seconds"]
+        self.backend: CacheInterface = create_cache(config, logger)
+        self._skip_until = 0.0  # monotonic time before which the backend is not contacted
         self.logger.info("CacheService initialized", extra={"service": "CacheService"})
 
-    async def get(self: CacheService, key: str) -> Any:
-        """Get a value from cache."""
-        full_key = f"{self.prefix}{key}"
-        return await self.backend.get(full_key)
+    # ---- circuit ------------------------------------------------------------------------
+    @property
+    def available(self) -> bool:
+        """False while the cool-down after a backend failure is running."""
+        return time.monotonic() >= self._skip_until
 
-    async def set(
-        self: CacheService, key: str, value: Any, ttl: int | None = None
-    ) -> bool:
-        """Set a value in cache with TTL."""
-        full_key = f"{self.prefix}{key}"
-        return await self.backend.set(full_key, value, expire=ttl or self.default_ttl)
+    def _record_failure(self, operation: str, error: Exception) -> None:
+        self._skip_until = time.monotonic() + self.cooldown
+        self.logger.error(
+            f"Cache {operation} failed ({error!r}); not using the cache for {self.cooldown}s",
+            extra={"service": "CacheService", "operation": operation},
+        )
 
-    async def delete(self: CacheService, key: str) -> int:
-        """Delete a value from cache."""
-        full_key = f"{self.prefix}{key}"
-        return await self.backend.delete(full_key)
+    def _require_available(self) -> None:
+        if not self.available:
+            raise CacheUnavailableError("cache is cooling down after a failure")
 
-    async def clear_pattern(self: CacheService, pattern: str) -> int:
-        """Clear all keys matching a pattern.
+    # ---- degradable operations ------------------------------------------------------------
+    async def get(self, key: str) -> Any:
+        """The cached value, or None (also when the cache is down)."""
+        if not self.available:
+            return None
+        try:
+            return await self.backend.get(f"{self.prefix}{key}")
+        except Exception as e:
+            self._record_failure("get", e)
+            return None
 
-        Args:
-        ----
-            pattern: The pattern to match.
+    async def set(self, key: str, value: Any, ttl: int | None = None) -> bool:
+        """Cache ``value`` for ``ttl`` seconds (default ``cache_default_ttl``); False if skipped."""
+        if not self.available:
+            return False
+        try:
+            return await self.backend.set(f"{self.prefix}{key}", value, ttl or self.default_ttl)
+        except Exception as e:
+            self._record_failure("set", e)
+            return False
 
-        Returns:
-        -------
-            The number of keys deleted.
+    async def delete(self, key: str) -> int:
+        """Drop one key. If the cache is down the entry is left to expire by TTL."""
+        if not self.available:
+            return 0
+        try:
+            return await self.backend.delete(f"{self.prefix}{key}")
+        except Exception as e:
+            self._record_failure("delete", e)
+            return 0
+
+    async def clear_pattern(self, pattern: str) -> int:
+        """Drop every key whose name starts with ``pattern`` (a trailing ``*`` is allowed)."""
+        if not self.available:
+            return 0
+        try:
+            return await self.backend.delete_prefix(f"{self.prefix}{pattern.rstrip('*')}")
+        except Exception as e:
+            self._record_failure("clear_pattern", e)
+            return 0
+
+    # ---- operations with no fallback ----------------------------------------------------------
+    async def add(self, key: str, value: Any, ttl: int | None = None) -> bool:
+        """Cache ``value`` only if the key is absent; True if this call stored it.
+
+        Raises:
+        ------
+            CacheUnavailableError: The cache is down (the claim cannot be made).
 
         """
-        return await self.backend.delete_pattern(pattern)
-
-    def cached(self: CacheService, ttl: int | None = None) -> Callable:
-        """Decorator for caching function results."""
-
-        def decorator(func: Callable) -> Callable:
-            """Decorator for caching function results."""
-
-            @functools.wraps(func)
-            async def wrapper(*args: dict[str, Any], **kwargs: dict[str, Any]) -> Any:
-                """Wrapper for caching function results."""
-                # Generate a cache key based on function name and arguments
-                key_parts = [func.__module__, func.__name__]
-
-                # Add args and kwargs to key
-                if args:
-                    key_parts.append(str(args))
-                if kwargs:
-                    key_parts.append(str(sorted(kwargs.items())))
-
-                cache_key = hashlib.md5(json.dumps(key_parts).encode()).hexdigest()
-
-                # Try to get from cache
-                cached_result = await self.get(cache_key)
-                if cached_result is not None:
-                    self.logger.debug(f"Cache hit for {func.__name__}")
-                    return cached_result
-
-                # Cache miss, execute function
-                self.logger.debug(f"Cache miss for {func.__name__}")
-
-                result = await func(*args, **kwargs)
-
-                # Store in cache
-                await self.set(cache_key, result, ttl)
-
-                return result
-
-            return wrapper
-
-        return decorator
-
-    async def connect(self: CacheService) -> None:
-        """Connect to the Redis backend if needed."""
-        if not hasattr(self.backend, "connect"):
-            return
-
+        self._require_available()
         try:
-            await self.backend.connect()
-            self.logger.info("CacheService connected to Redis.")
+            return await self.backend.add(f"{self.prefix}{key}", value, ttl or self.default_ttl)
         except Exception as e:
-            self.logger.error(f"CacheService failed to connect: {e}")
-            raise
+            self._record_failure("add", e)
+            raise CacheUnavailableError(str(e)) from e
 
-    async def close(self: CacheService) -> None:
-        """Close the Redis backend connection if needed."""
-        if not hasattr(self.backend, "close"):
-            return
+    async def hit(self, key: str, limit: int, window: int, *, sliding: bool = True) -> RateDecision:
+        """Count a request against a rate limit (not prefixed with the cache namespace).
 
+        Raises:
+        ------
+            CacheUnavailableError: The cache is down (the limiter fails open).
+
+        """
+        self._require_available()
         try:
-            await self.backend.close()
-            self.logger.info("CacheService closed Redis connection.")
+            return await self.backend.hit(key, limit, window, sliding=sliding)
         except Exception as e:
-            self.logger.error(f"CacheService failed to close: {e}")
-            raise
+            self._record_failure("hit", e)
+            raise CacheUnavailableError(str(e)) from e
+
+    # ---- lifecycle ----------------------------------------------------------------------------
+    async def connect(self) -> None:
+        """Connect the backend."""
+        await self.backend.connect()
+
+    async def close(self) -> None:
+        """Close the backend."""
+        await self.backend.close()
+
+    async def health_check(self) -> bool:
+        """Whether the backend answers (asked directly, so recovery is noticed promptly)."""
+        return await self.backend.health_check()
+
+    @property
+    def is_connected(self) -> bool:
+        """Whether the backend is connected."""
+        return self.backend.is_connected

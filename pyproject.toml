@@ -1,0 +1,23 @@
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["graphify-out"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "S", "ASYNC", "UP", "RUF", "PLE"]
+ignore = [
+    "B008",    # Depends(...) in argument defaults is how FastAPI works
+    "E501",    # line length is the formatter's job
+    "RUF012",  # mutable class attributes on pydantic/dataclass-style models
+    "UP007",   # keep `X | Y` and Optional both acceptable
+    "S101",    # asserts are fine in tests; app code does not rely on them
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S105", "S106", "S311", "ASYNC"]
+"app/services/logger/**" = ["S110"]  # logging must never raise: swallowing is intentional
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+asyncio_mode = "auto"

@@ -6,13 +6,14 @@ Handles exceptions, logs them with context, and generates proper HTTP responses.
 from __future__ import annotations
 
 import traceback
-from collections.abc import Callable
+from http import HTTPStatus
 
-from fastapi import Request, Response
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException
+from starlette.requests import Request
+from starlette.types import Message, Receive, Send
 
 from app.api.middleware.base import BaseMiddleware
-from app.api.middleware.serialization import JSONEncoder
 from app.services.error.error_service import ErrorService
 from app.services.logger import create_log_context
 
@@ -36,7 +37,7 @@ class ErrorHandlerMiddleware(BaseMiddleware):
         """
         self.log_errors: bool = self.config.get("log_errors", True)
         self.include_traceback: bool = self.config.get("include_traceback", False)
-        self.app_debug: bool = self.config.get("app_debug", False)
+        self.app_debug: bool = self.config["app_debug"]
         self.error_service: ErrorService = kwargs.get("error_service")
 
         self.logger.info(
@@ -49,37 +50,30 @@ class ErrorHandlerMiddleware(BaseMiddleware):
             },
         )
 
-    async def process_request(
-        self: ErrorHandlerMiddleware, request: Request, call_next: Callable
-    ) -> Response:
-        """Process request with error handling.
+    async def handle(self, request: Request, receive: Receive, send: Send) -> None:
+        """Run the app; turn any escaping exception into a problem+json 500."""
+        response_started = False
 
-        Args:
-        ----
-            request: The incoming HTTP request.
-            call_next: The next callable in the middleware chain.
+        async def tracking_send(message: Message) -> None:
+            nonlocal response_started
+            response_started = response_started or message["type"] == "http.response.start"
+            await send(message)
 
-        Returns:
-        -------
-            The HTTP response.
-
-        """
         try:
-            response = await call_next(request)
-            return response
-
-        except Exception as exc:  # noqa: BLE001
+            await self.app(request.scope, receive, tracking_send)
+        except Exception as exc:
             if self.log_errors:
                 self._log_error(exc, request)
+            if response_started:
+                raise  # too late to change the response; let the server drop the connection
+            response = (
+                self.error_service.http_response(exc, instance=request.url.path)
+                if self.error_service
+                else self._create_error_response(exc)
+            )
+            await response(request.scope, receive, send)
 
-            if self.error_service:
-                return self.error_service.http_response(exc)
-
-            return self._create_error_response(exc)
-
-    def _log_error(
-        self: ErrorHandlerMiddleware, exc: Exception, request: Request
-    ) -> None:
+    def _log_error(self: ErrorHandlerMiddleware, exc: Exception, request: Request) -> None:
         """Log error with context.
 
         Args:
@@ -98,14 +92,12 @@ class ErrorHandlerMiddleware(BaseMiddleware):
                         path=request.url.path,
                         client_ip=request.client.host if request.client else "unknown",
                         user_agent=request.headers.get("user-agent", "unknown"),
-                        traceback=traceback.format_exc()
-                        if self.include_traceback
-                        else None,
+                        traceback=traceback.format_exc() if self.include_traceback else None,
                         middleware="ErrorHandlerMiddleware",
                     ),
                     exc_info=True,
                 )
-        except Exception as log_exc:  # noqa: BLE001
+        except Exception as log_exc:
             # Ensure logging failure does not break the application
             if logger:
                 logger.error(
@@ -113,9 +105,7 @@ class ErrorHandlerMiddleware(BaseMiddleware):
                     extra=create_log_context(middleware="ErrorHandlerMiddleware"),
                 )
 
-    def _create_error_response(
-        self: ErrorHandlerMiddleware, exc: Exception
-    ) -> JSONResponse:
+    def _create_error_response(self: ErrorHandlerMiddleware, exc: Exception) -> JSONResponse:
         """Create a standardized JSON error response.
 
         Args:
@@ -127,20 +117,24 @@ class ErrorHandlerMiddleware(BaseMiddleware):
             JSONResponse with HTTP 500 status.
 
         """
-        error_content: dict[str, any] = {
-            "error": "internal_error",
-            "message": "An unexpected error occurred.",
+        status_code = exc.status_code if isinstance(exc, HTTPException) else 500
+        error_content: dict[str, object] = {
+            "type": "about:blank",
+            "title": HTTPStatus(status_code).phrase,
+            "status": status_code,
+            "detail": exc.detail
+            if isinstance(exc, HTTPException)
+            else "An unexpected error occurred.",
+            "code": "http_error" if isinstance(exc, HTTPException) else "internal_error",
         }
 
         if self.app_debug:
-            error_content.update(
-                {
-                    "developer_message": str(exc),
-                    "traceback": traceback.format_exc(),
-                }
-            )
+            error_content["developer_message"] = str(exc)
+            error_content["traceback"] = traceback.format_exc()
 
-        # Serialize datetime objects and other non-JSON-serializable types
-        serialized_content = JSONEncoder.serialize(error_content)
-
-        return JSONResponse(status_code=500, content=serialized_content)
+        return JSONResponse(
+            status_code=status_code,
+            content=error_content,
+            media_type="application/problem+json",
+            headers=exc.headers if isinstance(exc, HTTPException) else None,
+        )

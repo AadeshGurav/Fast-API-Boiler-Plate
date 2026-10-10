@@ -1,67 +1,78 @@
-# FastAPI Enterprise Foundation
+# fastapi_boilerplate
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
-[![Status](https://img.shields.io/badge/status-active-brightgreen.svg)]()
+An API-only FastAPI service on MongoDB and Redis, built to be started in minutes and extended
+without surprises: typed configuration, sessions and RBAC, per-user files, pluggable backends,
+problem+json errors, and tests that need no running services.
 
-> **A modern, production-grade FastAPI boilerplate for enterprise apps. Async, secure, modular, and extensible.**
+## Quick start
 
----
-
-## 🚀 Features
-
-| 🧩 | **Modular Architecture** | Dependency Injection (via `dependency-injector`), Service Layer, Repository Pattern (MongoDB, Redis, PostgreSQL, SQLite), Factory Pattern, ClassStore for extensibility, Modular API Routing, Extensible Service Registration |
-|----|-------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| 🔒 | **Security First**      | RBAC (Role-Based Access Control), JWT Authentication (access/refresh tokens, HttpOnly cookies, rotation, expiry), Session Management (Redis-backed, TTL, cookies, extension), Rate Limiting, CORS Protection |
-| ⚡ | **Async Everything**     | Full async support for DB, cache, and API. Unified Data Service (async CRUD, upsert, cache-first reads, cache invalidation, lifecycle management)                                                            |
-| 🗄️ | **Database Agnostic**   | MongoDB (Motor), Redis (async), PostgreSQL (SQLAlchemy async), SQLite (aiosqlite)                                                                                                                          |
-| 🧰 | **Rich Middleware**      | Middleware Stack: CORS, error handler, rate limiter, session, serialization, template context. Centralized Error Handling (logging, formatting, returning errors)                                           |
-| 📝 | **Jinja2 Templates**     | Inheritance, includes, filters, context injection, static file integration                                                                                                                                    |
-| 🛠️ | **Dynamic Config**      | Loads from `config.d/*.json`, supports global/local overrides, attribute and dict access, auto .gitignore for local secrets                                                                                  |
-| 📊 | **Comprehensive Logging**| Rotating file logging (debug, info, error logs), console output, contextual info, log directory management                                                                                                    |
-| 🧪 | **Testing & Linting**    | Type hints & modern Python, Testing Support (Pytest, test discovery via `project.toml`), Linting & Formatting (Black, isort, Flake8, Ruff)                                                                      |
-| ⚡ | **Caching Layer**        | Redis-backed, decorator for function result caching, pattern-based cache clearing                                                                                                                              |
-| 🚨 | **Error Tracking**       | Sentry integration for error tracking, performance monitoring, session tracking, breadcrumbs, user context, custom filtering, and distributed tracing                                                           |
-
----
-
-## 🏗️ Architecture Overview
-
-```FastAPI App
-│
-├── app/
-│   ├── api/           # Routers, middleware, dependencies
-│   ├── core/          # DI container, interfaces, class store
-│   ├── database/      # Async DB backends
-│   ├── services/      # Business logic, auth, session, data, cache
-│   ├── utils/         # Utility functions
-│   ├── static/        # Static files
-│   └── templates/     # Jinja2 templates
-│
-├── config.d/          # JSON config files
-├── main.py            # Entrypoint
-├── config.py          # Config loader
-└── ...
+```bash
+make setup     # venv, dependencies, .env (random passwords, free ports), config.local.toml
+make up        # MongoDB + Redis in Docker (loopback only)
+make run       # API on http://127.0.0.1:8000, interactive docs at /docs (debug mode)
+make test      # 137 tests, no services needed
 ```
 
----
+Prefer containers for everything? `make docker-up` runs the API too. `make help` lists all targets.
+Python 3.11.
 
-## 📚 More
-- [Usage & Getting Started Guide](USAGE_README.md)
-- [Developer & Contributor Guide](DEVELOPER_README.md)
-- [Sentry Integration Guide](SENTRY_INTEGRATION.md)
-- [API Docs](/docs)
+There is **no default user**. To create the first administrator, uncomment the
+`bootstrap_admin_*` lines in `config.local.toml`, start once, then remove them.
 
----
+## Configuration in five minutes
 
-## 📄 License
+Every setting is declared once, with a type, default and description, in
+[`app/settings.py`](app/settings.py); the full list is generated into
+[`docs/CONFIGURATION.md`](docs/CONFIGURATION.md). Sources, lowest priority first:
 
-This project is licensed under the [MIT License](./LICENSE).
+| Source | Use it for |
+| --- | --- |
+| defaults in `app/settings.py` | nothing to do |
+| `config.toml` | project defaults, **roles and groups** (committed) |
+| `config.local.toml` | your machine's overrides (git-ignored; `make setup` creates it) |
+| `config.secrets.toml` | the generated JWT key (git-ignored) |
+| `.env` | `FABP_<NAME>=value` lines (git-ignored; `make setup` creates it) |
+| environment | `FABP_<NAME>=value`, e.g. `FABP_APP_PORT=9000`, `FABP_CORS_ORIGINS='["https://app.example.com"]'` |
 
----
+```bash
+make config                 # every effective setting and which source set it
+python -m app.settings check
+```
 
-*For installation, usage, and contribution, see the linked guides above.*
+Mistakes fail at startup and say what and where, e.g.
+`unknown setting 'mongo_hots' (from config.local.toml). Did you mean 'mongo_host'?`.
+The committed defaults are production-safe (debug off, loopback bind, Secure cookies, strict
+CSP); `config.local.toml` opts into development conveniences.
 
----
+## What is in the box
 
-© 2024 FastAPI Enterprise Foundation
+| Area | Where | Notes |
+| --- | --- | --- |
+| Auth | `services/auth/`, `routes/auth/` | Argon2id, JWT access + rotating refresh tokens bound to a server-side session, lockout, audit log, change/reset password, profile |
+| Users | `routes/users.py` | Paged list, suspend/activate, delete (permission-gated) |
+| Access control | `middleware/rbac.py`, `services/rbac.py`, `config.toml` | Roles, groups, temporary grants; `<resource>:<action>` derived from the URL; `files:*` and `*` wildcards |
+| Files | `services/file/`, `routes/files/` | Per-user files with versions, chunked uploads, thumbnails, spreadsheet read/edit |
+| Safety nets | `middleware/` | Rate limits, request-size and time limits, concurrency cap, `Idempotency-Key` replay, CORS, security headers, request ids |
+| Backends | `database/`, `cache/`, `services/file/storage/` | MongoDB, Redis or in-memory, local disk or S3; bring your own with `package.module:Class` |
+| Operations | `routes/health.py`, `services/{metrics,tracing,sentry}.py` | `/api/v1/{health,live,ready,startup}`; optional Prometheus, OpenTelemetry, Sentry |
+
+How the pieces fit: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Why they are this way:
+[`docs/adr/`](docs/adr). Adding your own resource: [`docs/EXTENDING.md`](docs/EXTENDING.md).
+
+## Development
+
+* Tests use in-memory stand-ins for MongoDB and Redis; the end-to-end tests run the real
+  middleware stack through `TestClient`. `make lint` / `make fmt` run ruff; CI runs both.
+* `make graph` refreshes the code knowledge graph in `graphify-out/`.
+* Optional: `pre-commit install` runs ruff before each commit.
+
+## Operating notes
+
+* Behind a reverse proxy set `trusted_proxy_count` so rate limits and the audit log see client
+  IPs. With more than one worker use the `redis` cache (`memory` is per process).
+* In containers set `FABP_JWT_SECRET`, `FABP_MONGO_PASSWORD`, `FABP_REDIS_PASSWORD` (or mount
+  `config.secrets.toml`) so tokens survive restarts.
+* Email for password resets: set `smtp_host` (and friends); without it the message is only logged.
+* `make setup` picks free host ports, so a MongoDB already on your machine cannot shadow the
+  Docker one. After regenerating `.env`, run `make reset-data` (old Docker volumes keep the old
+  database password).

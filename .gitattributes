@@ -1,0 +1,2 @@
+# The code graph is tracked for reference; keep it out of diffs and language stats.
+graphify-out/** linguist-generated=true linguist-vendored=true -diff

@@ -1,0 +1,56 @@
+# fastapi_boilerplate configuration. Every setting, its type and its default is documented in
+# docs/CONFIGURATION.md (run `python -m app.settings show` to see the effective values).
+#
+# Put machine- or developer-specific values in config.local.toml, secrets in
+# config.secrets.toml or the environment (FABP_JWT_SECRET, FABP_MONGO_PASSWORD, ...).
+# Anything not listed here keeps its default.
+
+app_title = "fastapi_boilerplate"
+
+# Who may register themselves with which role, and the roles' permissions, are defined below.
+default_role = "user"
+
+# Public sign-in providers. Set oauth_enabled = true and fill in client_id/client_secret
+# (in config.local.toml, not here).
+# oauth_enabled = false
+# [oauth_providers.google]
+# client_id = ""
+# client_secret = ""
+# redirect_uri = "http://localhost:8000/api/v1/oauth/google/callback"
+# scopes = ["openid", "email", "profile"]
+# authorization_url = "https://accounts.google.com/o/oauth2/v2/auth"
+# token_url = "https://oauth2.googleapis.com/token"
+# userinfo_url = "https://www.googleapis.com/oauth2/v3/userinfo"
+
+# ---------------------------------------------------------------------------------
+# Access control. A permission is "<resource>:<action>" where resource is the first URL
+# segment after /api/v1/ and action is read (GET), write (POST/PUT/PATCH) or delete.
+# "*" grants everything; "files:*" grants every action on files. `inherits` copies the
+# permissions of other roles.
+# ---------------------------------------------------------------------------------
+
+[rbac_roles.admin]
+permissions = ["*"]
+
+[rbac_roles.manager]
+permissions = ["users:read", "users:write", "reports:read", "reports:write"]
+inherits = ["user"]
+
+[rbac_roles.user]
+permissions = ["profile:read", "profile:write", "dashboard:read", "auth:read", "auth:write", "files:read", "files:write", "files:delete", "oauth:read", "oauth:write", "oauth:delete", "sessions:read", "sessions:delete"]
+
+[rbac_roles.guest]
+permissions = ["public:read"]
+
+# Groups bundle roles; put a user in a group to give them all of its roles.
+[rbac_groups.admins]
+roles = ["admin"]
+
+[rbac_groups.staff]
+roles = ["manager", "user"]
+
+[rbac_groups.users]
+roles = ["user"]
+
+[rbac_groups.guests]
+roles = ["guest"]

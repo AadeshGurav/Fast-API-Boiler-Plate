@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
-from pydantic import Field
-
-from app.core.dynamic_config import DynamicConfig
+from pydantic import BaseModel, Field
 
 
-class FileMetadata(DynamicConfig):
+class FileMetadata(BaseModel):
     """File metadata model for database storage."""
 
     file_id: str = Field(..., description="Unique file identifier")
@@ -23,34 +21,20 @@ class FileMetadata(DynamicConfig):
     storage_path: str = Field(..., description="Storage path relative to base")
     storage_backend: str = Field(default="local", description="Storage backend type")
     tags: list[str] = Field(default_factory=list, description="File tags")
-    metadata: dict[str, Any] = Field(
-        default_factory=dict, description="Additional metadata"
-    )
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
     thumbnail_paths: dict[str, str] = Field(
         default_factory=dict, description="Thumbnail paths by size"
     )
     created_at: datetime = Field(
-        default_factory=datetime.utcnow, description="Creation timestamp"
+        default_factory=lambda: datetime.now(UTC), description="Creation timestamp"
     )
     updated_at: datetime = Field(
-        default_factory=datetime.utcnow, description="Last update timestamp"
+        default_factory=lambda: datetime.now(UTC), description="Last update timestamp"
     )
-    deleted_at: datetime | None = Field(
-        default=None, description="Soft delete timestamp"
-    )
+    deleted_at: datetime | None = Field(default=None, description="Soft delete timestamp")
 
 
-class FileUploadRequest(DynamicConfig):
-    """Request model for file upload."""
-
-    filename: str | None = Field(None, description="Optional filename override")
-    tags: list[str] = Field(default_factory=list, description="File tags")
-    metadata: dict[str, Any] = Field(
-        default_factory=dict, description="Additional metadata"
-    )
-
-
-class FileResponse(DynamicConfig):
+class FileResponse(BaseModel):
     """Response model for file information."""
 
     file_id: str = Field(..., description="Unique file identifier")
@@ -69,23 +53,7 @@ class FileResponse(DynamicConfig):
     updated_at: datetime = Field(..., description="Last update timestamp")
 
 
-class ChunkUploadRequest(DynamicConfig):
-    """Request model for chunked upload."""
-
-    upload_id: str = Field(..., description="Unique upload session ID")
-    chunk_number: int = Field(..., description="Chunk sequence number")
-    total_chunks: int = Field(..., description="Total number of chunks")
-    chunk_size: int = Field(..., description="Size of this chunk in bytes")
-    total_size: int = Field(..., description="Total file size in bytes")
-    filename: str = Field(..., description="Original filename")
-    content_type: str | None = Field(None, description="MIME type")
-    tags: list[str] = Field(default_factory=list, description="File tags")
-    metadata: dict[str, Any] = Field(
-        default_factory=dict, description="Additional metadata"
-    )
-
-
-class ChunkUploadResponse(DynamicConfig):
+class ChunkUploadResponse(BaseModel):
     """Response model for chunk upload."""
 
     upload_id: str = Field(..., description="Upload session ID")
@@ -95,7 +63,7 @@ class ChunkUploadResponse(DynamicConfig):
     total_chunks: int = Field(..., description="Total chunks expected")
 
 
-class FileListResponse(DynamicConfig):
+class FileListResponse(BaseModel):
     """Response model for file listing."""
 
     files: list[FileResponse] = Field(..., description="List of files")
@@ -105,24 +73,15 @@ class FileListResponse(DynamicConfig):
     has_next: bool = Field(..., description="Whether there are more pages")
 
 
-class FileUpdateRequest(DynamicConfig):
+class FileUpdateRequest(BaseModel):
     """Request model for updating file metadata."""
 
-    filename: str | None = Field(None, description="Updated filename")
+    filename: str | None = Field(None, min_length=1, max_length=255, description="Updated filename")
     tags: list[str] | None = Field(None, description="Updated tags")
     metadata: dict[str, Any] | None = Field(None, description="Updated metadata")
 
 
-class FileVersionInfo(DynamicConfig):
-    """Information about a file version."""
-
-    version: int = Field(..., description="Version number")
-    size: int = Field(..., description="File size in bytes")
-    created_at: datetime = Field(..., description="Creation timestamp")
-    storage_path: str = Field(..., description="Storage path")
-
-
-class SpreadsheetData(DynamicConfig):
+class SpreadsheetData(BaseModel):
     """Response model for spreadsheet data."""
 
     sheets: dict[str, list[list[Any]]] = Field(
@@ -134,18 +93,16 @@ class SpreadsheetData(DynamicConfig):
     )
 
 
-class SpreadsheetInfo(DynamicConfig):
+class SpreadsheetInfo(BaseModel):
     """Workbook/sheet metadata."""
 
     sheet_names: list[str] = Field(..., description="List of sheet names")
-    sheet_info: dict[str, dict[str, int]] = Field(
-        ..., description="Row/column counts per sheet"
-    )
+    sheet_info: dict[str, dict[str, int]] = Field(..., description="Row/column counts per sheet")
     format: str = Field(..., description="File format (xlsx, ods, csv)")
     total_sheets: int = Field(..., description="Total number of sheets")
 
 
-class SpreadsheetCreateRequest(DynamicConfig):
+class SpreadsheetCreateRequest(BaseModel):
     """Request model for creating spreadsheets."""
 
     data: dict[str, list[list[Any]]] = Field(
@@ -158,18 +115,16 @@ class SpreadsheetCreateRequest(DynamicConfig):
     )
 
 
-class SpreadsheetUpdateRequest(DynamicConfig):
+class SpreadsheetUpdateRequest(BaseModel):
     """Request model for updating spreadsheets."""
 
     data: dict[str, list[list[Any]]] = Field(
         ..., description="Dictionary mapping sheet names to data (list of lists)"
     )
-    sheet_name: str | None = Field(
-        None, description="Optional specific sheet to update"
-    )
+    sheet_name: str | None = Field(None, description="Optional specific sheet to update")
 
 
-class SpreadsheetReadResponse(DynamicConfig):
+class SpreadsheetReadResponse(BaseModel):
     """Response model for read operations."""
 
     data: SpreadsheetData = Field(..., description="Spreadsheet data")
@@ -177,17 +132,14 @@ class SpreadsheetReadResponse(DynamicConfig):
 
 
 __all__ = [
-    "FileMetadata",
-    "FileUploadRequest",
-    "FileResponse",
-    "ChunkUploadRequest",
     "ChunkUploadResponse",
     "FileListResponse",
+    "FileMetadata",
+    "FileResponse",
     "FileUpdateRequest",
-    "FileVersionInfo",
+    "SpreadsheetCreateRequest",
     "SpreadsheetData",
     "SpreadsheetInfo",
-    "SpreadsheetCreateRequest",
-    "SpreadsheetUpdateRequest",
     "SpreadsheetReadResponse",
+    "SpreadsheetUpdateRequest",
 ]

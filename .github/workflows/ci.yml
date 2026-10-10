@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["graphify-out/**"]  # tracked for reference only: never builds or checks
+  pull_request:
+    paths-ignore: ["graphify-out/**"]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+          cache: pip
+          cache-dependency-path: requirements*.txt
+
+      - name: Install
+        run: pip install -r requirements-dev.txt
+
+      - name: Lint
+        run: |
+          ruff check app tests main.py config.py
+          ruff format --check app tests main.py config.py
+
+      # The suite uses in-memory stand-ins for MongoDB and Redis: no services needed.
+      - name: Test
+        run: python -m pytest -q

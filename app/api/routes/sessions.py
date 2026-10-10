@@ -1,222 +1,86 @@
-"""Session management API routes for viewing and revoking sessions."""
+"""Session management API: list and revoke the caller's own sessions."""
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app import container
+from app.api.deps import get_data_service
+from app.models.auth import TokenPayload
 from app.services.data import DataService
+from app.services.data.sessions_ops import is_session_active
 from app.utils.permissions import get_current_user
 
 router = APIRouter(prefix="/sessions", tags=["Session Management"])
 
 
+def _public_view(session: dict[str, Any], current_sid: str | None) -> dict[str, Any]:
+    """Session fields that are safe to show (never token hashes)."""
+    return {
+        "id": session["id"],
+        "current": session["id"] == current_sid,
+        "device_info": session.get("device_info", {}),
+        "created_at": session.get("created_at"),
+        "expires_at": session.get("expires_at"),
+        "last_used_at": session.get("last_used_at"),
+    }
+
+
+async def _own_session(
+    session_id: str, user: TokenPayload, data_service: DataService
+) -> dict[str, Any]:
+    """The caller's session, or 404 (also for other users' sessions, so ids can't be probed)."""
+    session = await data_service.sessions.get_session(session_id)
+    if not session or session.get("user_id") != user.user_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+    return session
+
+
 @router.get("/active")
 async def list_active_sessions(
-    current_user: dict = Depends(get_current_user),
-    data_service: DataService = Depends(lambda: container.data_service()),
+    user: TokenPayload = Depends(get_current_user),
+    data_service: DataService = Depends(get_data_service),
 ) -> dict[str, list[dict]]:
-    """List active sessions for current user.
-
-    Args:
-    ----
-        current_user: Current authenticated user
-        data_service: Data service instance
-
-    Returns:
-    -------
-        List of active sessions
-
-    Raises:
-    ------
-        HTTPException: If user doesn't have permission or retrieval fails
-
-    """
-    try:
-        # Get user sessions
-        sessions = await data_service.sessions.get_user_sessions(
-            current_user["user_id"]
-        )
-
-        # Filter out revoked sessions
-        active_sessions = [
-            session for session in sessions if not session.get("revoked_at")
-        ]
-
-        # Remove sensitive data
-        safe_sessions = []
-        for session in active_sessions:
-            safe_session = {
-                "id": session["id"],
-                "device_info": session.get("device_info", {}),
-                "created_at": session.get("created_at"),
-                "expires_at": session.get("expires_at"),
-                "last_used_at": session.get("last_used_at"),
-            }
-            safe_sessions.append(safe_session)
-
-        return {"sessions": safe_sessions}
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve active sessions",
-        ) from e
+    """List the caller's sessions that can still be used."""
+    sessions = await data_service.sessions.get_user_sessions(user.user_id)
+    return {"sessions": [_public_view(s, user.sid) for s in sessions if is_session_active(s)]}
 
 
-@router.delete("/{session_id}")
-async def revoke_session(
-    session_id: str,
-    current_user: dict = Depends(get_current_user),
-    data_service: DataService = Depends(lambda: container.data_service()),
-):
-    """Revoke specific session.
-
-    Args:
-    ----
-        session_id: Session ID to revoke
-        current_user: Current authenticated user
-        data_service: Data service instance
-
-    Returns:
-    -------
-        Success message
-
-    Raises:
-    ------
-        HTTPException: If user doesn't have permission or revocation fails
-
-    """
-    try:
-        # Get session to verify ownership
-        session = await data_service.sessions.get_session(session_id)
-
-        if not session:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
-            )
-
-        # Check if user owns the session
-        if session["user_id"] != current_user["user_id"]:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Permission denied: cannot revoke other user's session",
-            )
-
-        # Revoke session
-        success = await data_service.sessions.revoke_session(session_id)
-
-        if not success:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Failed to revoke session",
-            )
-
-        return {"message": f"Session {session_id} revoked successfully"}
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to revoke session",
-        ) from e
-
-
+# Declared before "/{session_id}" so "all" is not captured as a session id.
 @router.delete("/all")
 async def revoke_all_sessions(
-    current_user: dict = Depends(get_current_user),
-    data_service: DataService = Depends(lambda: container.data_service()),
-):
-    """Revoke all sessions for current user.
-
-    Args:
-    ----
-        current_user: Current authenticated user
-        data_service: Data service instance
-
-    Returns:
-    -------
-        Success message with count of revoked sessions
-
-    Raises:
-    ------
-        HTTPException: If revocation fails
-
-    """
-    try:
-        # Revoke all user sessions
-        revoked_count = await data_service.sessions.revoke_user_sessions(
-            current_user["user_id"]
-        )
-
-        return {
-            "message": "All sessions revoked successfully",
-            "revoked_count": revoked_count,
-        }
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to revoke all sessions",
-        ) from e
+    user: TokenPayload = Depends(get_current_user),
+    data_service: DataService = Depends(get_data_service),
+) -> dict[str, Any]:
+    """Revoke every session of the caller, including the current one."""
+    revoked = await data_service.sessions.revoke_user_sessions(user.user_id)
+    return {"message": "All sessions revoked successfully", "revoked_count": revoked}
 
 
 @router.get("/{session_id}")
 async def get_session_details(
     session_id: str,
-    current_user: dict = Depends(get_current_user),
-    data_service: DataService = Depends(lambda: container.data_service()),
-):
-    """Get details of specific session.
+    user: TokenPayload = Depends(get_current_user),
+    data_service: DataService = Depends(get_data_service),
+) -> dict[str, Any]:
+    """Details of one of the caller's sessions."""
+    return _public_view(await _own_session(session_id, user, data_service), user.sid)
 
-    Args:
-    ----
-        session_id: Session ID
-        current_user: Current authenticated user
-        data_service: Data service instance
 
-    Returns:
-    -------
-        Session details
-
-    Raises:
-    ------
-        HTTPException: If user doesn't have permission or session not found
-
-    """
-    try:
-        # Get session
-        session = await data_service.sessions.get_session(session_id)
-
-        if not session:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
-            )
-
-        # Check if user owns the session
-        if session["user_id"] != current_user["user_id"]:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Permission denied: cannot view other user's session",
-            )
-
-        # Remove sensitive data
-        safe_session = {
-            "id": session["id"],
-            "device_info": session.get("device_info", {}),
-            "created_at": session.get("created_at"),
-            "expires_at": session.get("expires_at"),
-            "last_used_at": session.get("last_used_at"),
-            "revoked_at": session.get("revoked_at"),
-        }
-
-        return {"session": safe_session}
-
-    except HTTPException:
-        raise
-    except Exception as e:
+@router.delete("/{session_id}")
+async def revoke_session(
+    session_id: str,
+    user: TokenPayload = Depends(get_current_user),
+    data_service: DataService = Depends(get_data_service),
+) -> dict[str, str]:
+    """Revoke one of the caller's sessions."""
+    await _own_session(session_id, user, data_service)
+    if not await data_service.sessions.revoke_session(session_id):
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve session details",
-        ) from e
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to revoke session"
+        )
+    return {"message": f"Session {session_id} revoked successfully"}
+
+
+__all__ = ["router"]

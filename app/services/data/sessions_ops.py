@@ -2,13 +2,26 @@ from __future__ import annotations
 
 import hashlib
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from .policies import CachePolicy
 
 if TYPE_CHECKING:
     from .data_service import DataService
+
+
+def hash_token(token: str) -> str:
+    """SHA-256 hex digest used to store and compare refresh tokens."""
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def is_session_active(session: dict[str, Any] | None) -> bool:
+    """A session is usable if it exists, is not revoked and has not expired."""
+    if not session or session.get("revoked_at"):
+        return False
+    expires_at = session.get("expires_at")
+    return isinstance(expires_at, datetime) and expires_at > datetime.now(UTC)
 
 
 class SessionsOps:
@@ -25,6 +38,10 @@ class SessionsOps:
         self.ds = data_service
         self.collection = "sessions"
 
+    @staticmethod
+    def _cache_key(session_id: str) -> str:
+        return f"session:{session_id}"
+
     async def create_session(self: SessionsOps, session_data: dict[str, Any]) -> str:
         """Create a new session.
 
@@ -37,21 +54,20 @@ class SessionsOps:
             Session ID.
 
         """
-        session_id = session_data.get("id") or str(uuid.uuid4())
-        session_data["id"] = session_id
-        session_data.setdefault("created_at", datetime.now(timezone.utc))
-        # Hash refresh token if present
+        session_id = session_data.get("id") or uuid.uuid4().hex
+        session_data = {**session_data, "id": session_id}
+        session_data.setdefault("created_at", datetime.now(UTC))
+        session_data.setdefault("revoked_at", None)
+        # Never store the refresh token itself, only its hash.
         if "refresh_token" in session_data:
-            session_data["refresh_token"] = hashlib.sha256(
-                session_data["refresh_token"].encode()
-            ).hexdigest()
+            session_data["refresh_token_hash"] = hash_token(session_data.pop("refresh_token"))
 
         await self.ds.set(
             self.collection,
             {"id": session_id},
             session_data,
             policy=CachePolicy.AUTO,
-            key=f"session:{session_id}",
+            key=self._cache_key(session_id),
         )
         return session_id
 
@@ -71,12 +87,10 @@ class SessionsOps:
             self.collection,
             {"id": session_id},
             policy=CachePolicy.AUTO,
-            key=f"session:{session_id}",
+            key=self._cache_key(session_id),
         )
 
-    async def get_user_sessions(
-        self: SessionsOps, user_id: str
-    ) -> list[dict[str, Any]]:
+    async def get_user_sessions(self: SessionsOps, user_id: str) -> list[dict[str, Any]]:
         """Get all sessions for a user.
 
         Args:
@@ -91,9 +105,7 @@ class SessionsOps:
         # list queries default to DB_ONLY unless explicitly cached
         return await self.ds.find_many(self.collection, {"user_id": user_id})
 
-    async def update_session(
-        self: SessionsOps, session_id: str, updates: dict[str, Any]
-    ) -> bool:
+    async def update_session(self: SessionsOps, session_id: str, updates: dict[str, Any]) -> bool:
         """Update session data.
 
         Args:
@@ -106,30 +118,15 @@ class SessionsOps:
             True if successful, False otherwise.
 
         """
-        updates.setdefault("updated_at", datetime.now(timezone.utc))
-        ok = await self.ds.set(
+        updates = {"updated_at": datetime.now(UTC), **updates}
+        # AUTO: the update invalidates the cached copy, so the next read is fresh.
+        return await self.ds.update(
             self.collection,
             {"id": session_id},
             updates,
-            policy=CachePolicy.DB_ONLY,
+            key=self._cache_key(session_id),
+            policy=CachePolicy.AUTO,
         )
-        # Purge and refresh cache
-        await self.ds.delete(
-            self.collection,
-            {"id": session_id},
-            policy=CachePolicy.CACHE_ONLY,
-            key=f"session:{session_id}",
-        )
-        refreshed = await self.get_session(session_id)
-        if refreshed:
-            await self.ds.set(
-                self.collection,
-                {"id": session_id},
-                refreshed,
-                policy=CachePolicy.CACHE_ONLY,
-                key=f"session:{session_id}",
-            )
-        return ok
 
     async def revoke_session(self: SessionsOps, session_id: str) -> bool:
         """Revoke a session.
@@ -143,9 +140,7 @@ class SessionsOps:
             True if successful, False otherwise.
 
         """
-        return await self.update_session(
-            session_id, {"revoked_at": datetime.now(timezone.utc)}
-        )
+        return await self.update_session(session_id, {"revoked_at": datetime.now(UTC)})
 
     async def revoke_user_sessions(
         self: SessionsOps, user_id: str, except_session_id: str | None = None
@@ -162,11 +157,21 @@ class SessionsOps:
             Number of sessions revoked.
 
         """
-        sessions = await self.get_user_sessions(user_id)
-        count = 0
-        for s in sessions:
-            if except_session_id and s.get("id") == except_session_id:
-                continue
-            if await self.revoke_session(s["id"]):
-                count += 1
-        return count
+        now = datetime.now(UTC)
+        live = [
+            s["id"]
+            for s in await self.get_user_sessions(user_id)
+            if is_session_active(s) and s["id"] != except_session_id
+        ]
+        if not live:
+            return 0
+        # One write for the database, then drop each cached copy so no stale "active"
+        # session is served.
+        await self.ds.update_many(
+            self.collection,
+            {"user_id": user_id, "id": {"$in": live}},
+            {"revoked_at": now, "updated_at": now},
+        )
+        for session_id in live:
+            await self.ds.cache_service.delete(self._cache_key(session_id))
+        return len(live)

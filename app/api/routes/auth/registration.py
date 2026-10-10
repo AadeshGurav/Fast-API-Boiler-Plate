@@ -1,65 +1,46 @@
-"""Authentication registration routes."""
+"""Authentication registration route."""
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
-from app import container as app_container
+from app.api.deps import get_auth_service
+from app.models.auth import RegisterRequest
 from app.models.user import UserCreate, UserPublic
 from app.services.auth import AuthService
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
-@router.post(
-    "/register", response_model=UserPublic, status_code=status.HTTP_201_CREATED
-)
+@router.post("/register", response_model=UserPublic, status_code=status.HTTP_201_CREATED)
 async def register(
-    user_data: UserCreate,
-    request: Request,
-    auth_service: AuthService = Depends(lambda: app_container.auth_service()),
+    registration: RegisterRequest,
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> UserPublic:
-    """Register a new user.
+    """Create a regular user account.
 
-    Args:
-    ----
-        user_data: User registration data
-        request: FastAPI request object
-        auth_service: Auth service instance
-
-    Returns:
-    -------
-        Created user information
-
-    Raises:
-    ------
-        HTTPException: If registration fails
-
+    Takes ``RegisterRequest`` rather than ``UserCreate``: this endpoint is public, so
+    callers must not be able to choose their own roles or groups.
     """
     try:
-        user = await auth_service.register_user(user_data)
-
-        # Return public user data
-        return UserPublic(
-            id=user.id,
-            username=user.username,
-            email=user.email,
-            roles=user.roles,
-            groups=user.groups,
-            status=user.status,
-            created_at=user.created_at,
-            updated_at=user.updated_at,
+        return await auth_service.register_user(
+            UserCreate(
+                username=registration.username,
+                email=registration.email,
+                password=registration.password,
+                roles=[],  # service assigns the default role
+                groups=[],
+                metadata={
+                    "first_name": registration.first_name,
+                    "last_name": registration.last_name,
+                    "newsletter": registration.newsletter,
+                },
+            )
         )
-
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
-        ) from e
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Registration failed",
-        ) from e
+        # Messages come from the service and are written for callers
+        # (duplicate username/email, password policy).
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
 __all__ = ["router"]

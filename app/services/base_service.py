@@ -10,28 +10,6 @@ if TYPE_CHECKING:
 class BaseService:
     """Base service class for all services."""
 
-    _instance: BaseService | None = None
-    _initialized: bool = False
-
-    def __new__(
-        cls: BaseService, *args: dict[str, Any], **kwargs: dict[str, Any]
-    ) -> BaseService:
-        """Create a new Logger instance.
-
-        Args:
-        ----
-            *args: Additional arguments.
-            **kwargs: Additional keyword arguments.
-
-        Returns:
-        -------
-            Logger instance.
-
-        """
-        if cls._instance is None:
-            cls._instance: cls = super().__new__(cls)
-        return cls._instance
-
     def __init__(
         self: BaseService,
         config: Config,
@@ -49,9 +27,6 @@ class BaseService:
             **kwargs: Additional keyword arguments.
 
         """
-        if self._initialized:
-            return
-
         self.logger: Logger = logger
         self.config: Config = config
 
@@ -60,5 +35,3 @@ class BaseService:
 
         for arg in args:
             setattr(self, arg, arg)
-
-        self._initialized = True

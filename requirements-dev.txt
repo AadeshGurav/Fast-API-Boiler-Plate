@@ -1,0 +1,6 @@
+-r requirements.txt
+pytest==9.1.1
+pytest-asyncio==1.4.0
+ruff
+boto3==1.43.110   # S3 storage tests (requirements-s3.txt in production)
+moto==5.2.3       # fake S3 for those tests

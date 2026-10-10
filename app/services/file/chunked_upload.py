@@ -1,26 +1,44 @@
-"""Chunked upload handler for large files."""
+"""Chunked (resumable) uploads.
+
+Chunks are staged on the storage backend, not in the cache: Redis would hold up to a
+whole file in memory per upload. The upload session record (owner, declared sizes) lives
+in the cache, namespaced by user id, so one user can never read, extend or finish another
+user's upload even if they know its id.
+"""
 
 from __future__ import annotations
 
-import json
+import re
 from typing import TYPE_CHECKING, Any
 
 from app.services.base_service import BaseService
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
+    from app.core.interfaces.storage_interface import StorageInterface
     from app.services.cache import CacheService
     from app.services.logger import Logger
     from config import Config
 
+UPLOAD_ID_PATTERN = re.compile(r"[A-Za-z0-9_-]{8,64}")
+STAGING_PREFIX = "_uploads"
+MAX_CHUNKS_PER_UPLOAD = 10_000
+
+
+class UploadSizeMismatchError(ValueError):
+    """The staged chunks do not add up to the size the client declared."""
+
 
 class ChunkedUploadHandler(BaseService):
-    """Handler for chunked file uploads."""
+    """Stage, validate and reassemble chunked uploads."""
 
     def __init__(
         self: ChunkedUploadHandler,
         logger: Logger,
         config: Config,
         cache_service: CacheService,
+        storage_backend: StorageInterface,
         *args: dict[str, Any],
         **kwargs: dict[str, Any],
     ) -> None:
@@ -30,321 +48,179 @@ class ChunkedUploadHandler(BaseService):
         ----
             logger: Logger instance.
             config: Configuration instance.
-            cache_service: CacheService instance.
+            cache_service: Holds the (small) upload session records.
+            storage_backend: Holds the staged chunk bytes.
             *args: Additional arguments.
             **kwargs: Additional keyword arguments.
 
         """
         super().__init__(config, logger, *args, **kwargs)
         self.cache_service = cache_service
-        self.chunk_size = config.get("file_chunk_size", 5242880)
-        self.upload_ttl = config.get("file_upload_ttl", 3600)
+        self.storage = storage_backend
+        self.max_total_size: int = config["file_max_size"]
+        self.max_chunk_size: int = config["file_chunk_size"]
+        self.upload_ttl: int = config["file_upload_ttl"]
 
-        self.logger.info(
-            "ChunkedUploadHandler initialized",
-            extra={"service": "ChunkedUploadHandler"},
-        )
+    # ---- keys / paths -------------------------------------------------------
+    @staticmethod
+    def valid_upload_id(upload_id: str) -> bool:
+        """Upload ids become path components, so only a safe alphabet is accepted."""
+        return bool(UPLOAD_ID_PATTERN.fullmatch(upload_id))
 
-    def _get_upload_key(self: ChunkedUploadHandler, upload_id: str) -> str:
-        """Get Redis key for upload session.
+    @staticmethod
+    def _info_key(user_id: str, upload_id: str) -> str:
+        return f"chunked_upload:{user_id}:{upload_id}"
 
-        Args:
-        ----
-            upload_id: Upload session ID.
+    @staticmethod
+    def _chunk_dir(user_id: str, upload_id: str) -> str:
+        return f"{STAGING_PREFIX}/{user_id}/{upload_id}"
 
-        Returns:
-        -------
-            Redis key string.
+    def _chunk_path(self, user_id: str, upload_id: str, chunk_number: int) -> str:
+        return f"{self._chunk_dir(user_id, upload_id)}/{chunk_number:06d}"
 
-        """
-        return f"chunked_upload:{upload_id}"
-
-    def _get_chunk_key(
-        self: ChunkedUploadHandler, upload_id: str, chunk_number: int
-    ) -> str:
-        """Get Redis key for chunk data.
-
-        Args:
-        ----
-            upload_id: Upload session ID.
-            chunk_number: Chunk sequence number.
-
-        Returns:
-        -------
-            Redis key string.
-
-        """
-        return f"chunked_upload:{upload_id}:chunk:{chunk_number}"
+    # ---- session ------------------------------------------------------------
+    async def get_upload_info(
+        self: ChunkedUploadHandler, user_id: str, upload_id: str
+    ) -> dict[str, Any] | None:
+        """The caller's upload session, or None (also if it belongs to someone else)."""
+        info = await self.cache_service.get(self._info_key(user_id, upload_id))
+        return info if isinstance(info, dict) else None
 
     async def start_upload(
         self: ChunkedUploadHandler,
+        *,
+        user_id: str,
         upload_id: str,
         total_chunks: int,
         total_size: int,
         filename: str,
-        content_type: str | None = None,
-        user_id: str | None = None,
-    ) -> bool:
-        """Start a new chunked upload session.
+        content_type: str | None,
+        tags: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Create the session (idempotent for the same user and id).
 
-        Args:
-        ----
-            upload_id: Unique upload session ID.
-            total_chunks: Total number of chunks expected.
-            total_size: Total file size in bytes.
-            filename: Original filename.
-            content_type: Optional MIME type.
-            user_id: Optional user ID.
-
-        Returns:
-        -------
-            True if successful, False otherwise.
+        Raises:
+        ------
+            ValueError: If the id or the declared sizes are unacceptable.
 
         """
-        upload_info = {
+        if not self.valid_upload_id(upload_id):
+            raise ValueError("upload_id must be 8-64 characters of letters, digits, '-' or '_'")
+        if not 0 < total_size <= self.max_total_size:
+            raise ValueError(f"total_size must be between 1 and {self.max_total_size} bytes")
+        min_chunks = -(-total_size // self.max_chunk_size)
+        if not min_chunks <= total_chunks <= min(total_size, MAX_CHUNKS_PER_UPLOAD):
+            raise ValueError(
+                f"total_chunks must be between {min_chunks} and "
+                f"{min(total_size, MAX_CHUNKS_PER_UPLOAD)} for this file size"
+            )
+
+        info = {
             "upload_id": upload_id,
+            "user_id": user_id,
             "total_chunks": total_chunks,
             "total_size": total_size,
             "filename": filename,
-            "content_type": content_type,
-            "user_id": user_id,
-            "chunks_received": [],
+            "content_type": content_type or "application/octet-stream",
+            "tags": tags or [],
+            "metadata": metadata or {},
             "status": "in_progress",
         }
+        # ``add`` (not ``set``): the session record lives only in the cache, so a cache
+        # outage must fail the request (503) rather than pretend the upload was started, and
+        # a second start for the same id must keep the first record.
+        if await self.cache_service.add(self._info_key(user_id, upload_id), info, self.upload_ttl):
+            return info
+        return await self.get_upload_info(user_id, upload_id) or info
 
-        key = self._get_upload_key(upload_id)
-        await self.cache_service.set(key, json.dumps(upload_info), ttl=self.upload_ttl)
-
-        self.logger.info(
-            f"Started chunked upload: {upload_id}",
-            extra={"service": "ChunkedUploadHandler"},
-        )
-        return True
+    # ---- chunks -------------------------------------------------------------
+    async def received_chunks(
+        self: ChunkedUploadHandler, user_id: str, upload_id: str
+    ) -> list[int]:
+        """Chunk numbers staged so far. Derived from storage, not a counter, so parallel
+        chunk uploads cannot lose each other's updates."""
+        paths = await self.storage.list(self._chunk_dir(user_id, upload_id))
+        return sorted(int(p.rsplit("/", 1)[-1]) for p in paths)
 
     async def save_chunk(
         self: ChunkedUploadHandler,
+        user_id: str,
         upload_id: str,
         chunk_number: int,
         chunk_data: bytes,
     ) -> bool:
-        """Save a chunk of data.
-
-        Args:
-        ----
-            upload_id: Upload session ID.
-            chunk_number: Chunk sequence number.
-            chunk_data: Chunk content as bytes.
-
-        Returns:
-        -------
-            True if successful, False otherwise.
-
-        """
-        upload_info = await self.get_upload_info(upload_id)
-        if not upload_info:
+        """Stage one chunk. Returns False if the session is unknown or the chunk is
+        out of range or oversized."""
+        info = await self.get_upload_info(user_id, upload_id)
+        if not info or info.get("status") != "in_progress":
+            return False
+        if not 1 <= chunk_number <= info["total_chunks"]:
+            return False
+        # Chunks may be uneven (a short last one), but never more than twice the average the
+        # session declared, so staged bytes stay near ``total_size`` whatever total_chunks says.
+        average = -(-info["total_size"] // info["total_chunks"])
+        if not chunk_data or len(chunk_data) > min(self.max_chunk_size, 2 * average):
             return False
 
-        if upload_info.get("status") != "in_progress":
+        return await self.storage.save(
+            self._chunk_path(user_id, upload_id, chunk_number),
+            chunk_data,
+            overwrite=True,  # a retried chunk replaces the earlier attempt
+        )
+
+    async def is_complete(self: ChunkedUploadHandler, user_id: str, upload_id: str) -> bool:
+        """Whether every chunk 1..total_chunks has been staged."""
+        info = await self.get_upload_info(user_id, upload_id)
+        if not info:
             return False
+        received = await self.received_chunks(user_id, upload_id)
+        return received == list(range(1, info["total_chunks"] + 1))
 
-        chunk_key = self._get_chunk_key(upload_id, chunk_number)
-        await self.cache_service.set(chunk_key, chunk_data, ttl=self.upload_ttl)
+    async def open_assembled(
+        self: ChunkedUploadHandler, user_id: str, upload_id: str
+    ) -> AsyncIterator[bytes] | None:
+        """The chunks in order as one stream; None if the upload is unknown or incomplete.
 
-        chunks_received = upload_info.get("chunks_received", [])
-        if chunk_number not in chunks_received:
-            chunks_received.append(chunk_number)
-            chunks_received.sort()
-
-        upload_info["chunks_received"] = chunks_received
-        key = self._get_upload_key(upload_id)
-        await self.cache_service.set(key, json.dumps(upload_info), ttl=self.upload_ttl)
-
-        self.logger.debug(
-            f"Saved chunk {chunk_number} for upload {upload_id}",
-            extra={"service": "ChunkedUploadHandler"},
-        )
-        return True
-
-    async def get_chunk(
-        self: ChunkedUploadHandler, upload_id: str, chunk_number: int
-    ) -> bytes | None:
-        """Retrieve a chunk of data.
-
-        Args:
-        ----
-            upload_id: Upload session ID.
-            chunk_number: Chunk sequence number.
-
-        Returns:
-        -------
-            Chunk data as bytes, or None if not found.
-
+        Raises ``UploadSizeMismatchError`` at the end of the stream if the bytes do not add
+        up to the declared size, which makes the consumer discard what it stored.
         """
-        chunk_key = self._get_chunk_key(upload_id, chunk_number)
-        chunk_data = await self.cache_service.get(chunk_key)
-
-        if isinstance(chunk_data, bytes):
-            return chunk_data
-
-        if isinstance(chunk_data, str):
-            return chunk_data.encode()
-
-        return None
-
-    async def get_upload_info(
-        self: ChunkedUploadHandler, upload_id: str
-    ) -> dict[str, Any] | None:
-        """Get upload session information.
-
-        Args:
-        ----
-            upload_id: Upload session ID.
-
-        Returns:
-        -------
-            Upload info dictionary or None if not found.
-
-        """
-        key = self._get_upload_key(upload_id)
-        info_data = await self.cache_service.get(key)
-
-        if isinstance(info_data, str):
-            try:
-                return json.loads(info_data)
-            except json.JSONDecodeError:
-                return None
-
-        return None
-
-    async def is_upload_complete(self: ChunkedUploadHandler, upload_id: str) -> bool:
-        """Check if all chunks have been received.
-
-        Args:
-        ----
-            upload_id: Upload session ID.
-
-        Returns:
-        -------
-            True if complete, False otherwise.
-
-        """
-        upload_info = await self.get_upload_info(upload_id)
-        if not upload_info:
-            return False
-
-        total_chunks = upload_info.get("total_chunks", 0)
-        chunks_received = upload_info.get("chunks_received", [])
-
-        return len(chunks_received) == total_chunks and all(
-            i in chunks_received for i in range(1, total_chunks + 1)
-        )
-
-    async def reassemble_file(
-        self: ChunkedUploadHandler, upload_id: str
-    ) -> bytes | None:
-        """Reassemble file from chunks.
-
-        Args:
-        ----
-            upload_id: Upload session ID.
-
-        Returns:
-        -------
-            Complete file content as bytes, or None if incomplete.
-
-        """
-        file_key = f"chunked_upload:{upload_id}:file"
-        file_content = await self.cache_service.get(file_key)
-        if file_content:
-            if isinstance(file_content, str):
-                return file_content.encode()
-            return file_content
-
-        upload_info = await self.get_upload_info(upload_id)
-        if not upload_info:
+        info = await self.get_upload_info(user_id, upload_id)
+        if not info or not await self.is_complete(user_id, upload_id):
             return None
 
-        if not await self.is_upload_complete(upload_id):
-            return None
+        async def pieces() -> AsyncIterator[bytes]:
+            total = 0
+            for number in range(1, info["total_chunks"] + 1):
+                chunk = await self.storage.open_stream(self._chunk_path(user_id, upload_id, number))
+                if chunk is None:
+                    raise UploadSizeMismatchError(f"chunk {number} disappeared")
+                async for piece in chunk:
+                    total += len(piece)
+                    yield piece
+            if total != info["total_size"]:
+                self.logger.warning(
+                    "Chunked upload size mismatch",
+                    extra={
+                        "service": "ChunkedUploadHandler",
+                        "upload_id": upload_id,
+                        "declared": info["total_size"],
+                        "actual": total,
+                    },
+                )
+                raise UploadSizeMismatchError("size does not match what was declared")
 
-        total_chunks = upload_info.get("total_chunks", 0)
-        chunks_received = upload_info.get("chunks_received", [])
+        return pieces()
 
-        if len(chunks_received) != total_chunks:
-            return None
+    async def purge_abandoned(self: ChunkedUploadHandler) -> int:
+        """Delete staged chunks older than the session lifetime (uploads nobody finished).
 
-        file_content = bytearray()
-        for chunk_number in sorted(chunks_received):
-            chunk_data = await self.get_chunk(upload_id, chunk_number)
-            if chunk_data is None:
-                return None
-            file_content.extend(chunk_data)
-
-        assembled = bytes(file_content)
-        await self.cache_service.set(file_key, assembled, ttl=self.upload_ttl)
-        return assembled
-
-    async def complete_upload(
-        self: ChunkedUploadHandler, upload_id: str
-    ) -> dict[str, Any] | None:
-        """Mark upload as complete and return file data.
-
-        Args:
-        ----
-            upload_id: Upload session ID.
-
-        Returns:
-        -------
-            Upload info dictionary, or None if incomplete.
-
+        Their session records have expired by then, so no chunk can be added or assembled.
         """
-        if not await self.is_upload_complete(upload_id):
-            return None
+        return await self.storage.purge_older_than(STAGING_PREFIX, self.upload_ttl)
 
-        file_content = await self.reassemble_file(upload_id)
-        if file_content is None:
-            return None
-
-        upload_info = await self.get_upload_info(upload_id)
-        if not upload_info:
-            return None
-
-        upload_info["status"] = "completed"
-        upload_info["file_size"] = len(file_content)
-
-        key = self._get_upload_key(upload_id)
-        await self.cache_service.set(key, json.dumps(upload_info), ttl=self.upload_ttl)
-
-        return upload_info
-
-    async def cleanup_upload(self: ChunkedUploadHandler, upload_id: str) -> None:
-        """Clean up upload session and chunks.
-
-        Args:
-        ----
-            upload_id: Upload session ID.
-
-        """
-        upload_info = await self.get_upload_info(upload_id)
-        if not upload_info:
-            return
-
-        total_chunks = upload_info.get("total_chunks", 0)
-
-        for chunk_number in range(1, total_chunks + 1):
-            chunk_key = self._get_chunk_key(upload_id, chunk_number)
-            await self.cache_service.delete(chunk_key)
-
-        file_key = f"chunked_upload:{upload_id}:file"
-        await self.cache_service.delete(file_key)
-
-        key = self._get_upload_key(upload_id)
-        await self.cache_service.delete(key)
-
-        self.logger.info(
-            f"Cleaned up upload session: {upload_id}",
-            extra={"service": "ChunkedUploadHandler"},
-        )
-
-
-__all__ = ["ChunkedUploadHandler"]
+    async def cleanup(self: ChunkedUploadHandler, user_id: str, upload_id: str) -> None:
+        """Delete staged chunks and the session record."""
+        for number in await self.received_chunks(user_id, upload_id):
+            await self.storage.delete(self._chunk_path(user_id, upload_id, number))
+        await self.cache_service.delete(self._info_key(user_id, upload_id))

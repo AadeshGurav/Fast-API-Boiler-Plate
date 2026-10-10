@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from .policies import CachePolicy
@@ -37,8 +37,8 @@ class OAuthOps:
 
         """
         oauth_account["id"] = str(uuid.uuid4())
-        oauth_account["created_at"] = datetime.now(timezone.utc)
-        oauth_account["updated_at"] = datetime.now(timezone.utc)
+        oauth_account["created_at"] = datetime.now(UTC)
+        oauth_account["updated_at"] = datetime.now(UTC)
 
         await self.ds.set(
             self.collection,
@@ -67,28 +67,9 @@ class OAuthOps:
         account = await self.ds.get(
             self.collection,
             {"provider": provider, "provider_user_id": provider_user_id},
-            policy=CachePolicy.AUTO,
+            policy=CachePolicy.DB_ONLY,
         )
         return account
-
-    async def get_user_oauth_accounts(
-        self: OAuthOps, user_id: str
-    ) -> list[dict[str, Any]]:
-        """Get all OAuth accounts for a user.
-
-        Args:
-        ----
-            user_id: User ID.
-
-        Returns:
-        -------
-            List of OAuth account dictionaries.
-
-        """
-        accounts = await self.ds.find_many(
-            self.collection, {"user_id": user_id}, policy=CachePolicy.DB_ONLY
-        )
-        return accounts or []
 
     async def unlink_oauth_account(self: OAuthOps, user_id: str, provider: str) -> bool:
         """Unlink OAuth account from user.
@@ -128,10 +109,10 @@ class OAuthOps:
         updates = {
             "access_token": tokens.get("access_token"),
             "refresh_token": tokens.get("refresh_token"),
-            "updated_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(UTC),
         }
 
-        return await self.ds.set(
+        return await self.ds.update(
             self.collection,
             {"user_id": user_id, "provider": provider},
             updates,

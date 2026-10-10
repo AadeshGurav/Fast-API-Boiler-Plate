@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import secrets
 import urllib.parse
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 import httpx
 
 from app.models.oauth import OAuthAccount, OAuthProvider, OAuthToken, OAuthUserInfo
-from app.models.user import User, UserCreate, UserRole
+from app.models.user import User, UserRole
 from app.services.base_service import BaseService
 
 if TYPE_CHECKING:
@@ -44,8 +45,8 @@ class OAuthBase(BaseService):
         self.data_service = data_service
 
         # Load OAuth provider configurations
-        self.providers = self.config.get("oauth_providers", {})
-        self.oauth_enabled = self.config.get("oauth_enabled", False)
+        self.providers = self.config["oauth_providers"]
+        self.oauth_enabled = self.config["oauth_enabled"]
 
         self.logger.info(
             f"OAuth service initialized: enabled={self.oauth_enabled}, providers={list(self.providers.keys())}",
@@ -109,15 +110,12 @@ class OAuthBase(BaseService):
                 "service": "oauth",
                 "action": "get_authorization_url",
                 "provider": provider.value,
-                "state": state,
             },
         )
 
         return full_url
 
-    async def exchange_code_for_token(
-        self, provider: OAuthProvider, code: str
-    ) -> OAuthToken:
+    async def exchange_code_for_token(self, provider: OAuthProvider, code: str) -> OAuthToken:
         """Exchange authorization code for access token.
 
         Args:
@@ -208,9 +206,7 @@ class OAuthBase(BaseService):
 
         if existing_oauth:
             # Link exists, get the user
-            user = await self.data_service.users.get_user_by_id(
-                existing_oauth["user_id"]
-            )
+            user = await self.data_service.users.get_user_by_id(existing_oauth["user_id"])
             if user:
                 self.logger.info(
                     f"Existing OAuth account linked: {provider.value}",
@@ -224,25 +220,25 @@ class OAuthBase(BaseService):
                 )
                 return User(**user)
 
-        # Check if user exists by email
-        existing_user = None
-        if oauth_user_info.email:
-            existing_user = await self.data_service.users.get_user_by_email(
-                oauth_user_info.email
-            )
+        # Everything below identifies a person by email, which is only safe if the
+        # provider vouches that the user owns it. Otherwise anyone could register an
+        # IdP account with a victim's address and take over the victim's local account.
+        if not oauth_user_info.email or not oauth_user_info.email_verified:
+            raise ValueError("Your account must have a verified email address to sign in this way.")
 
+        existing_user = await self.data_service.users.get_user_by_email(oauth_user_info.email)
         if existing_user:
-            # Link OAuth account to existing user
-            oauth_account = OAuthAccount(
-                user_id=existing_user["id"],
-                provider=provider,
-                provider_user_id=oauth_user_info.provider_user_id,
-                access_token="",  # Will be updated separately
-                refresh_token=None,
-            )
-
-            await self.data_service.oauth.link_oauth_account(oauth_account.dict())
-
+            if not existing_user.get("email_verified"):
+                # Local sign-up never proved the address. Whoever registered it first may
+                # not be its owner, so the password and sessions they hold must not
+                # survive the real owner signing in (account pre-hijacking).
+                await self.data_service.users.update_user(
+                    existing_user["id"],
+                    {"password": None, "password_hash": None, "email_verified": True},
+                )
+                await self.data_service.sessions.revoke_user_sessions(existing_user["id"])
+                existing_user = {**existing_user, "password_hash": None, "email_verified": True}
+            await self._link_account(existing_user["id"], provider, oauth_user_info)
             self.logger.info(
                 f"OAuth account linked to existing user: {provider.value}",
                 extra={
@@ -250,95 +246,64 @@ class OAuthBase(BaseService):
                     "action": "create_or_link_user",
                     "provider": provider.value,
                     "user_id": existing_user["id"],
-                    "provider_user_id": oauth_user_info.provider_user_id,
                 },
             )
+            return User(**existing_user)
 
-            # Normalize user data before creating User object
-            # Handle login_attempts - convert from int to list if needed
-            normalized_user = existing_user.copy()
-            if "login_attempts" in normalized_user and isinstance(
-                normalized_user["login_attempts"], int
-            ):
-                normalized_user["login_attempts"] = []
-            if (
-                "login_attempts_history" in normalized_user
-                and "login_attempts" not in normalized_user
-            ):
-                normalized_user["login_attempts"] = normalized_user.pop(
-                    "login_attempts_history"
-                )
-            if "sessions" not in normalized_user:
-                normalized_user["sessions"] = []
-            return User(**normalized_user)
-
-        # Create new user
-        username = (
-            oauth_user_info.email.split("@")[0]
-            if oauth_user_info.email
-            else f"user_{secrets.token_hex(4)}"
+        username = await self._unique_username(oauth_user_info.email.split("@")[0])
+        now = datetime.now(UTC)
+        user_id = await self.data_service.users.create_user(
+            {
+                "username": username,
+                "email": oauth_user_info.email,
+                "email_verified": True,
+                "roles": [UserRole.USER.value],
+                "groups": [],
+                "status": "active",
+                "profile": {"name": oauth_user_info.name},
+                "failed_login_count": 0,
+                "locked_until": None,
+                "last_login": now,
+                # No password: the account can only be entered through its provider.
+            }
         )
-
-        # Ensure username is unique
-        counter = 1
-        original_username = username
-        while await self.data_service.users.get_user_by_username(username):
-            username = f"{original_username}_{counter}"
-            counter += 1
-
-        user_create = UserCreate(
-            username=username,
-            email=oauth_user_info.email or f"{username}@oauth.local",
-            password="",  # OAuth users don't have passwords
-            roles=[UserRole.USER.value],
-            groups=[],
-        )
-
-        user_dict = user_create.dict()
-        user_id = await self.data_service.users.create_user(user_dict)
-        user_data = await self.data_service.users.get_user_by_id(user_id)
-        # Normalize user data before creating User object
-        # Handle login_attempts - convert from int to list if needed
-        normalized_user = user_data.copy()
-        if "login_attempts" in normalized_user and isinstance(
-            normalized_user["login_attempts"], int
-        ):
-            normalized_user["login_attempts"] = []
-        if (
-            "login_attempts_history" in normalized_user
-            and "login_attempts" not in normalized_user
-        ):
-            normalized_user["login_attempts"] = normalized_user.pop(
-                "login_attempts_history"
-            )
-        if "sessions" not in normalized_user:
-            normalized_user["sessions"] = []
-        user = User(**normalized_user)
-
-        # Link OAuth account
-        oauth_account = OAuthAccount(
-            user_id=user.id,
-            provider=provider,
-            provider_user_id=oauth_user_info.provider_user_id,
-            access_token="",  # Will be updated separately
-            refresh_token=None,
-        )
-
-        await self.data_service.oauth.link_oauth_account(oauth_account.dict())
+        user = User(**await self.data_service.users.get_user_by_id(user_id))
+        await self._link_account(user.id, provider, oauth_user_info)
 
         self.logger.info(
-            f"New user created and OAuth account linked: {provider.value}",
+            f"New user created from OAuth: {provider.value}",
             extra={
                 "service": "oauth",
                 "action": "create_or_link_user",
                 "provider": provider.value,
                 "user_id": user.id,
                 "username": user.username,
-                "provider_user_id": oauth_user_info.provider_user_id,
             },
         )
-
         return user
+
+    async def _link_account(
+        self, user_id: str, provider: OAuthProvider, info: OAuthUserInfo
+    ) -> None:
+        """Record the provider identity. Provider tokens are deliberately not stored:
+        nothing here calls the provider again, and stored tokens would only be a
+        liability."""
+        account = OAuthAccount(
+            user_id=user_id,
+            provider=provider,
+            provider_user_id=info.provider_user_id,
+            access_token="",
+        )
+        await self.data_service.oauth.link_oauth_account(account.model_dump())
+
+    async def _unique_username(self, base: str) -> str:
+        """First free username of ``base``, ``base_1``, ``base_2``, ..."""
+        base = (base or f"user_{secrets.token_hex(4)}")[:40].ljust(3, "_")
+        candidate, counter = base, 0
+        while await self.data_service.users.get_user_by_username(candidate):
+            counter += 1
+            candidate = f"{base}_{counter}"
+        return candidate
 
     async def unlink_oauth_account(self, user_id: str, provider: OAuthProvider) -> bool:
         """Unlink OAuth account from user.
@@ -353,9 +318,7 @@ class OAuthBase(BaseService):
             True if successfully unlinked
 
         """
-        result = await self.data_service.oauth.unlink_oauth_account(
-            user_id, provider.value
-        )
+        result = await self.data_service.oauth.unlink_oauth_account(user_id, provider.value)
 
         if result:
             self.logger.info(
