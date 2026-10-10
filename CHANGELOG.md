@@ -78,6 +78,8 @@ All notable changes are recorded here. The format follows
 
 ### Fixed
 
+- The Docker image no longer ships pip, setuptools and wheel, whose vendored copies of urllib3,
+  msgpack, jaraco.context and wheel carried six HIGH vulnerabilities found by the new image scan.
 - `ruff` is pinned in `requirements-dev.txt`, and the pre-commit hook uses the same version
   (it was v0.9.10 while CI installed the latest release).
 

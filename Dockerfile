@@ -18,7 +18,10 @@ ARG INSTALL_OBSERVABILITY=false
 RUN pip install --upgrade pip && pip install -r requirements.txt \
     && if [ "$INSTALL_S3" = "true" ]; then pip install -r requirements-s3.txt; fi \
     && if [ "$INSTALL_POSTGRES" = "true" ]; then pip install -r requirements-postgres.txt; fi \
-    && if [ "$INSTALL_OBSERVABILITY" = "true" ]; then pip install -r requirements-observability.txt; fi
+    && if [ "$INSTALL_OBSERVABILITY" = "true" ]; then pip install -r requirements-observability.txt; fi \
+    # The running app needs no installer. Removing pip, setuptools and wheel also removes the
+    # copies of urllib3, msgpack and others vendored inside them, which image scanners flag.
+    && pip uninstall -y pip setuptools wheel
 
 COPY app ./app
 COPY config.toml ./
