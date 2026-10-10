@@ -54,6 +54,14 @@ to 200 characters). Indexes: `id` (unique), `(actor_id, at desc)`,
 `audit_retention_days` (365 by default). Written by services after a change succeeds; a failed
 write is logged and never fails the change.
 
+### `mfa_totp` (`MFAService`)
+
+One record per user with an authenticator app: `user_id` (unique), `secret` (**encrypted** with
+`mfa_encryption_key`), `confirmed_at` (None while setup is unfinished), `last_step` (the last
+accepted 30-second step; a code at or before it is refused), `recovery_codes` (SHA-256 hashes),
+`codes_version` (bumped on every change to the list, so concurrent uses cannot resurrect a
+code), `created_at`. Always read from the database, never the cache.
+
 ### `files` (`FilesOps`)
 
 One record per **version**: `file_id` + `version` (unique together), `user_id`, `filename`,

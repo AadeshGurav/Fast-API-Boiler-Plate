@@ -87,6 +87,15 @@ wait; or have the user reset their password (a completed reset also clears the l
 | A stolen refresh token | Replaying an already-rotated refresh token revokes that session automatically. |
 | Everyone | Rotate the signing key: set a new `FABP_JWT_SECRET` and restart every instance. All tokens stop validating; everyone signs in again. |
 
+## A user lost their authenticator phone
+
+They sign in with one of their recovery codes, then turn two-factor off and on again from the new
+phone. If they have no codes left, verify who they are out of band, then an administrator calls
+`DELETE /api/v1/admin/users/{id}/mfa` (recorded in the audit log as `mfa.reset`).
+
+Never rotate `mfa_encryption_key` casually: existing secrets become unreadable and every user's
+two-factor setup stops working until they set it up again.
+
 Login attempts (success and failure, with IP and user agent) are kept 90 days in the
 `login_attempts` collection.
 

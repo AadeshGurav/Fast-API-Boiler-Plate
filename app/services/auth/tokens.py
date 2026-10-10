@@ -197,6 +197,36 @@ class TokenManager:
 
         return token_payload
 
+    def create_mfa_token(self, user_id: str, remember_me: bool, minutes: int) -> str:
+        """A short-lived proof that the password step of a two-factor sign-in succeeded.
+
+        Typed ``mfa`` so it can never pass as an access or refresh token.
+        """
+        now = datetime.now(UTC)
+        claims = {
+            "sub": user_id,
+            "type": "mfa",
+            "rem": remember_me,
+            "iat": now,
+            "exp": now + timedelta(minutes=minutes),
+        }
+        return jwt.encode(claims, self.jwt_secret, algorithm=self.jwt_algorithm)
+
+    def verify_mfa_token(self, token: str) -> tuple[str, bool] | None:
+        """(user id, remember me) from a valid, unexpired MFA token, else None."""
+        try:
+            claims = jwt.decode(
+                token,
+                self.jwt_secret,
+                algorithms=[self.jwt_algorithm],
+                options={"require": ["exp", "iat", "sub"]},
+            )
+        except jwt.InvalidTokenError:
+            return None
+        if claims.get("type") != "mfa":
+            return None
+        return claims["sub"], bool(claims.get("rem"))
+
     def create_token_pair(
         self,
         user_id: str,

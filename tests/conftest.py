@@ -186,6 +186,7 @@ def build_test_app(tmp_path, **overrides):
         "file_storage_base_path": str(tmp_path / "uploads"),
         "rate_limit_enabled": False,
         "jwt_secret": "test-secret-" + "x" * 32,
+        "mfa_encryption_key": "test-mfa-key-" + "x" * 32,
         **overrides,
     }
     config.data.update(settings)

@@ -25,9 +25,21 @@ All notable changes are recorded here. The format follows
 - Security audit log: role, group, grant, account-status, deletion, password and session
   changes are recorded in `audit_events` with actor, IP, user agent and request id, kept for
   `audit_retention_days` (365), and searchable by administrators at `GET /api/v1/admin/audit-events`.
+- Two-factor sign-in with an authenticator app (RFC 6238, standard library) and ten single-use
+  recovery codes: `/api/v1/auth/mfa/*`, and `POST /api/v1/auth/login/mfa` to finish a sign-in
+  that answered `401 mfa_required`. Secrets are encrypted at rest with `mfa_encryption_key`;
+  each code works once; wrong codes count towards lockout. Administrators can reset a lost
+  second factor (`DELETE /api/v1/admin/users/{id}/mfa`). New dependency: `cryptography`.
 - The OpenAPI contract is committed as `docs/reference/openapi.json` (`make openapi`), and a
   test fails when it drifts from the application. Operation ids are the route function names,
   so generated clients get stable method names; see `docs/how-to/generate-a-client.md`.
+
+### Upgrading
+
+- Add `FABP_MFA_ENCRYPTION_KEY` (32+ random characters) to an existing `.env` or deployment; the
+  Docker Compose app service now requires it. Outside containers it is generated into
+  `config.secrets.toml` on first start.
+- The default `user` role gains `auth:delete` (turning off two-factor sign-in).
 
 ### Changed
 

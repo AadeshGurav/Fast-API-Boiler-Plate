@@ -11,6 +11,7 @@ are pinned by a regression test, chiefly in `tests/test_security_fixes.py` and
 | Stolen token used after logout or reset | Tokens carry a session id; the session must be live | `utils/permissions.py`, [ADR 0001](../adr/0001-session-bound-tokens.md) |
 | Stolen refresh token | Single-use rotation; replaying a rotated token revokes the session | `AuthService.refresh_tokens` |
 | Password guessing | Lockout after 5 failures for 15 min, counted atomically; auth rate tier | `AuthService.authenticate`, `RateLimiter` |
+| Stolen or guessed password | Optional authenticator-app codes (RFC 6238) after the password; secrets encrypted at rest; each code and recovery code works once (conditional writes); wrong codes count towards lockout; the challenge token cannot be used as an access token | `services/auth/mfa.py`, `services/auth/totp.py` |
 | Username discovery | Same answer and same time for unknown user, wrong password, locked or disabled account; reset request never reveals whether the email exists | `_equalize_timing`, `request_password_reset` |
 | Cross-site request forgery | `SameSite=Lax` cookies plus an Origin/Referer check on cookie-authenticated writes | `middleware/csrf.py` |
 | Token theft by script | Auth cookies are HttpOnly and Secure (outside debug) | `utils/cookie_manager.py` |
@@ -80,7 +81,8 @@ implemented (501).
 
 ## Not covered
 
-- Multi-factor authentication and CAPTCHA.
+- CAPTCHA, and passkeys (WebAuthn). Authenticator codes can be phished in real time; passkeys
+  cannot.
 - Audit events record *that* something changed and who changed it, not the before and after
   values; they are as tamper-proof as the database that stores them.
 - Slow-but-steady request bodies are bounded only by the request timeout: keep a reverse proxy

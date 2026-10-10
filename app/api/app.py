@@ -225,4 +225,5 @@ def create_app(config: Config | None = None) -> FastAPI:
 
     config = config or ConfigClass()
     config.ensure_secret("jwt_secret")  # any entry point must have a signing secret
+    config.ensure_secret("mfa_encryption_key")
     return AppFactory(build_services(config), life_span=lifespan).create_app()

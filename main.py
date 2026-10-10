@@ -18,6 +18,7 @@ def main() -> int:
     try:
         config = Config()
         config.ensure_secret("jwt_secret")
+        config.ensure_secret("mfa_encryption_key")
     except ConfigError as e:
         print(f"Configuration is invalid:\n{e}", file=sys.stderr)
         return 1

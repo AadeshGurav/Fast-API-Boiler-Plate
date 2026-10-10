@@ -13,7 +13,8 @@ from app.models.auth import (
     TokenPair,
     TokenPayload,
 )
-from app.services.auth import AuthenticationError, AuthService
+from app.services.auth import AuthenticationError, AuthService, MFARequiredError
+from app.services.error.exceptions import UserFacingExceptionError
 from app.utils.cookie_manager import CookieManager
 from app.utils.permissions import extract_refresh_token, get_current_user
 from app.utils.utils import extract_device_info
@@ -27,7 +28,11 @@ async def login(
     request: Request,
     auth_service: AuthService = Depends(get_auth_service),
 ) -> JSONResponse:
-    """Authenticate with username and password and start a session."""
+    """Authenticate with username and password and start a session.
+
+    With two-factor authentication on, answers 401 ``mfa_required`` with ``details.mfa_token``
+    instead; finish with ``POST /auth/login/mfa``.
+    """
     try:
         login_response = await auth_service.login_user(
             username=login_request.username,
@@ -35,6 +40,11 @@ async def login(
             device_info=extract_device_info(request),
             remember_me=login_request.remember_me,
         )
+    except MFARequiredError as e:
+        # Not a failure: the client asks for a code and calls POST /auth/login/mfa.
+        raise UserFacingExceptionError(
+            str(e), code="mfa_required", status_code=401, details={"mfa_token": e.mfa_token}
+        ) from e
     except AuthenticationError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
