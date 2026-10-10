@@ -19,16 +19,19 @@ All notable changes are recorded here. The format follows
 - CI: tests on Python 3.11 and 3.13 with a coverage report, a `pip-audit` job for known
   vulnerabilities in pinned dependencies, and a job that builds the Docker image and fails on
   HIGH or CRITICAL fixable vulnerabilities (Trivy).
-
 - Backend contract suite (`tests/contract/`): the same database and cache tests run against the
   in-memory stand-ins by default, and against real MongoDB and Redis in CI. Backend authors run
   it against their own class (`CONTRACT_DATABASES`, `CONTRACT_CACHES`).
+- The OpenAPI contract is committed as `docs/reference/openapi.json` (`make openapi`), and a
+  test fails when it drifts from the application. Operation ids are the route function names,
+  so generated clients get stable method names; see `docs/how-to/generate-a-client.md`.
 
 ### Changed
 
 - Unique-index violations surface as `DuplicateRecordError` from every database backend
   instead of a driver exception; `FakeDatabase` now enforces declared unique indexes.
-
+- OpenAPI `operationId`s changed from FastAPI's generated `<name>_<path>_<method>` to the route
+  function name. Regenerate any client built from the old schema.
 - ods spreadsheets are read and written with `odfpy` directly; pandas and numpy (about 110 MB)
   are no longer dependencies. Repeated empty rows and columns no longer count against the
   cell cap, and expanding a hostile file past the cap is refused before allocation.

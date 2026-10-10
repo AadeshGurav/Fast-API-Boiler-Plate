@@ -34,6 +34,9 @@ class AppFactory:
             redoc_url="/redoc" if self.debug else None,
             version=self.config["app_version"],
             description=self.config["app_description"],
+            # operationId = the route function's name, so generated clients get stable,
+            # readable method names (``login_user`` rather than ``login_user_api_v1_auth_...``).
+            generate_unique_id_function=lambda route: route.name,
         )
         self.app.state.services = self.services
 

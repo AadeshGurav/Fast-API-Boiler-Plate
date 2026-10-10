@@ -102,7 +102,7 @@ Diagrams are built from `docs/diagrams/src/` with the
 - [ ] Meets [docs/STANDARDS.md](docs/STANDARDS.md), including its definition of done
 - [ ] Tests added or updated; `make test` passes
 - [ ] `make lint` passes
-- [ ] Docs updated (and `make config-docs` if settings changed)
+- [ ] Docs updated (and `make config-docs` if settings changed, `make openapi` if the API changed)
 - [ ] `CHANGELOG.md` has an entry under *Unreleased* for user-visible changes
 - [ ] Code graph refreshed (`make graph`, or the post-commit hook)
 - [ ] No secrets, credentials or personal data in code, tests or logs

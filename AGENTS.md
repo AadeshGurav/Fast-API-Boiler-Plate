@@ -48,6 +48,7 @@ make test         # pytest, 197 tests, no services needed (~10 s)
 make lint         # ruff check + format check (CI runs this)
 make fmt          # ruff fix + format
 make config-docs  # regenerate docs/CONFIGURATION.md after changing app/settings.py
+make openapi      # regenerate docs/reference/openapi.json after changing any route or model
 make graph        # rebuild graphify-out/
 make hooks        # pre-commit (ruff) + graphify post-commit hook
 make up / make run  # Docker MongoDB + Redis, then the API
