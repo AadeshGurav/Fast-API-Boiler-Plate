@@ -4,7 +4,7 @@ VENV   ?= .venv
 BIN    := $(VENV)/bin
 
 .DEFAULT_GOAL := help
-.PHONY: help setup up down reset-data run test lint fmt config config-docs graph docker-build docker-up
+.PHONY: help setup up down reset-data run test lint fmt config config-docs graph hooks docker-build docker-up
 
 help:  ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*?## ' '{printf "  %-14s %s\n", $$1, $$2}'
@@ -55,8 +55,12 @@ config:  ## Show every effective setting and where it came from; fails on mistak
 config-docs:  ## Regenerate docs/CONFIGURATION.md from the settings model
 	$(BIN)/python -m app.settings docs > docs/CONFIGURATION.md
 
-graph:  ## Refresh the code knowledge graph (graphify-out/)
+graph:  ## Refresh the code knowledge graph in graphify-out/ (needs: pipx install graphifyy==0.9.80)
 	graphify update .
+
+hooks:  ## Install git hooks: ruff before each commit, graph refresh after each commit
+	$(BIN)/pip install --quiet pre-commit && $(BIN)/pre-commit install
+	graphify hook install
 
 docker-up:  ## Run the whole stack (API + MongoDB + Redis) in Docker
 	docker compose --profile app up -d --build --wait
