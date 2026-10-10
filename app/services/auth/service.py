@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 from app.models.auth import LoginResponse, TokenPair
 from app.models.user import User, UserPublic
+from app.services.auth.api_tokens import ApiTokenManager
 from app.services.auth.mfa import MFAError, MFAService
 from app.services.auth.sessions import SessionManager
 from app.services.auth.tokens import TokenManager
@@ -79,6 +80,7 @@ class AuthService(BaseService):
         )
         self.users = UserManager(logger, config, data_service, password_service)
         self.mfa = MFAService(config, logger, data_service, password_service, audit)
+        self.api_tokens = ApiTokenManager(config, data_service, audit)
 
         self.max_failed_logins: int = config["auth_max_failed_logins"]
         self.lockout_minutes: int = config["auth_lockout_minutes"]

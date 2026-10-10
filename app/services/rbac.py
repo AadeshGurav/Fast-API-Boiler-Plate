@@ -18,6 +18,9 @@ from typing import TYPE_CHECKING, Any
 from app.services.base_service import BaseService
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from app.models.auth import TokenPayload
     from app.services.audit import AuditService
     from app.services.cache import CacheService
     from app.services.data import DataService
@@ -26,6 +29,13 @@ if TYPE_CHECKING:
 
 PERMISSION_CACHE_PREFIX = "user_permissions:"
 WILDCARD = "*"
+
+
+def covers(held: Iterable[str], permission: str) -> bool:
+    """Whether ``held`` grants ``permission``, honouring ``*`` and ``resource:*``."""
+    held = set(held)
+    resource = permission.partition(":")[0]
+    return bool({WILDCARD, permission, f"{resource}:{WILDCARD}"} & held)
 
 
 class RBACService(BaseService):
@@ -126,11 +136,14 @@ class RBACService(BaseService):
 
         ``*`` grants everything and ``resource:*`` grants every action on a resource.
         """
-        held = await self.resolve_user_permissions(user_id)
-        if WILDCARD in held or permission in held:
-            return True
-        resource = permission.partition(":")[0]
-        return f"{resource}:{WILDCARD}" in held
+        return covers(await self.resolve_user_permissions(user_id), permission)
+
+    async def allows(self, caller: TokenPayload, permission: str) -> bool:
+        """Whether this request may use ``permission``: the user must hold it and, for an API
+        token, the token's scopes must cover it too, so a token never exceeds its owner."""
+        if caller.scopes is not None and not covers(caller.scopes, permission):
+            return False
+        return await self.check_permission(caller.user_id, permission)
 
     async def _forget(self, user_id: str) -> None:
         await self.cache.delete(f"{PERMISSION_CACHE_PREFIX}{user_id}")

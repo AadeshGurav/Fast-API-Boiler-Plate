@@ -12,6 +12,7 @@ are pinned by a regression test, chiefly in `tests/test_security_fixes.py` and
 | Stolen refresh token | Single-use rotation; replaying a rotated token revokes the session | `AuthService.refresh_tokens` |
 | Password guessing | Lockout after 5 failures for 15 min, counted atomically; auth rate tier | `AuthService.authenticate`, `RateLimiter` |
 | Stolen or guessed password | Optional authenticator-app codes (RFC 6238) after the password; secrets encrypted at rest; each code and recovery code works once (conditional writes); wrong codes count towards lockout; the challenge token cannot be used as an access token | `services/auth/mfa.py`, `services/auth/totp.py` |
+| Leaked API token | Shown once, stored hashed, scoped, expiring (at most `api_token_max_days`), revocable at once; never more than its owner can do now; cannot mint tokens; dies with a suspended owner | `services/auth/api_tokens.py`, `RBACService.allows` |
 | Username discovery | Same answer and same time for unknown user, wrong password, locked or disabled account; reset request never reveals whether the email exists | `_equalize_timing`, `request_password_reset` |
 | Cross-site request forgery | `SameSite=Lax` cookies plus an Origin/Referer check on cookie-authenticated writes | `middleware/csrf.py` |
 | Token theft by script | Auth cookies are HttpOnly and Secure (outside debug) | `utils/cookie_manager.py` |

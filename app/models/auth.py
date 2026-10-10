@@ -42,6 +42,9 @@ class TokenPayload(BaseModel):
         description="Unique token id (makes every issued token distinct)",
     )
     remember_me: bool = Field(default=False, description="Long-lived session chosen at login")
+    scopes: list[str] | None = Field(
+        None, description="For API tokens: the permissions the token is limited to"
+    )
 
 
 class LoginRequest(BaseModel):

@@ -37,7 +37,7 @@ permissions = ["users:read", "users:write", "reports:read", "reports:write"]
 inherits = ["user"]
 
 [rbac_roles.user]
-permissions = ["profile:read", "profile:write", "dashboard:read", "auth:read", "auth:write", "auth:delete", "files:read", "files:write", "files:delete", "oauth:read", "oauth:write", "oauth:delete", "sessions:read", "sessions:delete"]
+permissions = ["profile:read", "profile:write", "dashboard:read", "auth:read", "auth:write", "auth:delete", "files:read", "files:write", "files:delete", "oauth:read", "oauth:write", "oauth:delete", "sessions:read", "sessions:delete", "tokens:read", "tokens:write", "tokens:delete"]
 
 [rbac_roles.guest]
 permissions = ["public:read"]

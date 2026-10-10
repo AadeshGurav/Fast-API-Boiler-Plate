@@ -75,7 +75,7 @@ class RBACMiddleware(BaseMiddleware):
                 if self.is_admin_only_path(path)
                 else self._path_to_permission(path, request.method.upper())
             )
-            allowed = await self.rbac_service.check_permission(user.user_id, required)
+            allowed = await self.rbac_service.allows(user, required)
         except HTTPException as e:
             # Raised before the app runs, so answer directly.
             response = self.error_service.http_response(e, headers=e.headers, instance=path)

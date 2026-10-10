@@ -58,6 +58,13 @@ COLLECTION_INDEXES: dict[str, list[dict[str, Any]]] = {
         {"keys": [("action", ASCENDING), ("at", DESCENDING)]},
         # The time-to-live index on "at" is added from settings: see collection_indexes().
     ],
+    "api_tokens": [
+        {"keys": [("id", ASCENDING)], "unique": True},
+        {"keys": [("token_hash", ASCENDING)], "unique": True},
+        {"keys": [("user_id", ASCENDING), ("created_at", DESCENDING)]},
+        # Expired tokens are useless (authentication checks expiry too); let the store purge them.
+        {"keys": [("expires_at", ASCENDING)], "expireAfterSeconds": 0},
+    ],
     "mfa_totp": [
         {"keys": [("user_id", ASCENDING)], "unique": True},
     ],

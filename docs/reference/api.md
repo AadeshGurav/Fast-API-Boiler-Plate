@@ -15,6 +15,10 @@ follows `app_title`). If the access token is missing or expired and a valid refr
 present, the request is refreshed transparently and new cookies come back on the response.
 How tokens and sessions work: [security model](../explanation/security-model.md#sessions-and-tokens).
 
+Scripts and integrations use a **personal access token** instead: `Authorization: Bearer
+fabp_pat_...` (create one at `POST /tokens`). A token is limited to its `scopes`, and to what its
+owner can do right now; it has no session and is never refreshed.
+
 ### Permissions
 
 Every path that is not public requires `<resource>:<action>`: the resource is the first path
@@ -137,6 +141,19 @@ Answers 503 while `oauth_enabled` is off. `provider` is `google`.
 | DELETE | `/sessions/{session_id}` | `sessions:delete` | Revoke one → 200 |
 | DELETE | `/sessions/all` | `sessions:delete` | Revoke all, including this one → 200 `revoked_count` |
 
+### API tokens (your own)
+
+Need a signed-in session: a token cannot create, list or revoke tokens.
+
+| Method | Path | Permission | Purpose → success |
+| --- | --- | --- | --- |
+| POST | `/tokens` | `tokens:write` | `{name, scopes, expires_in_days}` (90 by default, at most `api_token_max_days`) → 201 metadata plus `token`, shown once |
+| GET | `/tokens` | `tokens:read` | Your tokens, paged, newest first; never the secret → 200 |
+| DELETE | `/tokens/{token_id}` | `tokens:delete` | Revoke; it stops working at once → 204 (404 if not yours) |
+
+Scopes are permissions: `files:read`, `files:*`, or `*` (everything the owner may do). At most
+`api_tokens_per_user` (20) tokens per user.
+
 ### Users (administration)
 
 | Method | Path | Permission | Purpose → success |
@@ -173,7 +190,7 @@ Recorded actions: `user.registered`, `user.password_changed`, `user.password_res
 `user.status_changed`, `user.deleted`, `session.revoked`, `session.revoked_all`,
 `rbac.role_assigned`, `rbac.role_removed`, `rbac.group_assigned`, `rbac.grant_created`,
 `rbac.grant_revoked`, `mfa.enabled`, `mfa.disabled`, `mfa.reset`, `mfa.recovery_code_used`,
-`mfa.recovery_codes_regenerated`. Each event carries the actor, target, client IP, user agent, request id
+`mfa.recovery_codes_regenerated`, `token.created`, `token.revoked`. Each event carries the actor, target, client IP, user agent, request id
 and small `details` (never secrets). Refused changes are not recorded; sign-in attempts are in
 `login_attempts`.
 
