@@ -1,12 +1,37 @@
 # For decision makers
 
-**In one sentence:** a ready-made, security-reviewed back end that handles accounts, access
-rights and files, so a team can spend its first weeks on the product instead of on plumbing.
+**In one sentence:** a production-ready back end that already handles accounts, access rights,
+files and the safety nets every public API needs, so your team's first sprint ships product
+instead of plumbing.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="../diagrams/system-context-dark.svg">
-  <img alt="System context: clients reach one FastAPI service through an optional reverse proxy; the service uses MongoDB, Redis and file storage, and optionally Google sign-in, SMTP and observability tools." src="../diagrams/system-context.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="../diagrams/what-you-get-dark.svg">
+  <img alt="What you get: your product sits on top of included accounts and access, files and data, and safety nets, running on open-source FastAPI, MongoDB, Redis and Docker." src="../diagrams/what-you-get.svg">
 </picture>
+
+## How it helps the business
+
+| Outcome | How |
+| --- | --- |
+| **Faster to market** | Sign-in, roles, file handling and admin endpoints exist on day one. A new feature touches [five small places](../how-to/add-a-resource.md). |
+| **Lower risk** | Security-reviewed defaults: revocable sessions, lockout, CSRF and CORS checks, safe file handling, secrets kept out of the code. [Security model](../explanation/security-model.md). |
+| **Lower running cost** | One container plus MongoDB and Redis; no licences. Starts on a single small server and scales out by adding containers. |
+| **Easy to staff** | Python, FastAPI, MongoDB, Redis, Docker: mainstream, well-documented tools. Clone to running in about ten minutes. |
+| **Changes stay cheap** | 197 automated tests run in seconds on every change; architecture decisions are written down ([ADRs](../adr/)). |
+| **Operable by others** | Health probes, structured logs with request ids, a [runbook](../how-to/operate.md), and optional metrics, tracing and error reporting. |
+
+## What you can build with it
+
+Any product whose back end is "users who sign in, own things, and are allowed to do some
+things but not others":
+
+- **SaaS and internal tools:** customer portals, admin back offices, approval workflows.
+- **Document and data products:** document management, spreadsheet-driven tools, report
+  generation (versioned files and in-place spreadsheet editing are built in).
+- **Engineering and operations systems:** product lifecycle, asset, inventory or maintenance
+  records, where roles and audit of sign-ins matter.
+- **Mobile and single-page app back ends:** cookie sessions for browsers, Bearer tokens for apps.
+- **Marketplaces and communities:** accounts, profiles, uploads, moderation roles.
 
 ## What you get on day one
 
@@ -17,22 +42,25 @@ rights and files, so a team can spend its first weeks on the product instead of 
 | Files | Per-user uploads with version history, large uploads in chunks, image thumbnails, spreadsheet read and edit (xlsx, ods, csv), per-user storage quota. |
 | Protection | Rate limits, request size and time limits, overload shedding, safe retries, cross-site request checks, security headers. |
 | Operations | Health probes for orchestrators, structured logs, optional metrics, tracing and error reporting. |
-| Developer experience | One command to set up, one to run, 197 automated tests that need no database, CI on every push. |
+| Developer experience | One command to set up, one to run, tests that need no database, CI on every push. |
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../diagrams/system-context-dark.svg">
+  <img alt="System context: clients reach one FastAPI service through an optional reverse proxy; the service uses MongoDB, Redis and file storage, and optionally Google sign-in, SMTP and observability tools." src="../diagrams/system-context.svg">
+</picture>
 
 ## Why it can be trusted
 
-- **Reviewed and hardened.** A security audit's findings are each pinned by a regression test
-  (`tests/test_security_fixes.py`): account-takeover through Google sign-in, brute-force races,
-  oversized or malicious files, cross-site requests, leaked secrets in error reports.
-- **Decisions are written down.** Five [architecture decision records](../adr/) explain the
-  main choices and the alternatives that were rejected.
-- **Fails safely.** Wrong configuration stops startup with a message naming the problem.
+- **Security-reviewed.** Account takeover through Google sign-in, brute-force races, oversized
+  or malicious files, cross-site requests and leaked secrets are each covered by regression
+  tests (`tests/test_security_fixes.py`).
+- **Fails safely.** Wrong configuration stops start-up with a message naming the problem.
   Losing the cache slows the service down instead of taking it down
   ([how](../how-to/operate.md#redis-is-down)).
+- **Open and inspectable.** MIT licensed; every decision has a written record and every
+  setting a description.
 
 ## What it costs to run
-
-One container image plus three backing services; nothing is licensed.
 
 | Piece | Needed | Notes |
 | --- | --- | --- |
@@ -45,33 +73,19 @@ One container image plus three backing services; nothing is licensed.
 
 [Deploy](../how-to/deploy.md) has the detail.
 
-## What it does not do (yet)
+## Scope: what it leaves to you
 
-Knowing the edges avoids surprises in planning:
-
-- **No user interface.** It is API-only by design ([ADR 0002](../adr/0002-api-only.md)); screens
-  are a separate project. [For designers](../design/for-designers.md) describes what those
-  screens need to handle.
-- **No product logic.** There are no domain objects yet; adding one is a routine change
-  ([add a resource](../how-to/add-a-resource.md)).
-- **One organisation.** There is no multi-tenancy: all users share one space, separated only by
-  ownership of their own files and by roles.
-- **One sign-in provider.** Google only; linking a provider to an already signed-in account
-  answers "not implemented".
-- **Audit trail covers sign-ins only.** Every login attempt is recorded for 90 days; other
-  actions are logged but not stored as an audit history.
-- **Known engineering limits** are listed in [Architecture → Known limits](../ARCHITECTURE.md#known-limits).
+- **Screens.** It is an API ([ADR 0002](../adr/0002-api-only.md)); your web or mobile app
+  consumes it. [For designers](../design/for-designers.md) lists what those screens need.
+- **Your domain.** Products, orders, parts, projects: added as resources on the same patterns.
+- **Multi-tenancy.** One organisation per deployment; users are separated by ownership and
+  roles. Add tenant ownership before the first domain object if customers will share one.
+- **Sign-in providers beyond Google, MFA, and a stored audit history of changes** beyond
+  sign-in attempts.
 
 ## Decisions to make before building on it
 
-1. **Tenancy:** will customers share one deployment? If yes, add tenant ownership before the
-   first domain object, not after.
+1. **Tenancy:** one customer per deployment, or shared?
 2. **File storage:** one server with local disk, or S3 from the start (needed to scale out).
-3. **Sign-in:** is Google enough, or are other providers or SSO required?
-4. **Audit:** does the product need a stored history of changes (who changed what, when)?
-
-## What changed from the original boilerplate
-
-The earlier version shipped a demo web UI and a home-grown dependency container. Both were
-removed, and the API, cache and file storage were rebuilt for safety and scale.
-[What changed](what-changed.md) has the full comparison.
+3. **Sign-in:** is Google enough, or are other providers, SSO or MFA required?
+4. **Audit:** does the product need a stored history of who changed what?
