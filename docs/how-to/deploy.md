@@ -35,6 +35,7 @@ Configuration is environment variables (`FABP_<NAME>`); see [configure](configur
 | Item | Setting | Why |
 | --- | --- | --- |
 | Signing key | `FABP_JWT_SECRET` (≥ 32 random characters) | Otherwise each new container generates its own key and every token stops working. The placeholder from `.env.example` is refused. |
+| Two-factor key | `FABP_MFA_ENCRYPTION_KEY` (≥ 32 random characters) | Encrypts authenticator secrets. Keep it stable: a new key makes every existing two-factor setup unusable. |
 | Database credentials | `FABP_MONGO_HOST`, `FABP_MONGO_USERNAME`, `FABP_MONGO_PASSWORD` | |
 | Cache | `FABP_REDIS_HOST`, `FABP_REDIS_PASSWORD` | Shared rate limits, sessions cache and retry protection. |
 | Proxy | `FABP_TRUSTED_PROXY_COUNT=1` | Real client IPs for rate limits and the audit log. |

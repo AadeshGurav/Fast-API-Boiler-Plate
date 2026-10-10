@@ -197,6 +197,26 @@ class Settings(BaseModel):
     auth_lockout_minutes: int = Field(
         15, ge=1, description="How long a locked account stays locked."
     )
+    mfa_encryption_key: str | None = Field(
+        None,
+        repr=False,
+        description="Encrypts two-factor secrets at rest. Generated into config.secrets.toml if unset; changing it disables everyone's two-factor setup.",
+    )
+    mfa_issuer: str | None = Field(
+        None, description="Name authenticator apps show next to the account. Default: app_title."
+    )
+    mfa_recovery_codes: int = Field(
+        10,
+        ge=1,
+        le=20,
+        description="Single-use recovery codes issued when two-factor is turned on.",
+    )
+    mfa_challenge_minutes: int = Field(
+        5,
+        ge=1,
+        le=15,
+        description="How long the password step of a two-factor sign-in stays valid.",
+    )
     audit_retention_days: int = Field(
         365, ge=1, description="How long security audit events are kept before they expire."
     )
@@ -423,7 +443,7 @@ class Settings(BaseModel):
     smtp_password: str | None = Field(None, repr=False, description="SMTP password.")
     smtp_from: str = Field("no-reply@localhost", description="From address.")
 
-    @field_validator("jwt_secret")
+    @field_validator("jwt_secret", "mfa_encryption_key")
     @classmethod
     def _long_enough(cls, value: str | None) -> str | None:
         if value is not None and len(value) < MIN_JWT_SECRET_LENGTH:

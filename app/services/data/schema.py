@@ -58,6 +58,9 @@ COLLECTION_INDEXES: dict[str, list[dict[str, Any]]] = {
         {"keys": [("action", ASCENDING), ("at", DESCENDING)]},
         # The time-to-live index on "at" is added from settings: see collection_indexes().
     ],
+    "mfa_totp": [
+        {"keys": [("user_id", ASCENDING)], "unique": True},
+    ],
     "password_reset_tokens": [
         {"keys": [("token_hash", ASCENDING)], "unique": True},
         # Expired reset tokens are useless; let MongoDB purge them.

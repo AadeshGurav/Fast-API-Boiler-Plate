@@ -32,7 +32,12 @@ def build_schema() -> dict[str, Any]:
             config = Config(config_dir=tmp)
             # Placeholders: building the schema neither signs tokens nor writes files.
             config.data.update(
-                {"jwt_secret": "x" * 64, "log_to_file": False, "file_storage_base_path": tmp}
+                {
+                    "jwt_secret": "x" * 64,
+                    "mfa_encryption_key": "x" * 64,
+                    "log_to_file": False,
+                    "file_storage_base_path": tmp,
+                }
             )
             return create_app(config).openapi()
     finally:

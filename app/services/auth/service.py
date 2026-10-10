@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 from app.models.auth import LoginResponse, TokenPair
 from app.models.user import User, UserPublic
+from app.services.auth.mfa import MFAError, MFAService
 from app.services.auth.sessions import SessionManager
 from app.services.auth.tokens import TokenManager
 from app.services.auth.users import UserManager
@@ -41,6 +42,14 @@ class AuthenticationError(ValueError):
     """
 
 
+class MFARequiredError(AuthenticationError):
+    """The password was right; a second factor is needed. Carries the challenge token."""
+
+    def __init__(self, mfa_token: str) -> None:
+        super().__init__("Two-factor authentication code required")
+        self.mfa_token = mfa_token
+
+
 class AuthService(BaseService):
     """Login, token refresh, logout, registration and password reset.
 
@@ -69,6 +78,7 @@ class AuthService(BaseService):
             logger, data_service, config["refresh_token_days"], config["remember_me_days"]
         )
         self.users = UserManager(logger, config, data_service, password_service)
+        self.mfa = MFAService(config, logger, data_service, password_service, audit)
 
         self.max_failed_logins: int = config["auth_max_failed_logins"]
         self.lockout_minutes: int = config["auth_lockout_minutes"]
@@ -289,7 +299,52 @@ class AuthService(BaseService):
 
         """
         user = await self.authenticate(username, password, device_info)
+        if await self.mfa.is_enabled(user.id):
+            raise MFARequiredError(
+                self.tokens.create_mfa_token(
+                    user.id, remember_me, self.config["mfa_challenge_minutes"]
+                )
+            )
         return await self._open_session(user, device_info, remember_me)
+
+    async def complete_mfa_login(
+        self: AuthService, mfa_token: str, code: str, device_info: DeviceInfo
+    ) -> tuple[LoginResponse, bool]:
+        """Second step of a two-factor sign-in: exchange the challenge and a code for a session.
+
+        Wrong codes count towards the same lockout as wrong passwords. Returns the login
+        response and the "remember me" choice made at the password step.
+        """
+        claims = self.tokens.verify_mfa_token(mfa_token)
+        if claims is None:
+            raise AuthenticationError("The sign-in attempt expired; sign in again")
+        user_id, remember_me = claims
+        users = self.data_service.users
+        record = await users.get_user_by_id(user_id, fresh=True)
+        if not record or record.get("status", "active") != "active" or self._locked(record):
+            raise AuthenticationError(GENERIC_LOGIN_ERROR)
+
+        failures = await users.increment_failed_logins(record)
+        if failures > self.max_failed_logins or not await self.mfa.verify(user_id, code):
+            if failures >= self.max_failed_logins:
+                await users.update_user(
+                    user_id,
+                    {
+                        "locked_until": datetime.now(UTC) + timedelta(minutes=self.lockout_minutes),
+                        "failed_login_count": 0,
+                    },
+                )
+            await self._record_login_attempt(
+                record["username"], user_id, False, device_info, "invalid_mfa_code"
+            )
+            raise AuthenticationError("The code is not valid")
+
+        await users.update_user(user_id, {"failed_login_count": 0})
+        await self._record_login_attempt(record["username"], user_id, True, device_info, "mfa")
+        response = await self._open_session(
+            User(**self.users.normalize(record)), device_info, remember_me
+        )
+        return response, remember_me
 
     async def login_oauth_user(
         self: AuthService, user: User, device_info: DeviceInfo
@@ -578,4 +633,4 @@ class AuthService(BaseService):
         return True
 
 
-__all__ = ["AuthService", "AuthenticationError"]
+__all__ = ["AuthService", "AuthenticationError", "MFAError", "MFARequiredError"]

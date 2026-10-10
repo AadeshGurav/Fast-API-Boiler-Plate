@@ -17,9 +17,10 @@ setup:  ## Create the venv, install dependencies, generate .env (random password
 	  mongo=$$($(BIN)/python -c 'import secrets;print(secrets.token_urlsafe(24))'); \
 	  redis=$$($(BIN)/python -c 'import secrets;print(secrets.token_urlsafe(24))'); \
 	  jwt=$$($(BIN)/python -c 'import secrets;print(secrets.token_urlsafe(64))'); \
+	  mfa=$$($(BIN)/python -c 'import secrets;print(secrets.token_urlsafe(64))'); \
 	  mport=$$($(BIN)/python scripts/free_port.py 27017); rport=$$($(BIN)/python scripts/free_port.py 6379); aport=$$($(BIN)/python scripts/free_port.py 8000); \
 	  sed -e "s/MONGO_ROOT_PASSWORD=.*/MONGO_ROOT_PASSWORD=$$mongo/" -e "s/FABP_MONGO_PASSWORD=.*/FABP_MONGO_PASSWORD=$$mongo/" \
-	      -e "s/^REDIS_PASSWORD=.*/REDIS_PASSWORD=$$redis/" -e "s/FABP_REDIS_PASSWORD=.*/FABP_REDIS_PASSWORD=$$redis/" -e "s/FABP_JWT_SECRET=.*/FABP_JWT_SECRET=$$jwt/" \
+	      -e "s/^REDIS_PASSWORD=.*/REDIS_PASSWORD=$$redis/" -e "s/FABP_REDIS_PASSWORD=.*/FABP_REDIS_PASSWORD=$$redis/" -e "s/FABP_JWT_SECRET=.*/FABP_JWT_SECRET=$$jwt/" -e "s/FABP_MFA_ENCRYPTION_KEY=.*/FABP_MFA_ENCRYPTION_KEY=$$mfa/" \
 	      -e "s/APP_HOST_PORT=.*/APP_HOST_PORT=$$aport/" -e "s/FABP_APP_PORT=.*/FABP_APP_PORT=$$aport/" \
 	      -e "s/MONGO_HOST_PORT=.*/MONGO_HOST_PORT=$$mport/" -e "s/FABP_MONGO_PORT=.*/FABP_MONGO_PORT=$$mport/" \
 	      -e "s/REDIS_HOST_PORT=.*/REDIS_HOST_PORT=$$rport/" -e "s/FABP_REDIS_PORT=.*/FABP_REDIS_PORT=$$rport/" \

@@ -91,6 +91,10 @@ Values are resolved in this order (later wins):
 | `remember_me_days` | int | `30` | Refresh token / session lifetime with 'remember me'. |
 | `auth_max_failed_logins` | int | `5` | Failed logins before the account locks. |
 | `auth_lockout_minutes` | int | `15` | How long a locked account stays locked. |
+| `mfa_encryption_key` | str | None | _unset_ | Encrypts two-factor secrets at rest. Generated into config.secrets.toml if unset; changing it disables everyone's two-factor setup. |
+| `mfa_issuer` | str | None | _unset_ | Name authenticator apps show next to the account. Default: app_title. |
+| `mfa_recovery_codes` | int | `10` | Single-use recovery codes issued when two-factor is turned on. |
+| `mfa_challenge_minutes` | int | `5` | How long the password step of a two-factor sign-in stays valid. |
 | `audit_retention_days` | int | `365` | How long security audit events are kept before they expire. |
 | `auth_refresh_reuse_grace_seconds` | int | `30` | A rotated refresh token still works this long (parallel tabs). |
 | `password_min_length` | int | `8` | Minimum password length. |

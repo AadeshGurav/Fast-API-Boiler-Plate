@@ -51,6 +51,7 @@ services:
       FABP_MONGO_PASSWORD: ${MONGO_ROOT_PASSWORD}
       FABP_REDIS_PASSWORD: ${REDIS_PASSWORD}
       FABP_JWT_SECRET: ${FABP_JWT_SECRET:?run `make setup` to create .env}
+      FABP_MFA_ENCRYPTION_KEY: ${FABP_MFA_ENCRYPTION_KEY:?run `make setup` to create .env}
     volumes:
       - uploads:/app/uploads
 

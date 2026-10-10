@@ -101,6 +101,22 @@ paths `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`.
 | GET | `/auth/me` | `auth:read` | The signed-in user → 200 |
 | PATCH | `/auth/me` | `auth:write` | `{first_name, last_name}` → 200 user |
 
+### Two-factor authentication
+
+| Method | Path | Permission | Purpose → success |
+| --- | --- | --- | --- |
+| POST | `/auth/login/mfa` | public | `{mfa_token, code}` → 200 like login; sets cookies. `code` is an authenticator code or a recovery code. |
+| GET | `/auth/mfa` | `auth:read` | `{totp_enabled, recovery_codes_left}` → 200 |
+| POST | `/auth/mfa/totp` | `auth:write` | `{password}` → 201 `{secret, otpauth_uri}`; not active until confirmed; 409 if already on |
+| POST | `/auth/mfa/totp/confirm` | `auth:write` | `{code}` → 200 `{recovery_codes}` (shown once); turns it on |
+| POST | `/auth/mfa/recovery-codes` | `auth:write` | `{password, code}` → 200 new `{recovery_codes}`; old ones stop working |
+| DELETE | `/auth/mfa/totp` | `auth:delete` | `{password, code}` → 204; turns it off |
+
+With two-factor on, `POST /auth/login` answers **401** with `code: "mfa_required"` and
+`details.mfa_token` (valid `mfa_challenge_minutes`, 5) instead of tokens. Wrong codes count
+towards the same lockout as wrong passwords; each code works once. Google sign-in is not asked
+for a second factor (the provider is responsible for it).
+
 ### Sign in with a provider
 
 | Method | Path | Permission | Purpose → success |
@@ -150,12 +166,14 @@ All need `*` (everything under `/admin`).
 
 | Method | Path | Purpose → success |
 | --- | --- | --- |
+| DELETE | `/admin/users/{user_id}/mfa` | Turn off a user's two-factor sign-in (lost phone and codes; verify them first) → 204 |
 | GET | `/admin/audit-events` | Security audit log, newest first, paged; filters `actor_id`, `target_type`, `target_id`, `action`, `since`, `until` → 200 |
 
 Recorded actions: `user.registered`, `user.password_changed`, `user.password_reset`,
 `user.status_changed`, `user.deleted`, `session.revoked`, `session.revoked_all`,
 `rbac.role_assigned`, `rbac.role_removed`, `rbac.group_assigned`, `rbac.grant_created`,
-`rbac.grant_revoked`. Each event carries the actor, target, client IP, user agent, request id
+`rbac.grant_revoked`, `mfa.enabled`, `mfa.disabled`, `mfa.reset`, `mfa.recovery_code_used`,
+`mfa.recovery_codes_regenerated`. Each event carries the actor, target, client IP, user agent, request id
 and small `details` (never secrets). Refused changes are not recorded; sign-in attempts are in
 `login_attempts`.
 

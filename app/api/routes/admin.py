@@ -1,14 +1,16 @@
-"""Administration: the security audit log. Everything under ``/admin`` needs ``*``."""
+"""Administration: the security audit log and account recovery. Everything under ``/admin``
+needs ``*``."""
 
 from __future__ import annotations
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.api.deps import get_audit_service
+from app.api.deps import get_audit_service, get_auth_service
 from app.models.audit import AuditEvent, AuditEventListResponse
 from app.services.audit import AuditService
+from app.services.auth import AuthService
 
 router = APIRouter(prefix="/admin", tags=["Administration"])
 
@@ -43,3 +45,16 @@ async def list_audit_events(
         page_size=page_size,
         has_next=page * page_size < total,
     )
+
+
+@router.delete("/users/{user_id}/mfa", status_code=status.HTTP_204_NO_CONTENT)
+async def reset_user_mfa(
+    user_id: str,
+    auth_service: AuthService = Depends(get_auth_service),
+) -> None:
+    """Turn off a user's two-factor sign-in after verifying their identity out of band."""
+    if not await auth_service.mfa.reset(user_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Two-factor sign-in is not on for this user",
+        )

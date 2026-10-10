@@ -38,7 +38,7 @@ things but not others":
 
 | Capability | What it means for the product |
 | --- | --- |
-| Accounts | Sign-up, sign-in, "remember me", sign out of one or all devices, password change and reset by email, optional Google sign-in. |
+| Accounts | Sign-up, sign-in, "remember me", sign out of one or all devices, password change and reset by email, optional Google sign-in, optional two-factor sign-in with an authenticator app and recovery codes. |
 | Access control | Roles (admin, manager, user, guest), groups, and time-limited grants, all defined in one config file. Every endpoint is locked unless a role allows it. |
 | Audit trail | Every security change (roles, grants, account status, passwords, sessions) is recorded with who, when and from where, and administrators can search it. |
 | Files | Per-user uploads with version history, large uploads in chunks, image thumbnails, spreadsheet read and edit (xlsx, ods, csv), per-user storage quota. |
@@ -82,7 +82,7 @@ things but not others":
 - **Your domain.** Products, orders, parts, projects: added as resources on the same patterns.
 - **Multi-tenancy.** One organisation per deployment; users are separated by ownership and
   roles. Add tenant ownership before the first domain object if customers will share one.
-- **Sign-in providers beyond Google, and MFA.**
+- **Sign-in providers beyond Google, and passkeys.**
 
 ## Decisions to make before building on it
 

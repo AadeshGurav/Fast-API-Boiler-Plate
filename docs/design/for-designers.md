@@ -21,6 +21,8 @@ The product has to make that moment bearable without contradicting it.
 | --- | --- | --- |
 | Sign up | `POST /auth/register` | Password rules shown **before** the first attempt (8+ characters, upper, lower, digit, symbol by default); duplicate username or email (400 with a message); success. |
 | Sign in | `POST /auth/login` | One generic error ("Username or password is incorrect"); "remember me" (30 days instead of 7); too many attempts (429 with `Retry-After`). |
+| Two-factor sign-in | `POST /auth/login` → 401 `mfa_required`, then `POST /auth/login/mfa` | A code screen after the password, not an error; six-digit input (`inputmode="numeric"`, `autocomplete="one-time-code"`); a "use a recovery code" link; "code not valid" (401); the step expires after 5 minutes, so offer "start again". |
+| Two-factor setup | `/auth/mfa/totp`, `/confirm` | Ask for the password; show a QR code from `otpauth_uri` plus the `secret` for manual entry; confirm with a first code; then show the recovery codes **once**, with copy and download, and ask the user to save them before leaving. |
 | Forgot password | `POST /auth/reset-password-request` | Always the same confirmation, whether or not the email exists. |
 | Reset password | `POST /auth/reset-password-confirm` | Expired or used link (400); password rules; success, which also signs out every device. |
 | Signed-in shell | any | Session refresh is silent; only a real 401 should send the user to sign in. |

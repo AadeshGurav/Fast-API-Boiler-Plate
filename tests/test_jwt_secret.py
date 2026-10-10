@@ -113,3 +113,21 @@ def test_the_shipped_config_is_valid_and_documents_every_setting_it_sets():
 
     config = Config(config_dir=REPO)
     assert set(config) == set(Settings.model_fields)
+
+
+@pytest.mark.parametrize("key", ["jwt_secret", "mfa_encryption_key"])
+def test_placeholder_and_short_keys_are_refused(key):
+    from pydantic import ValidationError
+
+    from app.settings import Settings
+
+    for bad in ("change-me-generated-by-make-setup", "short"):
+        with pytest.raises(ValidationError):
+            Settings(**{key: bad})
+
+
+def test_the_mfa_key_is_generated_alongside_the_jwt_secret(tmp_path):
+    config = Config(config_dir=tmp_path)
+
+    assert config.ensure_secret("mfa_encryption_key") is True
+    assert Config(config_dir=tmp_path)["mfa_encryption_key"] == config["mfa_encryption_key"]

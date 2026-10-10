@@ -15,7 +15,7 @@ actually make.
 | --- | --- | --- |
 | Project-wide default, roles and groups | `config.toml` | yes |
 | Your machine's overrides | `config.local.toml` | no |
-| Generated JWT key | `config.secrets.toml` (written on first start, mode 0600) | no |
+| Generated JWT and MFA keys | `config.secrets.toml` (written on first start, mode 0600) | no |
 | Container or CI value, any secret | `FABP_<NAME>` environment variable (or `.env` locally) | no |
 
 Sources merge **per setting**, not per nested key: a `[rbac_roles.*]` or `[rate_limit_tiers.*]`
