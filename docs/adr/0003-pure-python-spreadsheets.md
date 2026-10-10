@@ -1,6 +1,6 @@
 # 0003: Spreadsheets are handled by one pure-Python processor
 
-**Status:** accepted (2026-10-08)
+**Status:** accepted (2026-10-08); amended by [0005](0005-scale-out-files-and-cache-resilience.md)
 
 **Context.** Three processors (Excel COM, LibreOffice subprocess, Python) were selected by
 OS. The LibreOffice path exported only the first sheet and wrote it back (silent data loss),
@@ -17,3 +17,6 @@ supported).
 
 **Consequences.** xlsx edits are made in place (formulas and styles of untouched cells survive; charts/images do
 not); ods/csv edits rebuild from values. The previous version is always kept. Legacy `.xls` is no longer processed (still storable).
+
+**Amendment (0005).** xlsx edits now patch the zip package instead of rebuilding it, so charts
+and images survive too.
