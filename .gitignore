@@ -18,8 +18,9 @@ logs/*
 uploads/*
 .DS_Store
 
-# graphify-out/ is committed; only its sidecars are not (they hold local absolute paths)
-graphify-out/.graphify_*
+# graphify-out/ is committed in full. .graphify_python only records the local interpreter's
+# absolute path (not graph data), so it stays out.
+**/.graphify_python
 .cursor/
 .cursorignore
 .cursorrules
@@ -31,4 +32,3 @@ uploads/
 config.local.toml
 config.secrets.toml
 .env
-graphify-out/**/.graphify_*
