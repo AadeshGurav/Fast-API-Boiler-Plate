@@ -184,6 +184,8 @@ All need `*` (everything under `/admin`).
 | Method | Path | Purpose → success |
 | --- | --- | --- |
 | DELETE | `/admin/users/{user_id}/mfa` | Turn off a user's two-factor sign-in (lost phone and codes; verify them first) → 204 |
+| GET | `/admin/jobs` | Background jobs, newest first, paged; `?status=queued|running|done|dead`, `?name=` → 200 |
+| POST | `/admin/jobs/{job_id}/retry` | Queue a dead job again from its first attempt → 200 (404 unless dead) |
 | GET | `/admin/audit-events` | Security audit log, newest first, paged; filters `actor_id`, `target_type`, `target_id`, `action`, `since`, `until` → 200 |
 
 Recorded actions: `user.registered`, `user.password_changed`, `user.password_reset`,

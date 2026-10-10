@@ -33,6 +33,10 @@ All notable changes are recorded here. The format follows
 - Personal access tokens for scripts and integrations (`/api/v1/tokens`): `fabp_pat_...` bearer
   tokens limited by scopes and by their owner's current permissions, expiring, revocable at once,
   stored hashed. Tokens cannot manage tokens.
+- Durable background jobs on the configured database (`JobService`, ADR 0007): conditional
+  claims, retries with exponential backoff and jitter, a `dead` state with
+  `GET /api/v1/admin/jobs` and `POST /api/v1/admin/jobs/{id}/retry`, lease expiry after a crash,
+  idempotency keys, a built-in `email.send` job; runs inside the API or as `python -m app.jobs`.
 - The OpenAPI contract is committed as `docs/reference/openapi.json` (`make openapi`), and a
   test fails when it drifts from the application. Operation ids are the route function names,
   so generated clients get stable method names; see `docs/how-to/generate-a-client.md`.

@@ -8,6 +8,7 @@ from app.services.audit import AuditService
 from app.services.auth import AuthService
 from app.services.data import DataService
 from app.services.file import FileService
+from app.services.jobs import JobService
 from app.services.oauth import OAuthService
 from app.services.rbac import RBACService
 from app.services.registry import Services
@@ -32,6 +33,10 @@ def get_data_service(request: Request) -> DataService:
 
 def get_file_service(request: Request) -> FileService:
     return get_services(request).file_service
+
+
+def get_job_service(request: Request) -> JobService:
+    return get_services(request).job_service
 
 
 def get_rbac_service(request: Request) -> RBACService:

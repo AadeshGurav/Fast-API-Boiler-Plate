@@ -65,6 +65,15 @@ COLLECTION_INDEXES: dict[str, list[dict[str, Any]]] = {
         # Expired tokens are useless (authentication checks expiry too); let the store purge them.
         {"keys": [("expires_at", ASCENDING)], "expireAfterSeconds": 0},
     ],
+    "jobs": [
+        {"keys": [("id", ASCENDING)], "unique": True},
+        # Serves the worker's "due jobs" query.
+        {"keys": [("status", ASCENDING), ("run_at", ASCENDING)]},
+        {"keys": [("status", ASCENDING), ("lease_until", ASCENDING)]},
+        {"keys": [("idempotency_key", ASCENDING)], "unique": True, "sparse": True},
+        {"keys": [("created_at", DESCENDING)]},
+        # The time-to-live index on "finished_at" is added from settings: see collection_indexes().
+    ],
     "mfa_totp": [
         {"keys": [("user_id", ASCENDING)], "unique": True},
     ],
@@ -78,11 +87,22 @@ COLLECTION_INDEXES: dict[str, list[dict[str, Any]]] = {
 
 def collection_indexes(config: Any) -> dict[str, list[dict[str, Any]]]:
     """``COLLECTION_INDEXES`` plus the indexes whose options come from settings."""
-    retention = config["audit_retention_days"] * 24 * 3600
+    day = 24 * 3600
     return {
         **COLLECTION_INDEXES,
         "audit_events": [
             *COLLECTION_INDEXES["audit_events"],
-            {"keys": [("at", ASCENDING)], "expireAfterSeconds": retention},
+            {
+                "keys": [("at", ASCENDING)],
+                "expireAfterSeconds": config["audit_retention_days"] * day,
+            },
+        ],
+        # Unfinished jobs have finished_at = None, which a TTL index never expires.
+        "jobs": [
+            *COLLECTION_INDEXES["jobs"],
+            {
+                "keys": [("finished_at", ASCENDING)],
+                "expireAfterSeconds": config["jobs_retention_days"] * day,
+            },
         ],
     }

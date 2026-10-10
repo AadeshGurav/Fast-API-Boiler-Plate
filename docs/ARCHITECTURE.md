@@ -164,12 +164,24 @@ instrumentation, OTLP export) and `SentryService` (SDK integrations, request bod
 Logging is the standard library: readable console lines plus JSON lines in `logs/app.log`,
 written by a background thread through a queue, each carrying the request id.
 
+## Background jobs
+
+`JobService` keeps jobs in the `jobs` collection and runs them in a worker loop started by the
+lifespan (or by `python -m app.jobs`). Claiming is a conditional update that exactly one worker
+wins; failures retry with backoff and jitter, then become `dead` and visible at
+`/api/v1/admin/jobs`; a crashed worker's lease expires and the job runs again, so handlers are
+idempotent. Handlers are registered in `register_job_handlers`
+([ADR 0007](adr/0007-background-jobs-on-the-database.md),
+[how-to](how-to/run-background-jobs.md)).
+
 ## Known limits
 
 - xlsx: overwriting the anchor of a shared or array formula is refused; Excel recalculates
   formulas on next open. The previous version is always kept.
 - The default `local` storage is one host's disk; use `s3` for more than one host. Uploads to S3
   pass through the API once; set `file_download_redirect` so downloads do not.
+- The job queue polls the database: fine for hundreds of jobs a second, not for a firehose.
+  Taskiq is the upgrade path ([ADR 0007](adr/0007-background-jobs-on-the-database.md)).
 - `MemoryCache` is per process, so `app_workers > 1` with it is refused at start-up.
 - Streamed (multipart, chunked or > 1 MiB) idempotent requests are compared by length, not content.
 - Two simultaneous uploads of a new version of the same file on S3 can both pass the existence

@@ -81,7 +81,7 @@ class ErrorService(BaseService):
         elif isinstance(exc, RequestValidationError):
             code, detail = "validation_error", "The request is invalid."
             extra = {"errors": jsonable_validation_errors(exc)}
-            status_code = status_code or status.HTTP_422_UNPROCESSABLE_ENTITY
+            status_code = status_code or status.HTTP_422_UNPROCESSABLE_CONTENT
         elif isinstance(exc, CacheUnavailableError):
             code, extra = "dependency_unavailable", {}
             detail = "A required service is temporarily unavailable. Try again shortly."

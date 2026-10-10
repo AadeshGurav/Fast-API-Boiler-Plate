@@ -223,6 +223,26 @@ class Settings(BaseModel):
     api_tokens_per_user: int = Field(
         20, ge=1, description="Most personal access tokens one user may hold at once."
     )
+    jobs_run_in_api: bool = Field(
+        True,
+        description="Run the background job worker inside each API process. Turn off when running `python -m app.jobs` separately.",
+    )
+    jobs_poll_seconds: float = Field(
+        2.0, gt=0, description="How often an idle job worker looks for due jobs."
+    )
+    jobs_batch_size: int = Field(10, ge=1, le=500, description="Jobs one worker claims per pass.")
+    jobs_max_attempts: int = Field(
+        5, ge=1, description="Attempts before a failing job is moved to 'dead'."
+    )
+    jobs_timeout_seconds: float = Field(
+        300.0, gt=0, description="Time limit for one job attempt; the lease is twice this."
+    )
+    jobs_retry_base_seconds: float = Field(
+        10.0, gt=0, description="Base of the exponential retry delay (with full jitter)."
+    )
+    jobs_retention_days: int = Field(
+        14, ge=1, description="How long finished (done or dead) jobs are kept."
+    )
     audit_retention_days: int = Field(
         365, ge=1, description="How long security audit events are kept before they expire."
     )

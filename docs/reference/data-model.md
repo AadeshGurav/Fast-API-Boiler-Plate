@@ -61,6 +61,14 @@ recognising a token), `token_hash` (SHA-256, unique; the token itself is never s
 `scopes`, `created_at`, `expires_at`, `last_used_at` (written at most once a minute). **TTL on
 `expires_at`.** Read from the database on every request, so revocation is immediate.
 
+### `jobs` (`JobService`)
+
+Background jobs: `id` (unique), `name`, `payload`, `status` (`queued`, `running`, `done`,
+`dead`), `attempts`, `run_at`, `lease_until`, `worker`, `last_error`, optional
+`idempotency_key` (sparse unique), `created_at`, `updated_at`, `finished_at`. Indexes serve the
+worker's queries: `(status, run_at)` and `(status, lease_until)`. **TTL on `finished_at`:**
+`jobs_retention_days` (14); unfinished jobs never expire.
+
 ### `mfa_totp` (`MFAService`)
 
 One record per user with an authenticator app: `user_id` (unique), `secret` (**encrypted** with
