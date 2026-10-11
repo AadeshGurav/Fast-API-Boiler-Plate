@@ -4,15 +4,18 @@ VENV   ?= .venv
 BIN    := $(VENV)/bin
 
 .DEFAULT_GOAL := help
-.PHONY: help setup up up-postgres up-mail down reset-data run test fuzz lint fmt config config-docs openapi graph hooks docker-build docker-up
+.PHONY: help setup up up-postgres up-mail down reset-data run test fuzz lint fmt config config-docs openapi lock graph hooks docker-build docker-up
 
 help:  ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*?## ' '{printf "  %-14s %s\n", $$1, $$2}'
 
 setup:  ## Create the venv, install dependencies, generate .env (random passwords) and config.local.toml
-	$(PYTHON) -m venv $(VENV)
-	$(BIN)/pip install --quiet --upgrade pip
-	$(BIN)/pip install --quiet -r requirements-dev.txt
+	@if command -v uv >/dev/null 2>&1; then \
+	  uv sync --frozen --all-extras --quiet; \
+	else \
+	  echo "uv not found: using pip (install uv for a faster, locked setup: https://docs.astral.sh/uv/)"; \
+	  $(PYTHON) -m venv $(VENV) && $(BIN)/pip install --quiet --require-hashes -r requirements-dev.txt; \
+	fi
 	@test -f .env || { \
 	  mongo=$$($(BIN)/python -c 'import secrets;print(secrets.token_urlsafe(24))'); \
 	  redis=$$($(BIN)/python -c 'import secrets;print(secrets.token_urlsafe(24))'); \
@@ -67,6 +70,17 @@ config:  ## Show every effective setting and where it came from; fails on mistak
 
 config-docs:  ## Regenerate docs/CONFIGURATION.md from the settings model
 	$(BIN)/python -m app.settings docs > docs/CONFIGURATION.md
+
+lock:  ## Re-resolve uv.lock after editing dependencies in pyproject.toml, and export requirements*.txt
+	uv lock
+	@$(MAKE) --no-print-directory export-requirements
+
+export-requirements:
+	uv export --frozen --no-dev --no-emit-project --quiet -o requirements.txt
+	uv export --frozen --no-dev --no-emit-project --quiet --extra s3 -o requirements-s3.txt
+	uv export --frozen --no-dev --no-emit-project --quiet --extra postgres -o requirements-postgres.txt
+	uv export --frozen --no-dev --no-emit-project --quiet --extra observability -o requirements-observability.txt
+	uv export --frozen --all-extras --no-emit-project --quiet -o requirements-dev.txt
 
 openapi:  ## Regenerate the committed API contract, docs/reference/openapi.json
 	$(BIN)/python -m app.api.openapi > docs/reference/openapi.json

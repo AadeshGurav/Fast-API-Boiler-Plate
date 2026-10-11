@@ -21,7 +21,61 @@ classifiers = [
     "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
     "Topic :: Software Development :: Libraries :: Application Frameworks",
 ]
-# Runtime dependencies are pinned in requirements.txt (see the Makefile).
+# Direct dependencies, pinned; uv.lock pins everything they pull in, with hashes. The
+# requirements*.txt files are exported from the lock (`make lock`) for pip users and Docker.
+dependencies = [
+    "fastapi==0.142.4",
+    "starlette==1.7.0",
+    "uvicorn==0.54.0",
+    "uvloop==0.23.0; sys_platform != 'win32'",
+    "httptools==0.8.0",
+    "python-multipart==0.0.32",  # form and file uploads
+    "pydantic==2.13.5",
+    "email-validator==2.3.0",  # pydantic EmailStr
+    "httpx==0.28.1",  # outbound HTTP (OIDC, webhooks)
+    "motor==3.7.1",
+    "pymongo==4.18.2",
+    "redis==8.1.0",
+    "PyJWT==2.15.1",
+    "cryptography==50.0.2",  # secrets at rest (two-factor, webhooks)
+    "webauthn==3.0.1",  # passkeys
+    "argon2-cffi==25.1.0",
+    "aiofiles==25.1.0",
+    "pillow==12.3.0",
+    "openpyxl==3.1.5",
+    "odfpy==1.4.1",  # ods spreadsheets
+    "prometheus_client==0.26.0",
+    "user-agents==2.2.0",
+]
+
+[project.optional-dependencies]
+s3 = ["boto3==1.43.110"]
+postgres = ["asyncpg==0.32.0"]
+observability = [
+    "sentry-sdk==2.71.0",
+    "opentelemetry-api==1.45.1",
+    "opentelemetry-sdk==1.45.1",
+    "opentelemetry-exporter-otlp==1.45.1",
+    "opentelemetry-instrumentation==0.66b1",
+    "opentelemetry-instrumentation-fastapi==0.66b1",
+    "opentelemetry-instrumentation-httpx==0.66b1",
+    "opentelemetry-instrumentation-pymongo==0.66b1",
+    "opentelemetry-instrumentation-redis==0.66b1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest==9.1.1",
+    "pytest-asyncio==1.4.0",
+    "pytest-cov==7.1.0",
+    "ruff==0.17.0",
+    "moto==5.2.3",  # fake S3
+    "schemathesis==4.28.0",  # API fuzzing
+]
+
+[tool.uv]
+package = false  # an application, not a library: nothing to build or install
+required-version = ">=0.12"
 
 [project.urls]
 Homepage = "https://github.com/AadeshGurav/Fast-API-Boiler-Plate"

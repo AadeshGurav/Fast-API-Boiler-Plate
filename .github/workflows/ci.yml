@@ -21,27 +21,35 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v7
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7  # v10.2.0
         with:
+          version: "0.12.18"
           python-version: ${{ matrix.python-version }}
-          cache: pip
-          cache-dependency-path: requirements*.txt
+          enable-cache: true
 
+      # Exactly what uv.lock says; fails if pyproject.toml changed without `make lock`.
       - name: Install
-        run: pip install -r requirements-dev.txt
+        run: uv sync --frozen --all-extras
+
+      - name: Lock and exported requirements are current
+        if: matrix.python-version == '3.11'
+        run: |
+          uv lock --check
+          make export-requirements
+          git diff --exit-code -- 'requirements*.txt'
 
       - name: Lint
         run: |
-          ruff check app tests main.py config.py
-          ruff format --check app tests main.py config.py
+          uv run ruff check app tests main.py config.py
+          uv run ruff format --check app tests main.py config.py
 
       # The suite uses in-memory stand-ins for MongoDB and Redis: no services needed.
       - name: Test
-        run: python -m pytest -q --cov=app --cov-report=term-missing:skip-covered
+        run: uv run pytest -q --cov=app --cov-report=term-missing:skip-covered
 
       # Generated requests for every operation: no 5xx, and only documented answers.
       - name: Fuzz the API contract
-        run: python -m pytest -q -m fuzz
+        run: uv run pytest -q -m fuzz
 
   contract:
     # The storage-agnostic promise, proven against the real engines.
@@ -60,31 +68,30 @@ jobs:
         options: --health-cmd "pg_isready -U fabp" --health-interval 5s --health-retries 10
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7  # v10.2.0
         with:
+          version: "0.12.18"
           python-version-file: .python-version
-          cache: pip
-          cache-dependency-path: requirements*.txt
-      - run: pip install -r requirements-dev.txt
+          enable-cache: true
+      - run: uv sync --frozen --all-extras
       - name: Contract tests
         env:
           CONTRACT_DATABASES: fake,mongodb,postgres
           CONTRACT_CACHES: memory,redis
           FABP_POSTGRES_PASSWORD: contract
-        run: python -m pytest tests/contract -q
+        run: uv run pytest tests/contract -q
 
   audit:
-    # Known vulnerabilities in pinned runtime dependencies fail the build.
+    # Known vulnerabilities anywhere in the locked dependency tree fail the build.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7  # v10.2.0
         with:
+          version: "0.12.18"
           python-version-file: .python-version
       - name: Audit dependencies
-        run: |
-          pip install pip-audit==2.10.1
-          pip-audit -r requirements.txt -r requirements-s3.txt -r requirements-postgres.txt -r requirements-observability.txt
+        run: uvx pip-audit==2.10.1 --disable-pip --require-hashes -r requirements-dev.txt
 
   image:
     # The shipped image must build and carry no HIGH or CRITICAL fixable vulnerability.

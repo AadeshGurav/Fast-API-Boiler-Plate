@@ -58,7 +58,8 @@ in-memory, local-disk and S3 implementations ship ready to use.
 
 ## Quick start
 
-You need Python 3.11, Docker and `make`.
+You need Python 3.11, Docker and `make`; [uv](https://docs.astral.sh/uv/) is recommended (a
+locked install in seconds), and `make setup` falls back to pip without it.
 
 ```bash
 git clone https://github.com/AadeshGurav/Fast-API-Boiler-Plate.git

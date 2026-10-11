@@ -1,7 +1,7 @@
 # Weekly dependency update pull requests; review the changelog before merging.
 version: 2
 updates:
-  - package-ecosystem: pip
+  - package-ecosystem: uv   # pyproject.toml + uv.lock; run `make export-requirements` on its PRs
     directory: /
     schedule: {interval: weekly}
     target-branch: develop

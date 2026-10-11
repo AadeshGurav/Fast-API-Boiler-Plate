@@ -71,7 +71,7 @@ rate-limit counters and sessions, silently multiplying every limit.
 
 ```bash
 make up-postgres                        # PostgreSQL 17 in Docker (loopback only)
-pip install -r requirements-postgres.txt  # asyncpg (already in requirements-dev.txt)
+uv sync --extra postgres                  # or: pip install -r requirements-postgres.txt
 ```
 
 ```toml
@@ -89,7 +89,7 @@ application changes.
 ## Store files in S3 (or MinIO, R2, ...)
 
 ```bash
-pip install -r requirements-s3.txt          # or: docker build --build-arg INSTALL_S3=true
+uv sync --extra s3                          # or pip install -r requirements-s3.txt; Docker: --build-arg INSTALL_S3=true
 ```
 
 ```toml
