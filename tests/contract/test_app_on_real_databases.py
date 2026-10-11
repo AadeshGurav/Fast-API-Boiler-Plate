@@ -95,3 +95,24 @@ def test_accounts_two_factor_files_audit_and_jobs(client):
 
     client.portal.call(services.job_service.enqueue, "smoke.job", {"ok": True})
     assert client.portal.call(services.job_service.run_once) == 1 and ran == [{"ok": True}]
+
+
+def test_cursor_paging_visits_every_record_once_on_each_engine(client):
+    # Cursors compare stored timestamps exactly; MongoDB keeps milliseconds, PostgreSQL
+    # microseconds. Many events in the same millisecond must still page without loss.
+    audit = client.services.audit_service
+    for i in range(7):
+        client.portal.call(
+            lambda i=i: audit.record("smoke.page", target_type="thing", target_id=str(i))
+        )
+
+    seen, cursor = [], None
+    while True:
+        events, total, cursor = client.portal.call(
+            lambda c=cursor: audit.list_events(action="smoke.page", page_size=2, cursor=c)
+        )
+        seen += [e["target_id"] for e in events]
+        if cursor is None:
+            break
+
+    assert total == 7 and sorted(seen) == [str(i) for i in range(7)]
