@@ -127,7 +127,10 @@ Include the router in `AppFactory.__setup_routes` (`app/api/app.py`):
 `self.app.include_router(parts_router, prefix="/api/v1")`.
 
 Collection endpoints are paged: copy `list_files` (`page`, `page_size` ≤ 200, `total`,
-`has_next`).
+`has_next`). If the collection can grow without bound, also offer `cursor`/`next_cursor` with
+`app/services/data/cursor.py`, as `list_files` does.
+
+Then regenerate the API contract and review its diff: `make openapi`.
 
 ## 5. Permissions: `config.toml`
 
@@ -150,8 +153,11 @@ MongoDB and Redis stand-ins, so you can register, sign in and call your endpoint
 decision branches (the 404 for someone else's part), not just the happy path.
 
 ```bash
-make test && make lint
+make test && make lint && make fuzz
 ```
+
+`make fuzz` sends generated requests to your new routes and fails on any 500 or undocumented
+answer.
 
 ## Other common changes
 
@@ -169,3 +175,8 @@ make test && make lint
 - **A retried POST made safe:** nothing to do. Clients send `Idempotency-Key`
   ([API → Idempotency](../reference/api.md#idempotency)).
 - **A stricter rate limit for some paths:** a `rate_limit_tiers` entry in `config.toml`.
+- **A security-relevant change** (who can do what, account state): record it from the service
+  with `await self.audit.record("part.transferred", target_type="part", target_id=...)`; it then
+  reaches the audit log and any webhook subscribed to it.
+- **Tell other systems:** `await webhook_service.publish("part.created", {...})`
+  ([webhooks](use-webhooks.md)). **Slow work:** a job ([background jobs](run-background-jobs.md)).
