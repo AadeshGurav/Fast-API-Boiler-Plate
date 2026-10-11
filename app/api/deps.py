@@ -12,6 +12,7 @@ from app.services.jobs import JobService
 from app.services.oauth import OAuthService
 from app.services.rbac import RBACService
 from app.services.registry import Services
+from app.services.webhooks import WebhookService
 
 
 def get_services(request: Request) -> Services:
@@ -52,3 +53,7 @@ def get_oauth_service(request: Request) -> OAuthService:
             detail="OAuth service is not available",
         )
     return service
+
+
+def get_webhook_service(request: Request) -> WebhookService:
+    return get_services(request).webhook_service

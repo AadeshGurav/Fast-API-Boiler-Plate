@@ -12,6 +12,10 @@ All notable changes are recorded here. The format follows
 - Cursor pagination for `/files`, `/admin/audit-events` and `/admin/jobs`: responses carry
   `next_cursor`; `?cursor=` returns the next page, fast at any depth and stable while records are
   added. Page numbers keep working.
+- Outgoing webhooks (`/api/v1/admin/webhooks`): subscriptions to event types or patterns, every
+  audit event published plus `WebhookService.publish()` for your own, deliveries as retried jobs,
+  Standard Webhooks signatures (`webhook-id`, `webhook-timestamp`, `webhook-signature`),
+  encrypted secrets, and https-only destinations that may not resolve to internal addresses.
 - Passkeys (WebAuthn): register, list and remove them, and sign in without a password or
   username (`/api/v1/auth/passkeys/...`, `passkeys_enabled`, `webauthn_rp_id`,
   `webauthn_origins`). User verification is required, challenges are single-use, a lagging

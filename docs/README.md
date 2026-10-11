@@ -31,6 +31,7 @@ The docs follow [Diátaxis](https://diataxis.fr): each page answers one kind of 
 - [Add a resource](how-to/add-a-resource.md): the five places a new feature touches.
 - [Bring your own database, cache or storage](how-to/write-a-backend.md): the backend contract.
 - [Configure common features](how-to/configure.md): CORS, proxies, workers, S3, email, Google sign-in, observability.
+- [Send webhooks](how-to/use-webhooks.md): subscriptions, signed deliveries, verifying them on the receiver.
 - [Run background jobs](how-to/run-background-jobs.md): handlers, enqueueing, workers, and the dead-letter queue.
 - [Generate a typed client](how-to/generate-a-client.md): TypeScript and other clients from the committed OpenAPI contract.
 - [Deploy](how-to/deploy.md): the image, Docker Compose, and a production checklist.

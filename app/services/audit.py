@@ -22,6 +22,8 @@ from app.services.data import cursor as keyset
 from app.services.logger import request_id_var
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
     from app.services.data import DataService
     from app.services.logger import Logger
     from config import Config
@@ -64,6 +66,8 @@ class AuditService(BaseService):
     def __init__(self, config: Config, logger: Logger, data_service: DataService) -> None:
         super().__init__(config, logger)
         self.data_service = data_service
+        # Called with each stored event (e.g. webhooks); a failing listener is logged, never raised.
+        self.listeners: list[Callable[[dict[str, Any]], Awaitable[None]]] = []
 
     async def record(
         self,
@@ -97,6 +101,15 @@ class AuditService(BaseService):
                 f"Audit event not recorded: {action}: {e}",
                 extra={"service": "AuditService", "action": action, "target_id": target_id},
             )
+            return
+        for listener in self.listeners:
+            try:
+                await listener(event)
+            except Exception as e:  # deliberate: a listener never fails the change
+                self.logger.error(
+                    f"Audit listener failed for {action}: {e}",
+                    extra={"service": "AuditService", "action": action, "target_id": target_id},
+                )
 
     async def list_events(
         self,

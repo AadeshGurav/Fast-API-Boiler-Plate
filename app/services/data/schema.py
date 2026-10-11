@@ -83,6 +83,9 @@ COLLECTION_INDEXES: dict[str, list[dict[str, Any]]] = {
         {"keys": [("id", ASCENDING)], "unique": True},
         {"keys": [("expires_at", ASCENDING)], "expireAfterSeconds": 0},
     ],
+    "webhooks": [
+        {"keys": [("id", ASCENDING)], "unique": True},
+    ],
     "mfa_totp": [
         {"keys": [("user_id", ASCENDING)], "unique": True},
     ],

@@ -209,6 +209,10 @@ All need `*` (everything under `/admin`).
 | Method | Path | Purpose → success |
 | --- | --- | --- |
 | DELETE | `/admin/users/{user_id}/mfa` | Turn off a user's two-factor sign-in (lost phone and codes; verify them first) → 204 |
+| POST | `/admin/webhooks` | `{url, events, description}` → 201 subscription plus `secret`, shown once; 400 unsafe URL ([webhooks](../how-to/use-webhooks.md)) |
+| GET | `/admin/webhooks` | Subscriptions, never their secrets → 200 |
+| DELETE | `/admin/webhooks/{webhook_id}` | Unsubscribe → 204 |
+| POST | `/admin/webhooks/{webhook_id}/test` | Queue a `webhook.test` delivery → 202 |
 | GET | `/admin/jobs` | Background jobs, newest first, paged; `?status=queued|running|done|dead`, `?name=` → 200 |
 | POST | `/admin/jobs/{job_id}/retry` | Queue a dead job again from its first attempt → 200 (404 unless dead) |
 | GET | `/admin/audit-events` | Security audit log, newest first, paged; filters `actor_id`, `target_type`, `target_id`, `action`, `since`, `until` → 200 |
@@ -217,7 +221,7 @@ Recorded actions: `user.registered`, `user.password_changed`, `user.password_res
 `user.status_changed`, `user.deleted`, `session.revoked`, `session.revoked_all`,
 `rbac.role_assigned`, `rbac.role_removed`, `rbac.group_assigned`, `rbac.grant_created`,
 `rbac.grant_revoked`, `mfa.enabled`, `mfa.disabled`, `mfa.reset`, `mfa.recovery_code_used`,
-`mfa.recovery_codes_regenerated`, `token.created`, `token.revoked`, `passkey.added`, `passkey.removed`, `oauth.linked`,
+`mfa.recovery_codes_regenerated`, `token.created`, `token.revoked`, `webhook.created`, `webhook.removed`, `passkey.added`, `passkey.removed`, `oauth.linked`,
 `oauth.unlinked`. Each event carries the actor, target, client IP, user agent, request id
 and small `details` (never secrets). Refused changes are not recorded; sign-in attempts are in
 `login_attempts`.
