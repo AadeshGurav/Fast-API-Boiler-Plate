@@ -46,6 +46,7 @@ driver is imported outside its backend module. Python 3.11. Overview:
 make setup        # create .venv, install, write .env and config.local.toml
 make test         # pytest, 300+ tests, no services needed (~15 s)
 make lint         # ruff check + format check (CI runs this)
+make fuzz         # Schemathesis: generated requests against every operation (CI runs this)
 make fmt          # ruff fix + format
 make config-docs  # regenerate docs/CONFIGURATION.md after changing app/settings.py
 make openapi      # regenerate docs/reference/openapi.json after changing any route or model

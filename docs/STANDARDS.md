@@ -92,6 +92,8 @@ layer, prove it with tests, document it in the same change.
 - Test behaviour, not implementation: prefer the real app through the `env` fixture over mocks.
 - Tests are fast and independent; no reliance on order, network or local files outside `tmp_path`.
 - A flaky test is fixed or removed, never re-run until green.
+- `make fuzz` (Schemathesis) must stay green: no operation may answer 5xx or anything the OpenAPI
+  contract does not declare. A new route that answers a new status declares it.
 
 ## 7. Security and configuration
 

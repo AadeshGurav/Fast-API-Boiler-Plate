@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING
 
 from fastapi import FastAPI, Request, Response
 
+from app.models.problem import ProblemDetail, problem_responses
+
 if TYPE_CHECKING:
     from starlette.types import Lifespan
 
@@ -24,6 +26,20 @@ class AppFactory:
         self.life_span = life_span
         self.app: FastAPI | None = None
 
+    def __document_problem_schema(self) -> None:
+        """Register ProblemDetail as a component, which the shared error responses reference."""
+        build = self.app.openapi
+
+        def openapi() -> dict:
+            if self.app.openapi_schema is None:
+                schema = build()
+                schema.setdefault("components", {}).setdefault("schemas", {})["ProblemDetail"] = (
+                    ProblemDetail.model_json_schema(ref_template="#/components/schemas/{model}")
+                )
+            return self.app.openapi_schema
+
+        self.app.openapi = openapi
+
     def create_app(self) -> FastAPI:
         """Create and configure the FastAPI app."""
         self.app = FastAPI(
@@ -37,7 +53,10 @@ class AppFactory:
             # operationId = the route function's name, so generated clients get stable,
             # readable method names (``login_user`` rather than ``login_user_api_v1_auth_...``).
             generate_unique_id_function=lambda route: route.name,
+            # Every error is RFC 9457 problem+json (ErrorService); say so in the contract.
+            responses=problem_responses(),
         )
+        self.__document_problem_schema()
         self.app.state.services = self.services
 
         if self.services.tracing_service is not None:
