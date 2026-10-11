@@ -12,7 +12,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
-from . import cursor as keyset
+from .cursor import after, encode, newest_first
 from .policies import CachePolicy
 
 if TYPE_CHECKING:
@@ -130,22 +130,16 @@ class FilesOps:
         filters: dict[str, Any] = {"user_id": user_id, "is_latest": True, "deleted_at": None}
         if tags:
             filters["tags"] = {"$in": tags}
-        query = (
-            {"$and": [filters, keyset.after(cursor, "created_at", "file_id")]}
-            if cursor
-            else filters
-        )
+        query = {"$and": [filters, after(cursor, "created_at", "file_id")]} if cursor else filters
         rows = await self.service.find_many(
             self.collection,
             query,
             limit=limit + 1,  # one extra row says whether a next page exists
             skip=0 if cursor else offset,
-            sort=keyset.newest_first("created_at", "file_id"),
+            sort=newest_first("created_at", "file_id"),
         )
         page = rows[:limit]
-        next_cursor = (
-            keyset.encode(page[-1], "created_at", "file_id") if len(rows) > limit else None
-        )
+        next_cursor = encode(page[-1], "created_at", "file_id") if len(rows) > limit else None
         return page, await self.service.count(self.collection, filters), next_cursor
 
     async def update_file_metadata(self: FilesOps, file_id: str, updates: dict[str, Any]) -> bool:
