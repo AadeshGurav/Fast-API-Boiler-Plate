@@ -3,7 +3,9 @@ needs ``*``."""
 
 from __future__ import annotations
 
+from collections.abc import Awaitable
 from datetime import datetime
+from typing import TypeVar
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
@@ -12,9 +14,20 @@ from app.models.audit import AuditEvent, AuditEventListResponse
 from app.models.job import Job, JobListResponse, JobStatus
 from app.services.audit import AuditService
 from app.services.auth import AuthService
+from app.services.data.cursor import InvalidCursorError
 from app.services.jobs import JobService
 
+T = TypeVar("T")
+
 router = APIRouter(prefix="/admin", tags=["Administration"])
+
+
+async def _paged(listing: Awaitable[T]) -> T:
+    """Await a cursor-aware listing, turning a forged cursor into 400 instead of 500."""
+    try:
+        return await listing
+    except InvalidCursorError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
 @router.get("/audit-events", response_model=AuditEventListResponse)
@@ -27,25 +40,30 @@ async def list_audit_events(
     until: datetime | None = Query(None, description="Only events before this time"),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
+    cursor: str | None = Query(None, max_length=512, description="next_cursor; replaces page"),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> AuditEventListResponse:
     """Who changed what, newest first."""
-    events, total = await audit_service.list_events(
-        actor_id=actor_id,
-        target_type=target_type,
-        target_id=target_id,
-        action=action,
-        since=since,
-        until=until,
-        page=page,
-        page_size=page_size,
+    events, total, next_cursor = await _paged(
+        audit_service.list_events(
+            actor_id=actor_id,
+            target_type=target_type,
+            target_id=target_id,
+            action=action,
+            since=since,
+            until=until,
+            page=page,
+            page_size=page_size,
+            cursor=cursor,
+        )
     )
     return AuditEventListResponse(
         events=[AuditEvent(**event) for event in events],
         total=total,
         page=page,
         page_size=page_size,
-        has_next=page * page_size < total,
+        has_next=next_cursor is not None,
+        next_cursor=next_cursor,
     )
 
 
@@ -68,18 +86,22 @@ async def list_jobs(
     name: str | None = Query(None, description="Job name, e.g. email.send"),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
+    cursor: str | None = Query(None, max_length=512, description="next_cursor; replaces page"),
     job_service: JobService = Depends(get_job_service),
 ) -> JobListResponse:
     """Background jobs, newest first. ``status=dead`` is the dead-letter queue."""
-    jobs, total = await job_service.list_jobs(
-        status=status_filter, name=name, page=page, page_size=page_size
+    jobs, total, next_cursor = await _paged(
+        job_service.list_jobs(
+            status=status_filter, name=name, page=page, page_size=page_size, cursor=cursor
+        )
     )
     return JobListResponse(
         jobs=[Job(**job) for job in jobs],
         total=total,
         page=page,
         page_size=page_size,
-        has_next=page * page_size < total,
+        has_next=next_cursor is not None,
+        next_cursor=next_cursor,
     )
 
 

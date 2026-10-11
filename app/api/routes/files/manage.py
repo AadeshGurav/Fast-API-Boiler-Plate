@@ -17,6 +17,7 @@ from app.api.routes.files.common import get_file_service, not_found
 from app.api.routes.files.upload import _parse_metadata, _parse_tags
 from app.models.auth import TokenPayload
 from app.models.file import FileListResponse, FileResponse, FileUpdateRequest
+from app.services.data.cursor import InvalidCursorError
 from app.services.file import FileService
 from app.services.file.streams import iter_upload
 from app.utils.permissions import get_current_user
@@ -29,22 +30,31 @@ async def list_files(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     tags: str | None = Query(None, description="Comma-separated; matches any"),
+    cursor: str | None = Query(
+        None, max_length=512, description="next_cursor from the previous page; replaces page"
+    ),
     user: TokenPayload = Depends(get_current_user),
     file_service: FileService = Depends(get_file_service),
 ) -> FileListResponse:
-    """The caller's files, newest first."""
-    files, total = await file_service.list_files(
-        user.user_id,
-        limit=page_size,
-        offset=(page - 1) * page_size,
-        tags=_parse_tags(tags) or None,
-    )
+    """The caller's files, newest first. Page with ``page``, or follow ``next_cursor``, which
+    stays fast at any depth and never repeats or skips a file when others are added."""
+    try:
+        files, total, next_cursor = await file_service.list_files(
+            user.user_id,
+            limit=page_size,
+            offset=(page - 1) * page_size,
+            tags=_parse_tags(tags) or None,
+            cursor=cursor,
+        )
+    except InvalidCursorError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     return FileListResponse(
         files=files,
         total=total,
         page=page,
         page_size=page_size,
-        has_next=page * page_size < total,
+        has_next=next_cursor is not None,
+        next_cursor=next_cursor,
     )
 
 

@@ -31,3 +31,4 @@ class AuditEventListResponse(BaseModel):
     page: int
     page_size: int
     has_next: bool
+    next_cursor: str | None = Field(None, description="Pass as ?cursor= for the next page")

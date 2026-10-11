@@ -18,6 +18,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from app.services.base_service import BaseService
+from app.services.data import cursor as keyset
 from app.services.logger import request_id_var
 
 if TYPE_CHECKING:
@@ -108,8 +109,10 @@ class AuditService(BaseService):
         until: datetime | None = None,
         page: int = 1,
         page_size: int = 50,
-    ) -> tuple[list[dict[str, Any]], int]:
-        """Newest first, filtered; returns (page of events, total matching)."""
+        cursor: str | None = None,
+    ) -> tuple[list[dict[str, Any]], int, str | None]:
+        """Newest first, filtered; returns (page of events, total matching, next cursor).
+        With ``cursor``, ``page`` is ignored."""
         filters: dict[str, Any] = {
             key: value
             for key, value in {
@@ -123,11 +126,14 @@ class AuditService(BaseService):
         window = {op: value for op, value in (("$gt", since), ("$lt", until)) if value}
         if window:
             filters["at"] = window
-        events = await self.data_service.find_many(
+        query = {"$and": [filters, keyset.after(cursor, "at", "id")]} if cursor else filters
+        rows = await self.data_service.find_many(
             COLLECTION,
-            filters,
-            sort=[("at", -1), ("id", -1)],
-            skip=(page - 1) * page_size,
-            limit=page_size,
+            query,
+            sort=keyset.newest_first("at", "id"),
+            skip=0 if cursor else (page - 1) * page_size,
+            limit=page_size + 1,
         )
-        return events, await self.data_service.count(COLLECTION, filters)
+        events = rows[:page_size]
+        next_cursor = keyset.encode(events[-1], "at", "id") if len(rows) > page_size else None
+        return events, await self.data_service.count(COLLECTION, filters), next_cursor

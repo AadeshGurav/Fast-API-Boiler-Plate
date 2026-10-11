@@ -298,6 +298,18 @@
             "title": "Has Next",
             "type": "boolean"
           },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pass as ?cursor= for the next page",
+            "title": "Next Cursor"
+          },
           "page": {
             "title": "Page",
             "type": "integer"
@@ -690,6 +702,18 @@
             "title": "Has Next",
             "type": "boolean"
           },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pass as ?cursor= for the next page",
+            "title": "Next Cursor"
+          },
           "page": {
             "description": "Current page number",
             "title": "Page",
@@ -973,6 +997,18 @@
             },
             "title": "Jobs",
             "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pass as ?cursor= for the next page",
+            "title": "Next Cursor"
           },
           "page": {
             "title": "Page",
@@ -1936,6 +1972,25 @@
               "title": "Page Size",
               "type": "integer"
             }
+          },
+          {
+            "description": "next_cursor; replaces page",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "next_cursor; replaces page",
+              "title": "Cursor"
+            }
           }
         ],
         "responses": {
@@ -2034,6 +2089,25 @@
               "minimum": 1,
               "title": "Page Size",
               "type": "integer"
+            }
+          },
+          {
+            "description": "next_cursor; replaces page",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "next_cursor; replaces page",
+              "title": "Cursor"
             }
           }
         ],
@@ -2825,7 +2899,7 @@
     },
     "/api/v1/files/": {
       "get": {
-        "description": "The caller's files, newest first.",
+        "description": "The caller's files, newest first. Page with ``page``, or follow ``next_cursor``, which\nstays fast at any depth and never repeats or skips a file when others are added.",
         "operationId": "list_files",
         "parameters": [
           {
@@ -2867,6 +2941,25 @@
               ],
               "description": "Comma-separated; matches any",
               "title": "Tags"
+            }
+          },
+          {
+            "description": "next_cursor from the previous page; replaces page",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "next_cursor from the previous page; replaces page",
+              "title": "Cursor"
             }
           }
         ],

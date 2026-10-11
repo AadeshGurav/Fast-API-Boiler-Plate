@@ -81,7 +81,7 @@ def test_accounts_two_factor_files_audit_and_jobs(client):
     assert done.status_code == 200, done.text
 
     # audit: the enrolment was recorded
-    events, total = client.portal.call(
+    events, total, _ = client.portal.call(
         lambda: services.audit_service.list_events(action="mfa.enabled")
     )
     assert total == 1 and events[0]["at"].tzinfo is not None
