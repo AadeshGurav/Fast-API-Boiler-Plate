@@ -138,6 +138,11 @@ result back with the `challenge_id`.
 
 ## Sign in with Google, Microsoft, Okta or any OpenID Connect provider
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../diagrams/oidc-sign-in-dark.svg">
+  <img alt="OpenID Connect sign-in: the API redirects to the provider with state, PKCE and a nonce kept in an HttpOnly cookie; on the callback it exchanges the code with the verifier, verifies the ID token against the provider's keys, links the account and opens a session." src="../diagrams/oidc-sign-in.svg">
+</picture>
+
 Each `[oauth_providers.<name>]` is one provider; `<name>` appears in the URLs. Give its
 `issuer` and the endpoints are discovered:
 

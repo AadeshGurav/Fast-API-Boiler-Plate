@@ -67,6 +67,11 @@ consumed the same way. The challenge token is a JWT typed `mfa`, which no access
 
 ## Passkeys
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../diagrams/passkey-sign-in-dark.svg">
+  <img alt="Passkey sign-in: the API issues a single-use challenge; the device verifies the user and signs it with a key bound to this site; the API checks signature, origin, user verification and counter, then opens a session." src="../diagrams/passkey-sign-in.svg">
+</picture>
+
 Off unless `passkeys_enabled`. A passkey is a key pair bound by the browser to
 `webauthn_rp_id` and usable only from `webauthn_origins`, so a look-alike site cannot use it: the
 strongest defence against phishing this API offers, and the reason authenticator codes (which a
@@ -120,6 +125,11 @@ characters, policy configurable (default: 8+ characters with upper, lower, digit
   and no `Server` header.
 
 ## Sign in with identity providers
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../diagrams/oidc-sign-in-dark.svg">
+  <img alt="OpenID Connect sign-in: the API redirects to the provider with state, PKCE and a nonce kept in an HttpOnly cookie; on the callback it exchanges the code with the verifier, verifies the ID token against the provider's keys, links the account and opens a session." src="../diagrams/oidc-sign-in.svg">
+</picture>
 
 Off unless `oauth_enabled`. Every provider uses one OpenID Connect client
 (`services/oauth/oidc.py`): the authorization-code flow with PKCE (S256) and a nonce, the state,

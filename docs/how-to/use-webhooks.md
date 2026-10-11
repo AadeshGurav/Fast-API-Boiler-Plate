@@ -4,6 +4,11 @@ Webhooks tell your other systems (a CRM, a data warehouse, Slack, Zapier) what h
 it happens. Deliveries are background jobs: retried with backoff, and visible at
 `/api/v1/admin/jobs?status=dead` if a receiver keeps failing.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../diagrams/webhook-delivery-dark.svg">
+  <img alt="Webhook delivery: audit events and publish() calls are matched to subscriptions and queued as jobs; a worker signs and POSTs each one, retrying non-2xx answers with the same message id until it succeeds or becomes a dead job." src="../diagrams/webhook-delivery.svg">
+</picture>
+
 ## Subscribe
 
 An administrator creates a subscription; the response is the only time the signing secret is
