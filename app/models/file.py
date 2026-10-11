@@ -71,6 +71,7 @@ class FileListResponse(BaseModel):
     page: int = Field(..., description="Current page number")
     page_size: int = Field(..., description="Page size")
     has_next: bool = Field(..., description="Whether there are more pages")
+    next_cursor: str | None = Field(None, description="Pass as ?cursor= for the next page")
 
 
 class FileUpdateRequest(BaseModel):

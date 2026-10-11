@@ -210,3 +210,12 @@ async def test_none_matches_null_or_missing_and_exists_false_means_missing(datab
     await seed(database, {"id": "a", "v": None}, {"id": "b"}, {"id": "c", "v": 1})
     assert {r["id"] for r in await database.find_many(COLL, {"v": None})} == {"a", "b"}
     assert {r["id"] for r in await database.find_many(COLL, {"v": {"$exists": False}})} == {"b"}
+
+
+async def test_string_comparisons_use_byte_order(database):
+    # Cursor pagination breaks ties on string ids with $lt, so every backend must agree.
+    await seed(database, {"id": "s1", "k": "a1"}, {"id": "s2", "k": "a2"}, {"id": "s3", "k": "B"})
+
+    found = await database.find_many(COLL, {"k": {"$lt": "a2"}})
+
+    assert sorted(r["id"] for r in found) == ["s1", "s3"]  # "B" < "a1": upper case sorts first

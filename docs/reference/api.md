@@ -64,6 +64,11 @@ accounts all answer `401 Invalid credentials`.
 Collections take `page` (from 1) and `page_size` (1–200, default 50) and answer
 `{ <items>, total, page, page_size, has_next }`, newest first.
 
+Collections that grow without bound (`/files`, `/admin/audit-events`, `/admin/jobs`) also return
+`next_cursor`. Pass it back as `?cursor=` (with the same filters) for the next page: it stays fast
+at any depth and never repeats or skips an item when new ones arrive. Cursors are opaque; a forged
+one answers 400. `next_cursor` is `null` on the last page.
+
 ### Idempotency
 
 Any `POST`, `PUT`, `PATCH` or `DELETE` may carry `Idempotency-Key` (8–128 of `A-Z a-z 0-9 - _`).

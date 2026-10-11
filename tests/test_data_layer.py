@@ -365,12 +365,12 @@ async def test_listing_returns_newest_version_of_each_file_paged_in_the_database
     await files.create_file_metadata(file_record("b", 1, 3))
     await files.create_file_metadata(file_record("other", 1, 4, user_id="u2"))
 
-    page, total = await files.get_user_files("u1", limit=10)
+    page, total, _ = await files.get_user_files("u1", limit=10)
     assert total == 2
     assert {(f["file_id"], f["version"]) for f in page} == {("a", 2), ("b", 1)}
 
-    first, _ = await files.get_user_files("u1", limit=1)
-    second, _ = await files.get_user_files("u1", limit=1, offset=1)
+    first, _, _ = await files.get_user_files("u1", limit=1)
+    second, _, _ = await files.get_user_files("u1", limit=1, offset=1)
     assert [first[0]["file_id"], second[0]["file_id"]] != [None, None]
     assert first[0]["file_id"] != second[0]["file_id"]
 
@@ -381,7 +381,7 @@ async def test_deleted_file_leaves_the_listing_and_all_versions_are_flagged(data
     await files.create_file_metadata(file_record("a", 2, 2))
 
     assert await files.delete_file_metadata("a") is True
-    assert await files.get_user_files("u1") == ([], 0)
+    assert await files.get_user_files("u1") == ([], 0, None)
     assert await files.get_file_by_id("a") is None
     assert len(await files.get_file_versions("a", include_deleted=True)) == 2
     assert await files.delete_file_metadata("a") is False

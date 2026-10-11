@@ -9,6 +9,9 @@ All notable changes are recorded here. The format follows
 
 ### Added
 
+- Cursor pagination for `/files`, `/admin/audit-events` and `/admin/jobs`: responses carry
+  `next_cursor`; `?cursor=` returns the next page, fast at any depth and stable while records are
+  added. Page numbers keep working.
 - Engineering standards (`docs/STANDARDS.md`), binding for every pull request, human or AI.
 - Bring-your-own backend guide (`docs/how-to/write-a-backend.md`): the database, cache and
   storage contracts, including the filter vocabulary.

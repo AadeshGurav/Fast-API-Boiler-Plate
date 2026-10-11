@@ -12,6 +12,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
+from . import cursor as keyset
 from .policies import CachePolicy
 
 if TYPE_CHECKING:
@@ -122,15 +123,30 @@ class FilesOps:
         limit: int = 100,
         offset: int = 0,
         tags: list[str] | None = None,
-    ) -> tuple[list[dict], int]:
-        """A page of a user's files (newest version of each), newest first, plus the total."""
+        cursor: str | None = None,
+    ) -> tuple[list[dict], int, str | None]:
+        """A page of a user's files (newest version of each), newest first, the total, and the
+        cursor of the next page (None on the last). With ``cursor``, ``offset`` is ignored."""
         filters: dict[str, Any] = {"user_id": user_id, "is_latest": True, "deleted_at": None}
         if tags:
             filters["tags"] = {"$in": tags}
-        page = await self.service.find_many(
-            self.collection, filters, limit=limit, skip=offset, sort=[("created_at", -1)]
+        query = (
+            {"$and": [filters, keyset.after(cursor, "created_at", "file_id")]}
+            if cursor
+            else filters
         )
-        return page, await self.service.count(self.collection, filters)
+        rows = await self.service.find_many(
+            self.collection,
+            query,
+            limit=limit + 1,  # one extra row says whether a next page exists
+            skip=0 if cursor else offset,
+            sort=keyset.newest_first("created_at", "file_id"),
+        )
+        page = rows[:limit]
+        next_cursor = (
+            keyset.encode(page[-1], "created_at", "file_id") if len(rows) > limit else None
+        )
+        return page, await self.service.count(self.collection, filters), next_cursor
 
     async def update_file_metadata(self: FilesOps, file_id: str, updates: dict[str, Any]) -> bool:
         """Change metadata of the newest version; False if the file does not exist."""

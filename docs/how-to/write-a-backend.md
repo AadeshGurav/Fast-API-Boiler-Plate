@@ -62,7 +62,7 @@ Filters are dicts in a small, fixed vocabulary. This is everything the applicati
 | `{"field": value}` | Equality. `{"field": None}` matches null **or missing**. |
 | `{"field": value}` where the stored field is a list | Matches if the list contains `value`. |
 | `{"field": {"$in": [a, b]}}` | Equals any of the values; on a list field, shares any element. |
-| `{"field": {"$lt" / "$lte" / "$gt": x}}` | Comparison (numbers and datetimes). |
+| `{"field": {"$lt" / "$lte" / "$gt": x}}` | Comparison of numbers, datetimes, and strings in byte order (cursor pagination breaks ties on string ids). |
 | `{"field": {"$exists": False}}` | Field missing. |
 | `{"$and": [f1, f2]}`, `{"$or": [f1, f2]}` | Combine filters. |
 

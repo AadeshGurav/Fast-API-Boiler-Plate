@@ -20,6 +20,7 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from app.core.interfaces.database_interface import DuplicateRecordError
+from app.services.data import cursor as keyset
 from app.services.data.policies import CachePolicy
 
 if TYPE_CHECKING:
@@ -214,18 +215,27 @@ class JobService:
 
     # ---- administration ------------------------------------------------------------------
     async def list_jobs(
-        self, *, status: str | None, name: str | None, page: int, page_size: int
-    ) -> tuple[list[dict[str, Any]], int]:
+        self,
+        *,
+        status: str | None,
+        name: str | None,
+        page: int,
+        page_size: int,
+        cursor: str | None = None,
+    ) -> tuple[list[dict[str, Any]], int, str | None]:
         filters = {k: v for k, v in {"status": status, "name": name}.items() if v is not None}
-        jobs = await self.data_service.find_many(
+        query = {"$and": [filters, keyset.after(cursor, "created_at", "id")]} if cursor else filters
+        rows = await self.data_service.find_many(
             COLLECTION,
-            filters,
+            query,
             policy=DB,
-            sort=[("created_at", -1), ("id", -1)],
-            skip=(page - 1) * page_size,
-            limit=page_size,
+            sort=keyset.newest_first("created_at", "id"),
+            skip=0 if cursor else (page - 1) * page_size,
+            limit=page_size + 1,
         )
-        return jobs, await self.data_service.count(COLLECTION, filters)
+        jobs = rows[:page_size]
+        next_cursor = keyset.encode(jobs[-1], "created_at", "id") if len(rows) > page_size else None
+        return jobs, await self.data_service.count(COLLECTION, filters), next_cursor
 
     async def retry(self, job_id: str) -> bool:
         """Queue a dead job again from scratch; False if there is no such dead job."""

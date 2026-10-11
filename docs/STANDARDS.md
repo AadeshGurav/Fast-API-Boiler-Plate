@@ -65,7 +65,9 @@ layer, prove it with tests, document it in the same change.
   traces, no echoed input.
 - Everything lives under `/api/v1`. Breaking changes (removed or renamed fields, changed types)
   need a new version; added optional fields and new endpoints do not.
-- Every collection endpoint is paged (`page`, `page_size` ≤ 200, `total`, `has_next`).
+- Every collection endpoint is paged (`page`, `page_size` ≤ 200, `total`, `has_next`). One that
+  can grow without bound (per-user files, logs, queues) also offers `cursor` / `next_cursor`
+  (`app/services/data/cursor.py`); small bounded ones (users, tokens) need only pages.
 - Every route's permission (`<resource>:<action>`) is granted to a role in `config.toml`.
 - Ownership is checked in the service; other users' resources answer 404.
 - The OpenAPI schema (`/openapi.json`) is the contract: routes declare `response_model` and

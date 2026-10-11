@@ -357,18 +357,20 @@ class FileService(BaseService):
         limit: int = 100,
         offset: int = 0,
         tags: list[str] | None = None,
-    ) -> tuple[list[FileResponse], int]:
+        cursor: str | None = None,
+    ) -> tuple[list[FileResponse], int, str | None]:
         """List a user's files (newest version of each).
 
         Returns:
         -------
-            The requested page and the total number of matching files.
+            The requested page, the total number of matching files, and the next page's
+            cursor (None on the last page).
 
         """
-        files, total = await self.data_service.files.get_user_files(
-            user_id, limit=limit, offset=offset, tags=tags
+        files, total, next_cursor = await self.data_service.files.get_user_files(
+            user_id, limit=limit, offset=offset, tags=tags, cursor=cursor
         )
-        return [self._file_metadata_to_response(f) for f in files], total
+        return [self._file_metadata_to_response(f) for f in files], total, next_cursor
 
     async def update_file_metadata(
         self: FileService,
