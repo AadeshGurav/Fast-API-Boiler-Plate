@@ -95,6 +95,10 @@ Values are resolved in this order (later wins):
 | `mfa_issuer` | str | None | _unset_ | Name authenticator apps show next to the account. Default: app_title. |
 | `mfa_recovery_codes` | int | `10` | Single-use recovery codes issued when two-factor is turned on. |
 | `mfa_challenge_minutes` | int | `5` | How long the password step of a two-factor sign-in stays valid. |
+| `passkeys_enabled` | bool | `False` | Allow passkey (WebAuthn) registration and sign-in. |
+| `webauthn_rp_id` | str | `'localhost'` | Passkey relying party: the registrable domain of your front end, e.g. 'example.com'. |
+| `webauthn_rp_name` | str | None | _unset_ | Name shown in the passkey prompt. Default: app_title. |
+| `webauthn_origins` | list[str] | `['http://localhost:3000']` | Front-end origins allowed to use passkeys, e.g. ['https://app.example.com']. |
 | `api_token_max_days` | int | `365` | Longest lifetime a personal access token may be given. |
 | `api_tokens_per_user` | int | `20` | Most personal access tokens one user may hold at once. |
 | `auth_refresh_reuse_grace_seconds` | int | `30` | A rotated refresh token still works this long (parallel tabs). |

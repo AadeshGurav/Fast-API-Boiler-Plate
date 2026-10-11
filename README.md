@@ -48,7 +48,7 @@ in-memory, local-disk and S3 implementations ship ready to use.
 
 | Area | What you get |
 | --- | --- |
-| **Authentication** | Registration, sign-in with "remember me", Argon2id passwords, JWT access + rotating refresh tokens bound to server-side sessions, sign out of one or all devices, password change and email reset, sign-in with Google, Microsoft, Okta or any OpenID Connect provider (PKCE, verified ID tokens), two-factor sign-in (authenticator codes + recovery codes), scoped personal access tokens for scripts, HttpOnly cookies or Bearer tokens |
+| **Authentication** | Registration, sign-in with "remember me", Argon2id passwords, JWT access + rotating refresh tokens bound to server-side sessions, sign out of one or all devices, password change and email reset, sign-in with Google, Microsoft, Okta or any OpenID Connect provider (PKCE, verified ID tokens), two-factor sign-in (authenticator codes + recovery codes), passkeys (WebAuthn), scoped personal access tokens for scripts, HttpOnly cookies or Bearer tokens |
 | **Authorization (RBAC)** | Roles with inheritance, groups, time-limited grants; deny-by-default `<resource>:<action>` permissions derived from each route; `*` and `files:*` wildcards; user administration |
 | **Files** | Per-user files with version history, chunked and resumable uploads, image thumbnails, de-duplication, per-user quotas, spreadsheet read/edit (xlsx edited in place keeps charts and formulas; ods; csv), local disk or S3/MinIO/R2, streamed end to end |
 | **API safety nets** | Rate limiting (sliding or fixed window, per tier), request size and idle-body limits, timeouts and concurrency cap, `Idempotency-Key` replay, CSRF origin check, CORS, CSP/HSTS headers, RFC 9457 `application/problem+json` errors |

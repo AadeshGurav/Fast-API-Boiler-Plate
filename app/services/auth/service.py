@@ -12,6 +12,7 @@ from app.models.auth import LoginResponse, TokenPair
 from app.models.user import User, UserPublic
 from app.services.auth.api_tokens import ApiTokenManager
 from app.services.auth.mfa import MFAError, MFAService
+from app.services.auth.passkeys import PasskeyManager
 from app.services.auth.sessions import SessionManager
 from app.services.auth.tokens import TokenManager
 from app.services.auth.users import UserManager
@@ -81,6 +82,7 @@ class AuthService(BaseService):
         self.users = UserManager(logger, config, data_service, password_service)
         self.mfa = MFAService(config, logger, data_service, password_service, audit)
         self.api_tokens = ApiTokenManager(config, data_service, audit)
+        self.passkeys = PasskeyManager(config, data_service, audit)
 
         self.max_failed_logins: int = config["auth_max_failed_logins"]
         self.lockout_minutes: int = config["auth_lockout_minutes"]
@@ -347,6 +349,21 @@ class AuthService(BaseService):
             User(**self.users.normalize(record)), device_info, remember_me
         )
         return response, remember_me
+
+    async def login_with_passkey(
+        self: AuthService, challenge_id: str, credential: dict[str, Any], device_info: DeviceInfo
+    ) -> LoginResponse:
+        """Sign in with a passkey. User verification on the device makes it multi-factor, so
+        no authenticator code is asked for."""
+        user_id = await self.passkeys.authenticate(challenge_id, credential)
+        record = await self.data_service.users.get_user_by_id(user_id, fresh=True)
+        if not record or record.get("status", "active") != "active" or self._locked(record):
+            raise AuthenticationError(GENERIC_LOGIN_ERROR)
+        await self.data_service.users.update_user(
+            user_id, {"failed_login_count": 0, "last_login": datetime.now(UTC)}
+        )
+        await self._record_login_attempt(record["username"], user_id, True, device_info, "passkey")
+        return await self._open_session(User(**self.users.normalize(record)), device_info, False)
 
     async def login_oauth_user(
         self: AuthService, user: User, device_info: DeviceInfo

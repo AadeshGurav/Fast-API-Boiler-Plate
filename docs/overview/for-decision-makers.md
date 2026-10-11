@@ -38,7 +38,7 @@ things but not others":
 
 | Capability | What it means for the product |
 | --- | --- |
-| Accounts | Sign-up, sign-in, "remember me", sign out of one or all devices, password change and reset by email, optional sign-in with Google, Microsoft, Okta or any other OpenID Connect provider, optional two-factor sign-in with an authenticator app and recovery codes. |
+| Accounts | Sign-up, sign-in, "remember me", sign out of one or all devices, password change and reset by email, optional sign-in with Google, Microsoft, Okta or any other OpenID Connect provider, optional two-factor sign-in with an authenticator app and recovery codes, and passkeys (Face ID, Touch ID, Windows Hello, security keys). |
 | Access control | Roles (admin, manager, user, guest), groups, and time-limited grants, all defined in one config file. Every endpoint is locked unless a role allows it. |
 | Integrations | Personal access tokens for scripts and partner systems: limited to chosen permissions, expiring, revocable at any time. |
 | Audit trail | Every security change (roles, grants, account status, passwords, sessions) is recorded with who, when and from where, and administrators can search it. |
@@ -83,7 +83,7 @@ things but not others":
 - **Your domain.** Products, orders, parts, projects: added as resources on the same patterns.
 - **Multi-tenancy.** One organisation per deployment; users are separated by ownership and
   roles. Add tenant ownership before the first domain object if customers will share one.
-- **Sign-in providers beyond Google, and passkeys.**
+- **CAPTCHA and bot management** at sign-up, if your audience needs it.
 
 ## Decisions to make before building on it
 

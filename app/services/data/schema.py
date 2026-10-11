@@ -74,6 +74,15 @@ COLLECTION_INDEXES: dict[str, list[dict[str, Any]]] = {
         {"keys": [("created_at", DESCENDING)]},
         # The time-to-live index on "finished_at" is added from settings: see collection_indexes().
     ],
+    "passkeys": [
+        {"keys": [("id", ASCENDING)], "unique": True},
+        {"keys": [("credential_id", ASCENDING)], "unique": True},
+        {"keys": [("user_id", ASCENDING), ("created_at", DESCENDING)]},
+    ],
+    "webauthn_challenges": [
+        {"keys": [("id", ASCENDING)], "unique": True},
+        {"keys": [("expires_at", ASCENDING)], "expireAfterSeconds": 0},
+    ],
     "mfa_totp": [
         {"keys": [("user_id", ASCENDING)], "unique": True},
     ],

@@ -75,6 +75,17 @@ Background jobs: `id` (unique), `name`, `payload`, `status` (`queued`, `running`
 worker's queries: `(status, run_at)` and `(status, lease_until)`. **TTL on `finished_at`:**
 `jobs_retention_days` (14); unfinished jobs never expire.
 
+### `passkeys` (`PasskeyManager`)
+
+`id` (unique), `user_id`, `name`, `credential_id` (base64url, unique), `public_key` (COSE,
+base64url; there is no private part to store), `sign_count` (a lower count than stored is refused:
+a cloned authenticator), `transports`, `created_at`, `last_used_at`.
+
+### `webauthn_challenges`
+
+Single-use passkey challenges: `id`, `purpose` (`register` or `login`), `user_id`, `challenge`,
+`expires_at` (five minutes, **TTL**). Deleted when used, whatever the outcome.
+
 ### `mfa_totp` (`MFAService`)
 
 One record per user with an authenticator app: `user_id` (unique), `secret` (**encrypted** with

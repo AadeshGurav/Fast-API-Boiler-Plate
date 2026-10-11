@@ -122,6 +122,20 @@ Locally, `make up-mail` starts [Mailpit](https://mailpit.axllent.org), which acc
 message and shows it at <http://127.0.0.1:8025>; uncomment the `smtp_*` lines in
 `config.local.toml` to send to it.
 
+## Turn on passkeys
+
+```toml
+passkeys_enabled = true
+webauthn_rp_id = "example.com"                    # your front end's registrable domain
+webauthn_origins = ["https://app.example.com"]    # where navigator.credentials runs
+```
+
+`webauthn_rp_id` cannot change later without every passkey becoming useless, so use the domain
+you will keep. Locally, `localhost` and `http://localhost:<port>` work. The front end calls the
+`/auth/passkeys/...` options endpoint, passes `options` to `navigator.credentials.create()` or
+`.get()` (convert the base64url fields to bytes, or use `@simplewebauthn/browser`), and posts the
+result back with the `challenge_id`.
+
 ## Sign in with Google, Microsoft, Okta or any OpenID Connect provider
 
 Each `[oauth_providers.<name>]` is one provider; `<name>` appears in the URLs. Give its
