@@ -25,6 +25,7 @@ from app.services.metrics import MetricsService
 from app.services.oauth import OAuthService
 from app.services.password_service import PasswordService
 from app.services.rbac import RBACService
+from app.services.webhooks import WebhookService
 
 if TYPE_CHECKING:
     from app.core.interfaces.storage_interface import StorageInterface
@@ -50,6 +51,7 @@ class Services:
     storage_backend: StorageInterface
     file_service: FileService
     job_service: JobService
+    webhook_service: WebhookService
     metrics_service: MetricsService | None = None
     tracing_service: TracingService | None = None
     sentry_service: SentryService | None = None
@@ -72,6 +74,8 @@ def build_services(config: Config) -> Services:
         logger, config, data_service, password_service, rbac_service, audit_service
     )
     storage_backend = create_storage(config, logger)
+    job_service = JobService(config, logger, data_service)
+    webhook_service = WebhookService(config, logger, data_service, job_service, audit_service)
 
     def optional(flag: str, build):
         enabled = bool(config.get(flag))
@@ -109,7 +113,8 @@ def build_services(config: Config) -> Services:
         error_service=ErrorService(logger, config),
         storage_backend=storage_backend,
         file_service=FileService(logger, config, data_service, storage_backend),
-        job_service=JobService(config, logger, data_service),
+        job_service=job_service,
+        webhook_service=webhook_service,
         metrics_service=optional(
             "metrics_enabled", lambda: MetricsService(logger=logger, config=config)
         ),

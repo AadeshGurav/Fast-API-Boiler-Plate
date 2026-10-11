@@ -91,7 +91,7 @@ Values are resolved in this order (later wins):
 | `remember_me_days` | int | `30` | Refresh token / session lifetime with 'remember me'. |
 | `auth_max_failed_logins` | int | `5` | Failed logins before the account locks. |
 | `auth_lockout_minutes` | int | `15` | How long a locked account stays locked. |
-| `mfa_encryption_key` | str | None | _unset_ | Encrypts two-factor secrets at rest. Generated into config.secrets.toml if unset; changing it disables everyone's two-factor setup. |
+| `mfa_encryption_key` | str | None | _unset_ | Encrypts secrets at rest (two-factor secrets, webhook signing secrets). Generated into config.secrets.toml if unset; changing it invalidates them. |
 | `mfa_issuer` | str | None | _unset_ | Name authenticator apps show next to the account. Default: app_title. |
 | `mfa_recovery_codes` | int | `10` | Single-use recovery codes issued when two-factor is turned on. |
 | `mfa_challenge_minutes` | int | `5` | How long the password step of a two-factor sign-in stays valid. |
@@ -127,6 +127,9 @@ Values are resolved in this order (later wins):
 | `jobs_timeout_seconds` | float | `300.0` | Time limit for one job attempt; the lease is twice this. |
 | `jobs_retry_base_seconds` | float | `10.0` | Base of the exponential retry delay (with full jitter). |
 | `jobs_retention_days` | int | `14` | How long finished (done or dead) jobs are kept. |
+| `webhooks_timeout_seconds` | float | `10.0` | Time limit for each webhook delivery attempt. |
+| `webhooks_allow_http` | bool | `False` | Allow http:// webhook URLs (local testing only). |
+| `webhooks_allow_private_networks` | bool | `False` | Allow webhook URLs that resolve to private, loopback or link-local addresses. |
 | `audit_retention_days` | int | `365` | How long security audit events are kept before they expire. |
 
 ## Database

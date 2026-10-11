@@ -186,6 +186,10 @@ idempotent. Handlers are registered in `register_job_handlers`
 ([ADR 0007](adr/0007-background-jobs-on-the-database.md),
 [how-to](how-to/run-background-jobs.md)).
 
+Webhooks ride on the same queue: `WebhookService` listens to the audit log (and to explicit
+`publish()` calls) and enqueues one `webhook.deliver` job per matching subscription
+([how-to](how-to/use-webhooks.md)).
+
 ## Known limits
 
 - xlsx: overwriting the anchor of a shared or array formula is refused; Excel recalculates

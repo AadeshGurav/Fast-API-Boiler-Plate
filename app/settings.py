@@ -202,7 +202,7 @@ class Settings(BaseModel):
     mfa_encryption_key: str | None = Field(
         None,
         repr=False,
-        description="Encrypts two-factor secrets at rest. Generated into config.secrets.toml if unset; changing it disables everyone's two-factor setup.",
+        description="Encrypts secrets at rest (two-factor secrets, webhook signing secrets). Generated into config.secrets.toml if unset; changing it invalidates them.",
     )
     mfa_issuer: str | None = Field(
         None, description="Name authenticator apps show next to the account. Default: app_title."
@@ -291,6 +291,16 @@ class Settings(BaseModel):
     )
     jobs_retention_days: int = Field(
         14, ge=1, description="How long finished (done or dead) jobs are kept."
+    )
+    webhooks_timeout_seconds: float = Field(
+        10.0, gt=0, description="Time limit for each webhook delivery attempt."
+    )
+    webhooks_allow_http: bool = Field(
+        False, description="Allow http:// webhook URLs (local testing only)."
+    )
+    webhooks_allow_private_networks: bool = Field(
+        False,
+        description="Allow webhook URLs that resolve to private, loopback or link-local addresses.",
     )
     audit_retention_days: int = Field(
         365, ge=1, description="How long security audit events are kept before they expire."

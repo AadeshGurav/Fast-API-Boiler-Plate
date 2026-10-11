@@ -1,4 +1,4 @@
-"""Administration: the security audit log, account recovery and background jobs. Everything under ``/admin``
+"""Administration: the audit log, account recovery, background jobs and webhooks. Everything under ``/admin``
 needs ``*``."""
 
 from __future__ import annotations
@@ -9,13 +9,15 @@ from typing import TypeVar
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.api.deps import get_audit_service, get_auth_service, get_job_service
+from app.api.deps import get_audit_service, get_auth_service, get_job_service, get_webhook_service
 from app.models.audit import AuditEvent, AuditEventListResponse
 from app.models.job import Job, JobListResponse, JobStatus
+from app.models.webhook import Webhook, WebhookCreate, WebhookCreated
 from app.services.audit import AuditService
 from app.services.auth import AuthService
 from app.services.data.cursor import InvalidCursorError
 from app.services.jobs import JobService
+from app.services.webhooks import WebhookError, WebhookService
 
 T = TypeVar("T")
 
@@ -115,3 +117,42 @@ async def retry_job(
             status_code=status.HTTP_404_NOT_FOUND, detail="No dead job with this id"
         )
     return {"message": f"Job {job_id} queued again"}
+
+
+@router.post("/webhooks", response_model=WebhookCreated, status_code=status.HTTP_201_CREATED)
+async def create_webhook(
+    body: WebhookCreate, webhook_service: WebhookService = Depends(get_webhook_service)
+) -> WebhookCreated:
+    """Subscribe a URL to events. The signing secret is in this response only."""
+    try:
+        secret, record = await webhook_service.create(body.url, body.events, body.description)
+    except WebhookError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    return WebhookCreated(secret=secret, **record)
+
+
+@router.get("/webhooks", response_model=list[Webhook])
+async def list_webhooks(
+    webhook_service: WebhookService = Depends(get_webhook_service),
+) -> list[Webhook]:
+    """Every subscription (at most 50), newest first."""
+    return [Webhook(**w) for w in await webhook_service.list_all()]
+
+
+@router.delete("/webhooks/{webhook_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_webhook(
+    webhook_id: str, webhook_service: WebhookService = Depends(get_webhook_service)
+) -> None:
+    """Unsubscribe; queued deliveries to it are dropped."""
+    if not await webhook_service.remove(webhook_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Webhook not found")
+
+
+@router.post("/webhooks/{webhook_id}/test", status_code=status.HTTP_202_ACCEPTED)
+async def test_webhook(
+    webhook_id: str, webhook_service: WebhookService = Depends(get_webhook_service)
+) -> dict[str, str]:
+    """Queue a webhook.test delivery; watch /admin/jobs for the outcome."""
+    if not await webhook_service.send_test(webhook_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Webhook not found")
+    return {"message": "Test delivery queued"}

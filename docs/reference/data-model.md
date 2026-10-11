@@ -86,6 +86,12 @@ a cloned authenticator), `transports`, `created_at`, `last_used_at`.
 Single-use passkey challenges: `id`, `purpose` (`register` or `login`), `user_id`, `challenge`,
 `expires_at` (five minutes, **TTL**). Deleted when used, whatever the outcome.
 
+### `webhooks` (`WebhookService`)
+
+Subscriptions: `id` (unique), `url`, `events` (types or patterns), `description`, `secret`
+(**encrypted**, derived from `mfa_encryption_key`), `created_at`. Deliveries are `jobs` named
+`webhook.deliver`.
+
 ### `mfa_totp` (`MFAService`)
 
 One record per user with an authenticator app: `user_id` (unique), `secret` (**encrypted** with
