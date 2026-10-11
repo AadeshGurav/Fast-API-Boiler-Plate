@@ -48,6 +48,7 @@ make test         # pytest, 300+ tests, no services needed (~15 s)
 make lint         # ruff check + format check (CI runs this)
 make fuzz         # Schemathesis: generated requests against every operation (CI runs this)
 make fmt          # ruff fix + format
+make lock         # after changing dependencies in pyproject.toml: uv.lock + requirements*.txt
 make config-docs  # regenerate docs/CONFIGURATION.md after changing app/settings.py
 make openapi      # regenerate docs/reference/openapi.json after changing any route or model
 make graph        # rebuild graphify-out/
@@ -84,6 +85,7 @@ Code loads it automatically; other agents can read it as instructions).
   fixes have a regression test.
 - Docs, `CHANGELOG.md` (*Unreleased*) and the code graph change in the same pull request.
 - No secrets in code, tests or logs. Environment variables use the `FABP_` prefix.
-- No new dependency without agreement in an issue; pin it in `requirements*.txt`.
+- No new dependency without agreement in an issue; pin it in `pyproject.toml` and run `make lock`
+  (CI fails if `uv.lock` or the exported `requirements*.txt` are stale).
 - Do not invent APIs, settings or files; if the graph does not have it, it does not exist yet.
 - Stay in scope: unrelated refactors go in a separate pull request.

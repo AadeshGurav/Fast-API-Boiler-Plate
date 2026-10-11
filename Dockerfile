@@ -1,28 +1,40 @@
 # syntax=docker/dockerfile:1
+
+# ---- build: resolve nothing, install exactly what uv.lock says ----------------------------
+FROM ghcr.io/astral-sh/uv:0.12.18 AS uv
+FROM python:3.11-slim AS build
+COPY --from=uv /uv /bin/uv
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PROJECT_ENVIRONMENT=/opt/venv \
+    UV_PYTHON_DOWNLOADS=never
+WORKDIR /app
+COPY pyproject.toml uv.lock ./
+ARG INSTALL_S3=false
+ARG INSTALL_POSTGRES=false
+ARG INSTALL_OBSERVABILITY=false
+RUN extras="" \
+    && if [ "$INSTALL_S3" = "true" ]; then extras="$extras --extra s3"; fi \
+    && if [ "$INSTALL_POSTGRES" = "true" ]; then extras="$extras --extra postgres"; fi \
+    && if [ "$INSTALL_OBSERVABILITY" = "true" ]; then extras="$extras --extra observability"; fi \
+    && uv sync --frozen --no-dev $extras
+
+# ---- runtime: the virtualenv and the app, no installer ------------------------------------
 FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
+    PATH=/opt/venv/bin:$PATH \
     FABP_APP_HOST=0.0.0.0 \
     FABP_REDIS_HOST=redis \
     FABP_MONGO_HOST=mongodb
 
+# The base image's pip, setuptools and wheel vendor copies of urllib3, msgpack and others that
+# image scanners flag; the app needs no installer at run time.
+RUN pip uninstall -y pip setuptools wheel
+
 WORKDIR /app
-
-# Dependencies first: this layer is only rebuilt when requirements.txt changes.
-COPY requirements*.txt ./
-ARG INSTALL_S3=false
-ARG INSTALL_POSTGRES=false
-ARG INSTALL_OBSERVABILITY=false
-RUN pip install --upgrade pip && pip install -r requirements.txt \
-    && if [ "$INSTALL_S3" = "true" ]; then pip install -r requirements-s3.txt; fi \
-    && if [ "$INSTALL_POSTGRES" = "true" ]; then pip install -r requirements-postgres.txt; fi \
-    && if [ "$INSTALL_OBSERVABILITY" = "true" ]; then pip install -r requirements-observability.txt; fi \
-    # The running app needs no installer. Removing pip, setuptools and wheel also removes the
-    # copies of urllib3, msgpack and others vendored inside them, which image scanners flag.
-    && pip uninstall -y pip setuptools wheel
-
+COPY --from=build /opt/venv /opt/venv
 COPY app ./app
 COPY config.toml ./
 COPY config.py main.py ./

@@ -91,6 +91,12 @@ All notable changes are recorded here. The format follows
 
 ### Changed
 
+- Dependencies are declared in `pyproject.toml` (extras `s3`, `postgres`, `observability`; a
+  `dev` group) and locked with hashes in `uv.lock`, transitive packages included. `make setup`
+  uses uv when present and falls back to pip; `make lock` re-locks and exports the
+  `requirements*.txt` files, which pip users and the dependency audit read. The Docker image
+  installs from the lock in a build stage and copies only the virtualenv. CI runs on uv and fails
+  when the lock or the exports are stale; Dependabot watches `uv.lock`.
 - Sentry and OpenTelemetry moved to `requirements-observability.txt` (nine packages out of the
   default install, like S3 and PostgreSQL); `INSTALL_OBSERVABILITY=true` adds them to the image.
   Enabling either without its package stops start-up with the install command.

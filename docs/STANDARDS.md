@@ -117,8 +117,10 @@ layer, prove it with tests, document it in the same change.
 ## 9. Dependencies
 
 - Every new dependency is a decision: prefer the standard library or what is installed.
-- Pin exact versions in `requirements*.txt`; upgrade deliberately after reading the changelog.
-- Optional integrations stay optional (`requirements-s3.txt`, settings that default to off).
+- Pin exact versions in `pyproject.toml`; `uv.lock` pins and hashes everything else (`make lock`).
+  Upgrade deliberately after reading the changelog; prefer releases at least two weeks old.
+- Optional integrations stay optional (extras such as `s3`, `postgres`, `observability`, and
+  settings that default to off).
 
 ## 10. Style, docs and commits
 

@@ -24,7 +24,7 @@ an edge case, a new storage backend. This guide gets you from clone to a merged 
 ```bash
 git clone https://github.com/AadeshGurav/Fast-API-Boiler-Plate.git
 cd Fast-API-Boiler-Plate
-make setup       # venv, dependencies, .env, config.local.toml
+make setup       # venv from uv.lock (uv, else pip), .env, config.local.toml
 make test        # 300+ tests, no services needed
 make up && make run   # optional: the real API against Docker MongoDB and Redis
 pipx install graphifyy==0.9.80   # the code-graph CLI
@@ -76,7 +76,8 @@ The full, binding list is [docs/STANDARDS.md](docs/STANDARDS.md). The ones that 
 - **Errors** are specific and never leak internals; responses are problem+json.
 - **Style:** Ruff (format + lint, 100 columns). Comments explain *why*, not *what*.
 - **Dependencies** are a decision: prefer the standard library or what is already installed,
-  pin versions in `requirements*.txt`, and say why in the pull request.
+  pin it in `pyproject.toml` (an extra if it is optional), run `make lock` to update `uv.lock`
+  and the exported `requirements*.txt`, and say why in the pull request.
 
 ## Tests
 
