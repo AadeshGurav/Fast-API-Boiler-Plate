@@ -117,7 +117,7 @@ def build_services(config: Config) -> Services:
         sentry_service=optional("sentry_enabled", sentry),
         oauth_service=optional(
             "oauth_enabled",
-            lambda: OAuthService(config=config, logger=logger, data_service=data_service),
+            lambda: OAuthService(config, logger, data_service, audit_service),
         ),
     )
     register_job_handlers(services)

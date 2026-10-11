@@ -93,6 +93,7 @@ class Settings(BaseModel):
             "/api/v1/auth/refresh",
             "/api/v1/auth/reset-password-request",
             "/api/v1/auth/reset-password-confirm",
+            "/api/v1/oauth/providers",
             "/api/v1/oauth/{provider}/authorize",
             "/api/v1/oauth/{provider}/callback",
         ],
@@ -450,7 +451,10 @@ class Settings(BaseModel):
     oauth_enabled: bool = Field(False, description="Enable sign-in with an identity provider.")
     oauth_providers: dict[str, dict[str, Any]] = Field(
         default_factory=dict,
-        description="Provider settings (client_id, client_secret, urls). See config.toml.",
+        description="OpenID Connect providers: issuer, client_id, client_secret, redirect_uri. See config.toml.",
+    )
+    oauth_timeout_seconds: float = Field(
+        10.0, gt=0, description="Time limit for each call to an identity provider."
     )
 
     # ------------------------------------------------------------------- observability

@@ -12,6 +12,11 @@ All notable changes are recorded here. The format follows
 - Cursor pagination for `/files`, `/admin/audit-events` and `/admin/jobs`: responses carry
   `next_cursor`; `?cursor=` returns the next page, fast at any depth and stable while records are
   added. Page numbers keep working.
+- Sign-in with any OpenID Connect provider (Google, Microsoft Entra ID, Okta, Auth0, Keycloak,
+  GitLab...): each `[oauth_providers.<name>]` needs only `issuer`, `client_id`, `client_secret`
+  and `redirect_uri`. The flow adds PKCE (S256), a nonce, and ID-token verification against the
+  provider's keys; every provider call has a timeout (`oauth_timeout_seconds`).
+  `GET /api/v1/oauth/providers` lists them. Linking and unlinking are audited.
 - API fuzzing (`make fuzz`, CI): Schemathesis sends generated requests to every operation and
   fails on any 5xx or undocumented status, content type or body.
 - The OpenAPI contract now declares the RFC 9457 `application/problem+json` error responses
@@ -58,6 +63,11 @@ All notable changes are recorded here. The format follows
   so generated clients get stable method names; see `docs/how-to/generate-a-client.md`.
 
 ### Upgrading
+
+- OAuth providers: replace the explicit `authorization_url`/`token_url`/`userinfo_url` of
+  `[oauth_providers.google]` with `issuer = "https://accounts.google.com"` (the explicit URLs
+  still work for providers without discovery). An unknown provider now answers 404 instead of
+  400, and a provider answer that fails verification 502 instead of 500.
 
 - Add `FABP_MFA_ENCRYPTION_KEY` (32+ random characters) to an existing `.env` or deployment
   before running the app container (it refuses the placeholder). Outside containers it is

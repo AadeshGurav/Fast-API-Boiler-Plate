@@ -4,7 +4,7 @@
 > PostgreSQL and Redis; any database, cache or object store plugs in behind interfaces without
 > application code changes, proven by one contract suite. API-only back end
 > with authentication (session-bound JWT access and rotating refresh tokens, Argon2id, lockout,
-> password reset, Google OAuth, two-factor sign-in, scoped personal access tokens), a security
+> password reset, OpenID Connect sign-in (Google, Microsoft, Okta...), two-factor sign-in, scoped personal access tokens), a security
 > audit log, durable background jobs, role-based access control (roles, groups, temporary grants,
 > deny-by-default permissions per route), versioned per-user file storage (local disk or S3,
 > chunked uploads, thumbnails, spreadsheet editing), rate limiting, idempotency keys, CSRF and

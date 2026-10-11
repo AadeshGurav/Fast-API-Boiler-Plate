@@ -132,12 +132,14 @@ for a second factor (the provider is responsible for it).
 
 | Method | Path | Permission | Purpose → success |
 | --- | --- | --- | --- |
-| GET | `/oauth/{provider}/authorize` | public | Redirect to the provider; sets a state cookie → 307 |
-| GET | `/oauth/{provider}/callback` | public | `?code&state` → 200 like login; sets cookies |
+| GET | `/oauth/providers` | public | Configured providers `[{name}]`, for sign-in buttons → 200 |
+| GET | `/oauth/{provider}/authorize` | public | Redirect to the provider with PKCE and a nonce; sets an HttpOnly attempt cookie → 307 |
+| GET | `/oauth/{provider}/callback` | public | `?code&state` → 200 like login; sets cookies. 400 wrong state, 403 no verified email, 502 the provider's answer failed verification |
 | POST | `/oauth/{provider}/link` | `oauth:write` | Not supported yet → 501 |
-| DELETE | `/oauth/{provider}/unlink` | `oauth:delete` | Remove the provider link → 200 |
+| DELETE | `/oauth/{provider}/unlink` | `oauth:delete` | Remove the provider link → 200 (404 if not linked) |
 
-Answers 503 while `oauth_enabled` is off. `provider` is `google`.
+Answers 503 while `oauth_enabled` is off. `provider` is a key of `oauth_providers` (404
+otherwise): any OpenID Connect provider ([configure](../how-to/configure.md#sign-in-with-google-microsoft-okta-or-any-openid-connect-provider)).
 
 ### Sessions (your own)
 
@@ -199,7 +201,8 @@ Recorded actions: `user.registered`, `user.password_changed`, `user.password_res
 `user.status_changed`, `user.deleted`, `session.revoked`, `session.revoked_all`,
 `rbac.role_assigned`, `rbac.role_removed`, `rbac.group_assigned`, `rbac.grant_created`,
 `rbac.grant_revoked`, `mfa.enabled`, `mfa.disabled`, `mfa.reset`, `mfa.recovery_code_used`,
-`mfa.recovery_codes_regenerated`, `token.created`, `token.revoked`. Each event carries the actor, target, client IP, user agent, request id
+`mfa.recovery_codes_regenerated`, `token.created`, `token.revoked`, `oauth.linked`,
+`oauth.unlinked`. Each event carries the actor, target, client IP, user agent, request id
 and small `details` (never secrets). Refused changes are not recorded; sign-in attempts are in
 `login_attempts`.
 

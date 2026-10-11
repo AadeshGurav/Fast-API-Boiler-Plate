@@ -1,92 +1,72 @@
-"""OAuth2 API routes for provider authorization and callbacks."""
+"""Sign-in with OpenID Connect providers: list them, start, finish, unlink."""
 
 from __future__ import annotations
 
 import secrets
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse, RedirectResponse
 
 from app.api.deps import get_auth_service, get_oauth_service
-from app.models.oauth import OAuthProvider
+from app.models.auth import LoginResponse, TokenPayload
 from app.services.auth import AuthService
-from app.services.oauth import OAuthService
-from app.utils.cookie_manager import CookieManager
+from app.services.oauth import OAuthService, OIDCError, SignInAttempt, UnknownProviderError
+from app.utils.cookie_manager import CookieManager, default_cookie_secure
 from app.utils.permissions import get_current_user
 from app.utils.utils import extract_device_info
 
 router = APIRouter(prefix="/oauth", tags=["OAuth"])
 
-STATE_COOKIE_MAX_AGE_SECONDS = 600
+ATTEMPT_COOKIE_MAX_AGE_SECONDS = 600
 
 
-def _state_cookie_name(provider: str) -> str:
+def _cookie_name(provider: str) -> str:
     return f"oauth_state_{provider}"
 
 
-@router.get("/{provider}/authorize")
+def _unknown(e: UnknownProviderError) -> HTTPException:
+    return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+@router.get("/providers", response_model=list[dict[str, str]])
+async def list_providers(oauth_service: OAuthService = Depends(get_oauth_service)) -> list[dict]:
+    """Configured sign-in providers, for drawing "Sign in with ..." buttons."""
+    return oauth_service.describe()
+
+
+@router.get("/{provider}/authorize", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 async def authorize_oauth(
     provider: str,
     request: Request,
     oauth_service: OAuthService = Depends(get_oauth_service),
-):
-    """Initiate OAuth authorization flow.
-
-    Args:
-    ----
-        provider: OAuth provider name
-        request: FastAPI request object
-        oauth_service: OAuth service instance
-
-    Returns:
-    -------
-        Redirect to OAuth provider
-
-    Raises:
-    ------
-        HTTPException: If provider is not supported
-
-    """
+) -> RedirectResponse:
+    """Send the browser to the provider (PKCE and nonce included)."""
     try:
-        # Validate provider
-        try:
-            oauth_provider = OAuthProvider(provider)
-        except ValueError as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Unsupported OAuth provider: {provider}",
-            ) from e
-
-        # CSRF protection: bind the state to this browser with an HttpOnly cookie and
-        # compare it in the callback. An attacker can't make a victim's browser
-        # carry a cookie they chose, so a forged callback fails the comparison.
-        state = secrets.token_urlsafe(32)
-        auth_url = oauth_service.get_authorization_url(oauth_provider, state)
-
-        response = RedirectResponse(url=auth_url)
-        from app.utils.cookie_manager import default_cookie_secure
-
-        config = request.app.state.services.config
-        response.set_cookie(
-            _state_cookie_name(provider),
-            state,
-            max_age=STATE_COOKIE_MAX_AGE_SECONDS,
-            httponly=True,
-            secure=default_cookie_secure(config),
-            samesite="lax",  # must accompany the provider's top-level redirect back
-        )
-        return response
-
-    except HTTPException:
-        raise
-    except Exception as e:
+        url, attempt = await oauth_service.begin(provider)
+    except UnknownProviderError as e:
+        raise _unknown(e) from e
+    except (OIDCError, httpx.HTTPError) as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="OAuth authorization failed",
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The sign-in provider could not be reached. Try again later.",
         ) from e
+    response = RedirectResponse(url=url)
+    # The state, PKCE verifier and nonce stay with this browser in an HttpOnly cookie: an
+    # attacker cannot make a victim's browser carry values they chose, so a forged callback,
+    # a stolen code or a replayed ID token all fail.
+    response.set_cookie(
+        _cookie_name(provider),
+        attempt.pack(),
+        max_age=ATTEMPT_COOKIE_MAX_AGE_SECONDS,
+        httponly=True,
+        secure=default_cookie_secure(request.app.state.services.config),
+        samesite="lax",  # must accompany the provider's top-level redirect back
+    )
+    return response
 
 
-@router.get("/{provider}/callback")
+@router.get("/{provider}/callback", response_model=LoginResponse)
 async def oauth_callback(
     provider: str,
     code: str,
@@ -94,174 +74,61 @@ async def oauth_callback(
     request: Request,
     oauth_service: OAuthService = Depends(get_oauth_service),
     auth_service: AuthService = Depends(get_auth_service),
-):
-    """Handle OAuth callback and complete authentication.
-
-    Args:
-    ----
-        provider: OAuth provider name
-        code: Authorization code from provider
-        state: State parameter for CSRF protection
-        request: FastAPI request object
-        oauth_service: OAuth service instance
-        auth_service: Auth service instance
-
-    Returns:
-    -------
-        Login response with user info and tokens
-
-    Raises:
-    ------
-        HTTPException: If OAuth flow fails
-
-    """
-    try:
-        # Validate provider
-        try:
-            oauth_provider = OAuthProvider(provider)
-        except ValueError as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Unsupported OAuth provider: {provider}",
-            ) from e
-
-        expected_state = request.cookies.get(_state_cookie_name(provider))
-        if not expected_state or not secrets.compare_digest(expected_state, state):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid or expired OAuth state. Start the sign-in again.",
-            )
-
-        # Exchange code for token
-        oauth_token = await oauth_service.exchange_code_for_token(oauth_provider, code)
-
-        # Get user info from provider
-        oauth_user_info = await oauth_service.get_user_info(
-            oauth_provider, oauth_token.access_token
-        )
-
-        # Create or link user
-        user = await oauth_service.create_or_link_user(oauth_user_info, oauth_provider)
-
-        # Same session/token machinery as password login
-        login_response = await auth_service.login_oauth_user(user, extract_device_info(request))
-
-        response = JSONResponse(content=login_response.model_dump(mode="json"))
-        CookieManager.set_auth_cookies(
-            response, login_response.tokens, request.app.state.services.config
-        )
-        response.delete_cookie(_state_cookie_name(provider))  # state is single-use
-        return response
-
-    except HTTPException:
-        raise
-    except Exception as e:
+) -> JSONResponse:
+    """Finish the sign-in: verify the provider's answer and start a session."""
+    attempt = SignInAttempt.unpack(request.cookies.get(_cookie_name(provider)))
+    if attempt is None or not secrets.compare_digest(attempt.state, state):
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="OAuth callback failed",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired OAuth state. Start the sign-in again.",
+        )
+    try:
+        user = await oauth_service.complete(provider, code, attempt)
+    except UnknownProviderError as e:
+        raise _unknown(e) from e
+    except (OIDCError, httpx.HTTPError) as e:
+        request.app.state.services.logger.warning(f"OAuth sign-in with {provider} refused: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The sign-in provider's answer could not be verified. Start the sign-in again.",
         ) from e
+    except ValueError as e:  # no verified email
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
+
+    login_response = await auth_service.login_oauth_user(user, extract_device_info(request))
+    response = JSONResponse(content=login_response.model_dump(mode="json"))
+    CookieManager.set_auth_cookies(
+        response, login_response.tokens, request.app.state.services.config
+    )
+    response.delete_cookie(_cookie_name(provider))  # single-use
+    return response
 
 
-@router.post("/{provider}/link")
+@router.post("/{provider}/link", status_code=status.HTTP_501_NOT_IMPLEMENTED)
 async def link_oauth_account(
     provider: str,
-    request: Request,
-    current_user: dict = Depends(get_current_user),
+    current_user: TokenPayload = Depends(get_current_user),
     oauth_service: OAuthService = Depends(get_oauth_service),
-):
-    """Link OAuth account to current user.
-
-    Args:
-    ----
-        provider: OAuth provider name
-        request: FastAPI request object
-        current_user: Current authenticated user
-        oauth_service: OAuth service instance
-
-    Returns:
-    -------
-        Success message
-
-    Raises:
-    ------
-        HTTPException: If linking fails
-
-    """
+) -> None:
+    """Not supported yet: sign in with the provider using the same verified email."""
     try:
-        # Validate provider
-        try:
-            oauth_provider = OAuthProvider(provider)  # noqa: F841
-        except ValueError as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Unsupported OAuth provider: {provider}",
-            ) from e
-
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Linking a provider to a signed-in account is not supported yet. "
-            "Sign in with the provider using the same verified email to link it.",
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="OAuth account linking failed",
-        ) from e
+        oauth_service.provider(provider)
+    except UnknownProviderError as e:
+        raise _unknown(e) from e
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="Linking a provider to a signed-in account is not supported yet. "
+        "Sign in with the provider using the same verified email to link it.",
+    )
 
 
 @router.delete("/{provider}/unlink")
 async def unlink_oauth_account(
     provider: str,
-    request: Request,
-    current_user: dict = Depends(get_current_user),
+    current_user: TokenPayload = Depends(get_current_user),
     oauth_service: OAuthService = Depends(get_oauth_service),
-):
-    """Unlink OAuth account from current user.
-
-    Args:
-    ----
-        provider: OAuth provider name
-        request: FastAPI request object
-        current_user: Current authenticated user
-        oauth_service: OAuth service instance
-
-    Returns:
-    -------
-        Success message
-
-    Raises:
-    ------
-        HTTPException: If unlinking fails
-
-    """
-    try:
-        # Validate provider
-        try:
-            oauth_provider = OAuthProvider(provider)
-        except ValueError as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Unsupported OAuth provider: {provider}",
-            ) from e
-
-        # Unlink OAuth account
-        success = await oauth_service.unlink_oauth_account(current_user.user_id, oauth_provider)
-
-        if not success:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Failed to unlink OAuth account",
-            )
-
-        return {"message": f"OAuth account unlinked successfully: {provider}"}
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="OAuth account unlinking failed",
-        ) from e
+) -> dict[str, str]:
+    """Remove the link between your account and a provider."""
+    if not await oauth_service.unlink_oauth_account(current_user.user_id, provider):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No such linked provider")
+    return {"message": f"OAuth account unlinked successfully: {provider}"}

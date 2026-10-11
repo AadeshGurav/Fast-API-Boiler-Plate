@@ -38,7 +38,7 @@ things but not others":
 
 | Capability | What it means for the product |
 | --- | --- |
-| Accounts | Sign-up, sign-in, "remember me", sign out of one or all devices, password change and reset by email, optional Google sign-in, optional two-factor sign-in with an authenticator app and recovery codes. |
+| Accounts | Sign-up, sign-in, "remember me", sign out of one or all devices, password change and reset by email, optional sign-in with Google, Microsoft, Okta or any other OpenID Connect provider, optional two-factor sign-in with an authenticator app and recovery codes. |
 | Access control | Roles (admin, manager, user, guest), groups, and time-limited grants, all defined in one config file. Every endpoint is locked unless a role allows it. |
 | Integrations | Personal access tokens for scripts and partner systems: limited to chosen permissions, expiring, revocable at any time. |
 | Audit trail | Every security change (roles, grants, account status, passwords, sessions) is recorded with who, when and from where, and administrators can search it. |
@@ -54,7 +54,7 @@ things but not others":
 
 ## Why it can be trusted
 
-- **Security-reviewed.** Account takeover through Google sign-in, brute-force races, oversized
+- **Security-reviewed.** Account takeover through provider sign-in, brute-force races, oversized
   or malicious files, cross-site requests and leaked secrets are each covered by regression
   tests (`tests/test_security_fixes.py`).
 - **Fails safely.** Wrong configuration stops start-up with a message naming the problem.

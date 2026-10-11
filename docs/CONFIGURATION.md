@@ -206,7 +206,8 @@ Values are resolved in this order (later wins):
 | `rbac_groups` | dict[str, dict[str, Any]] | `{}` | Group definitions: {'roles': [...]}. Edit in config.toml. |
 | `default_role` | str | `'user'` | Role given to users who register themselves. |
 | `oauth_enabled` | bool | `False` | Enable sign-in with an identity provider. |
-| `oauth_providers` | dict[str, dict[str, Any]] | `{}` | Provider settings (client_id, client_secret, urls). See config.toml. |
+| `oauth_providers` | dict[str, dict[str, Any]] | `{}` | OpenID Connect providers: issuer, client_id, client_secret, redirect_uri. See config.toml. |
+| `oauth_timeout_seconds` | float | `10.0` | Time limit for each call to an identity provider. |
 
 ## Logging, metrics, tracing, Sentry
 
