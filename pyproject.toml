@@ -30,7 +30,7 @@ dependencies = [
     "uvloop==0.23.0; sys_platform != 'win32'",
     "httptools==0.8.0",
     "python-multipart==0.0.32",  # form and file uploads
-    "pydantic==2.13.5",
+    "pydantic==2.14.0",
     "email-validator==2.3.0",  # pydantic EmailStr
     "httpx==0.28.1",  # outbound HTTP (OIDC, webhooks)
     "motor==3.7.1",
