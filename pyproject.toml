@@ -70,7 +70,7 @@ dev = [
     "pytest-cov==7.1.0",
     "ruff==0.17.0",
     "moto==5.2.3",  # fake S3
-    "schemathesis==4.28.0",  # API fuzzing
+    "schemathesis==4.30.0",  # API fuzzing
 ]
 
 [tool.uv]
