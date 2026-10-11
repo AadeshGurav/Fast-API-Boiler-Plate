@@ -1,8 +1,9 @@
 # Competitive analysis and roadmap proposal (October 2026)
 
-Status: **P0 and P1 delivered** on branch `docs/competitive-analysis` (2026-10-11); P2 and P3
-remain proposals. New dependencies (`asyncpg`, `cryptography`, `pip-audit`, `pytest-cov`) were
-approved by the maintainer for this work; the large items have ADRs.
+Status: **P0, P1 and P2 delivered** (2026-10-11), and the P3 webhooks and agent skill; multi-tenancy
+and a project generator remain proposals awaiting a decision. New dependencies (`asyncpg`,
+`cryptography`, `webauthn`, `pip-audit`, `pytest-cov`, `schemathesis`) were approved by the
+maintainer for this work; the large items have ADRs.
 
 ## Progress
 
@@ -19,7 +20,14 @@ approved by the maintainer for this work; the large items have ADRs.
 | P1-6 OpenAPI snapshot | Done | `docs/reference/openapi.json`, `make openapi` |
 | P2-5 Mailpit | Done | `make up-mail` |
 | P2-6 Observability extra | Done | `requirements-observability.txt` |
-| P2-1 Schemathesis, P2-2 OIDC, P2-3 uv, P2-4 passkeys, P2-7 cursor pagination, P3 | Open | this document |
+| P2-1 Schemathesis | Done: `make fuzz` and CI; its first run found that no operation declared its error responses, now fixed app-wide | `tests/test_api_fuzz.py` |
+| P2-2 OIDC | Done: any OpenID Connect provider, with PKCE, nonce and ID-token verification (the old Google flow had none of the three) | `app/services/oauth/oidc.py` |
+| P2-3 uv | Done: `uv.lock` with hashes for the whole tree, hashed `requirements*.txt` exports, multi-stage image | `pyproject.toml`, `make lock` |
+| P2-4 Passkeys | Done | `app/services/auth/passkeys.py` |
+| P2-7 Cursor pagination | Done for files, audit events and jobs | `app/services/data/cursor.py` |
+| P3 Webhooks | Done: Standard Webhooks signatures, delivered as jobs | `app/services/webhooks.py` |
+| P3 Agent skills | Done | `.claude/skills/add-a-resource` |
+| P3 Multi-tenancy, project generator (copier) | Open: both reshape every collection or the repository layout, so they wait for a maintainer decision | this document |
 
 ## 1. Who we compete with
 
