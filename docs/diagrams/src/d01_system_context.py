@@ -5,7 +5,7 @@ EYEBROW = "Architecture · for decision makers"
 TITLE = "One service, three data stores, everything else optional"
 DESC = ("System context: browser and mobile clients reach a single FastAPI service through an optional "
         "reverse proxy; the service keeps records and background jobs in MongoDB or PostgreSQL, cache and limits in Redis, and file bytes on "
-        "local disk or S3, and can optionally use Google sign-in, an SMTP server and observability tools.")
+        "local disk or S3, and can optionally use OpenID Connect identity providers, an SMTP server and observability tools.")
 W, H = 960, 528
 
 
@@ -39,7 +39,7 @@ def body():
         node(672, 80, 176, 64, "Database", "MongoDB or PostgreSQL", "DB", "store"),
         node(672, 168, 176, 64, "Redis", "cache · limits · replay", "KV", "store"),
         node(672, 256, 176, 64, "File storage", "local disk or S3", "OBJ", "store"),
-        node(216, 392, 160, 56, "Google sign-in", "optional", "IDP", "external"),
+        node(216, 392, 160, 56, "Identity providers", "Google · Entra · Okta", "IDP", "external"),
         node(400, 392, 160, 56, "SMTP server", "resets · email jobs", "MAIL", "external"),
         node(584, 392, 160, 56, "Observability", "Prometheus · OTel · Sentry", "OPS", "optional"),
     ]

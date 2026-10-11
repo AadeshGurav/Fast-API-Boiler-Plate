@@ -9,6 +9,9 @@ All notable changes are recorded here. The format follows
 
 ### Added
 
+- Three diagrams, light and dark: passkey sign-in, OpenID Connect sign-in and webhook delivery;
+  the CI, system-context and security-data diagrams show fuzzing, the lock, identity providers
+  and passkeys.
 - Cursor pagination for `/files`, `/admin/audit-events` and `/admin/jobs`: responses carry
   `next_cursor`; `?cursor=` returns the next page, fast at any depth and stable while records are
   added. Page numbers keep working.

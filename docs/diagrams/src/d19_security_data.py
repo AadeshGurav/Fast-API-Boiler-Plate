@@ -4,7 +4,7 @@ from lib import MONO, legend
 SLUG = "security-data"
 EYEBROW = "ER · for developers and security reviewers"
 TITLE = "Security records hang off the user; no secret is stored readable"
-DESC = ("Security data model: a user owns API tokens (stored as SHA-256 hashes with scopes and expiry), "
+DESC = ("Security data model: a user owns passkeys (public keys only, with a signature counter), API tokens (stored as SHA-256 hashes with scopes and expiry), "
         "at most one two-factor record (an encrypted authenticator secret, the last accepted time step and "
         "hashed recovery codes), and is the actor or target of audit events (append-only, with IP address, "
         "user agent and request id, expiring after audit_retention_days).")
@@ -15,6 +15,7 @@ ENTITIES = {
     "users": (368, 128, ["# id", "username · email", "roles[] · groups[]", "status · locked_until"]),
     "mfa_totp": (704, 40, ["→ user_id (unique)", "secret (Fernet-encrypted)", "confirmed_at · last_step", "recovery_codes[] (hashed)",
                            "codes_version"]),
+    "passkeys": (32, 312, ["# id", "→ user_id", "credential_id (unique)", "public_key (no secret)", "sign_count · last_used_at"]),
     "audit_events": (368, 312, ["# id · at TTL", "→ actor_id · target_id", "action · target_type", "ip · user_agent · request_id",
                                 "details (no secrets)"]),
 }
@@ -26,6 +27,7 @@ def body():
         f'<path d="M 368,168 H 264 Q 256,168 256,160 V 148" {line}/>',   # tokens
         f'<path d="M 592,168 H 808 Q 816,168 816,160 V 148" {line}/>',   # mfa
         f'<path d="M 480,224 V 312" {line}/>',                            # audit
+        f'<path d="M 368,208 H 152 Q 144,208 144,216 V 312" {line}/>',   # passkeys
     ]
 
     def card(x, y, t, anchor="start"):
@@ -34,11 +36,12 @@ def body():
 
     b += [card(360, 162, "1", "end"), card(264, 162, "N"),
           card(600, 162, "1"), card(824, 162, "0..1"),
-          card(488, 240, "1"), card(488, 306, "N")]
+          card(488, 240, "1"), card(488, 306, "N"),
+          card(360, 202, "1", "end"), card(152, 306, "N")]
     for name, (x, y, fields) in ENTITIES.items():
         b.append(entity(name, x, y, fields)[0])
     b.append(f'<text x="32" y="464" fill="{{soft}}" font-size="8" font-family="{MONO}" letter-spacing="0.04em">'
-             'Tokens and recovery codes: hashes only. Two-factor secret: encrypted with mfa_encryption_key. '
-             'All three are read from the database, never the cache.</text>')
+             'Tokens and recovery codes: hashes only. Passkeys: public keys only. Two-factor secret: encrypted. '
+             'All are read from the database, never the cache.</text>')
     b.append(legend(480, W, [("focal", "aggregate root")]))
     return "".join(b)
