@@ -19,7 +19,7 @@ jobs:
         # The supported floor (.python-version) and the newest release we test against.
         python-version: ["3.11", "3.13"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-python@v5
         with:
@@ -55,7 +55,7 @@ jobs:
         ports: ["5432:5432"]
         options: --health-cmd "pg_isready -U fabp" --health-interval 5s --health-retries 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version-file: .python-version
@@ -73,7 +73,7 @@ jobs:
     # Known vulnerabilities in pinned runtime dependencies fail the build.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version-file: .python-version
@@ -86,7 +86,7 @@ jobs:
     # The shipped image must build and carry no HIGH or CRITICAL fixable vulnerability.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build
         run: docker build -t fabp:ci .
       - name: Scan
