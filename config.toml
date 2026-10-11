@@ -13,14 +13,20 @@ default_role = "user"
 # Public sign-in providers. Set oauth_enabled = true and fill in client_id/client_secret
 # (in config.local.toml, not here).
 # oauth_enabled = false
+# Any OpenID Connect provider: the endpoints are discovered from `issuer`. Put client_secret
+# in config.secrets.toml or FABP_OAUTH_PROVIDERS, never here.
 # [oauth_providers.google]
+# issuer = "https://accounts.google.com"
 # client_id = ""
 # client_secret = ""
 # redirect_uri = "http://localhost:8000/api/v1/oauth/google/callback"
-# scopes = ["openid", "email", "profile"]
-# authorization_url = "https://accounts.google.com/o/oauth2/v2/auth"
-# token_url = "https://oauth2.googleapis.com/token"
-# userinfo_url = "https://www.googleapis.com/oauth2/v3/userinfo"
+#
+# [oauth_providers.microsoft]   # Entra ID, one tenant
+# issuer = "https://login.microsoftonline.com/<tenant-id>/v2.0"
+# client_id = ""
+# client_secret = ""
+# redirect_uri = "http://localhost:8000/api/v1/oauth/microsoft/callback"
+# trust_email = true            # Entra omits email_verified; trust it only for your own tenant
 
 # ---------------------------------------------------------------------------------
 # Access control. A permission is "<resource>:<action>" where resource is the first URL

@@ -18,8 +18,8 @@ are pinned by a regression test, chiefly in `tests/test_security_fixes.py` and
 | Token theft by script | Auth cookies are HttpOnly and Secure (outside debug) | `utils/cookie_manager.py` |
 | Privilege escalation | Deny by default; public registration cannot choose roles; managers cannot suspend admins | `middleware/rbac.py`, `routes/users.py` |
 | Reading others' data | Ownership checked on every file and session; others' resources answer 404 | `FileService.get_owned`, `routes/sessions.py` |
-| Account pre-hijacking via Google | Only verified provider emails; an unverified local account with that email loses its password and sessions first | `OAuthBase.create_or_link_user` |
-| OAuth login CSRF | State bound to an HttpOnly cookie and compared in constant time | `routes/oauth.py` |
+| Account pre-hijacking via an identity provider | Only verified provider emails; an unverified local account with that email loses its password and sessions first | `OAuthService.create_or_link_user` |
+| OAuth login CSRF, code theft, token replay | State, PKCE verifier and nonce bound to an HttpOnly cookie; ID token signature, issuer, audience, expiry and nonce verified | `routes/oauth.py`, `services/oauth/oidc.py` |
 | Malicious uploads | Type allow-list, HTML/SVG refused, downloads always `attachment`, `no-store`, sanitised names | `FileService`, `routes/files/common.py` |
 | Path traversal | Storage paths resolved and confined to the base (symlinks included); upload ids restricted | `storage/local.py`, `storage/s3.py`, `chunked_upload.py` |
 | Resource exhaustion | Body size cap and idle-body cut-off, timeouts, concurrency cap, per-user quota, version cap, cell cap, image pixel cap, zip-bomb and DTD refusal | `middleware/body_limit.py`, `timeout.py`, `image_processor.py`, `xlsx_package.py` |
@@ -107,9 +107,18 @@ characters, policy configurable (default: 8+ characters with upper, lower, digit
   `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, a restrictive `Permissions-Policy`,
   and no `Server` header.
 
-## Google sign-in
+## Sign in with identity providers
 
-Off unless `oauth_enabled`. The provider must vouch for the email (`email_verified`). If a local
+Off unless `oauth_enabled`. Every provider uses one OpenID Connect client
+(`services/oauth/oidc.py`): the authorization-code flow with PKCE (S256) and a nonce, the state,
+verifier and nonce held in an HttpOnly cookie bound to the browser, and the ID token verified
+against the provider's published keys (asymmetric algorithms only; keys re-fetched when the
+provider rotates them), issuer, audience and expiry before its nonce is compared. Every call to
+the provider has a timeout (`oauth_timeout_seconds`). An answer that fails any check is a 502,
+logged with the reason, and never a session.
+
+The provider must vouch for the email (`email_verified`, or `trust_email` for an enterprise
+directory that owns its addresses). If a local
 account already uses that address but never proved it, whoever registered it might not own
 it, so its password is cleared and its sessions revoked before the provider is linked. Provider
 access tokens are not stored. Linking a provider to an already signed-in account is not

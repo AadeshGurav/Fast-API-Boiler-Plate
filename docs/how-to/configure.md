@@ -122,24 +122,44 @@ Locally, `make up-mail` starts [Mailpit](https://mailpit.axllent.org), which acc
 message and shows it at <http://127.0.0.1:8025>; uncomment the `smtp_*` lines in
 `config.local.toml` to send to it.
 
-## Sign in with Google
+## Sign in with Google, Microsoft, Okta or any OpenID Connect provider
+
+Each `[oauth_providers.<name>]` is one provider; `<name>` appears in the URLs. Give its
+`issuer` and the endpoints are discovered:
 
 ```toml
 oauth_enabled = true
 
 [oauth_providers.google]
+issuer = "https://accounts.google.com"
 client_id = "..."
-client_secret = "..."   # better: in config.secrets.toml or the environment
 redirect_uri = "https://api.example.com/api/v1/oauth/google/callback"
-scopes = ["openid", "email", "profile"]
-authorization_url = "https://accounts.google.com/o/oauth2/v2/auth"
-token_url = "https://oauth2.googleapis.com/token"
-userinfo_url = "https://www.googleapis.com/oauth2/v3/userinfo"
+
+[oauth_providers.microsoft]
+issuer = "https://login.microsoftonline.com/<tenant-id>/v2.0"
+client_id = "..."
+redirect_uri = "https://api.example.com/api/v1/oauth/microsoft/callback"
+trust_email = true   # Entra ID sends no email_verified; trust only your own tenant's addresses
 ```
 
-Only Google accounts with a verified email can sign in. Signing in with an address that matches
-an unverified local account takes that account over safely: its password and sessions are
-cleared first ([security model](../explanation/security-model.md#google-sign-in)).
+Put each `client_secret` in `config.secrets.toml` (git-ignored) or the environment. Optional
+keys: `scopes` (default `openid email profile`), `extra_authorize_params` (e.g.
+`{prompt = "select_account"}`), and `authorization_url`, `token_url`, `userinfo_url`, `jwks_uri`
+for providers without discovery. A provider missing a required key stops start-up with its name.
+
+| Provider | `issuer` |
+| --- | --- |
+| Google | `https://accounts.google.com` |
+| Microsoft Entra ID | `https://login.microsoftonline.com/<tenant-id>/v2.0` |
+| Okta | `https://<org>.okta.com` (or a custom authorization server) |
+| Auth0 | `https://<tenant>.auth0.com/` |
+| Keycloak | `https://<host>/realms/<realm>` |
+| GitLab | `https://gitlab.com` |
+
+Front ends list the configured providers with `GET /api/v1/oauth/providers` and send the browser
+to `/api/v1/oauth/<name>/authorize`. Only verified emails can sign in; an address matching an
+unverified local account takes it over safely, clearing its password and sessions first
+([security model](../explanation/security-model.md#sign-in-with-identity-providers)).
 
 ## Change roles, groups and limits
 

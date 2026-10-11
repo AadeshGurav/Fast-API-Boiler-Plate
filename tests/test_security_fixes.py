@@ -9,13 +9,13 @@ import ssl
 import pytest
 from PIL import Image
 
-from app.models.oauth import OAuthProvider, OAuthUserInfo
+from app.models.oauth import OAuthUserInfo
 from app.models.session import DeviceInfo
 from app.models.user import UserCreate
 from app.services.file.image_processor import ImageProcessor
 from app.services.file.spreadsheet_processor import SpreadsheetProcessor
 from app.services.file.xlsx_patch import UnsupportedWorkbookError, patch_sheet_xml
-from app.services.oauth.base import OAuthBase
+from app.services.oauth import OAuthService
 from tests.conftest import run
 
 PASSWORD = "Str0ng!Passw0rd"
@@ -90,11 +90,13 @@ def test_oauth_sign_in_does_not_inherit_a_pre_registered_unverified_account(env)
     stale = bearer(client, "squatter")
 
     service = env.services
-    oauth = OAuthBase(service.config, service.logger, service.data_service)
+    oauth = OAuthService(
+        service.config, service.logger, service.data_service, service.audit_service
+    )
     info = OAuthUserInfo(
         provider_user_id="g-victim", email="victim@example.com", email_verified=True, name="V"
     )
-    user = run(oauth.create_or_link_user(info, OAuthProvider.GOOGLE))
+    user = run(oauth.create_or_link_user(info, "google"))
 
     assert user.username == "squatter"  # same account, linked to the real owner
     wrong = client.post("/api/v1/auth/login", json={"username": "squatter", "password": PASSWORD})
@@ -104,18 +106,20 @@ def test_oauth_sign_in_does_not_inherit_a_pre_registered_unverified_account(env)
 
 def test_unlinked_provider_identity_cannot_sign_in(env):
     service = env.services
-    oauth = OAuthBase(service.config, service.logger, service.data_service)
+    oauth = OAuthService(
+        service.config, service.logger, service.data_service, service.audit_service
+    )
     info = OAuthUserInfo(
         provider_user_id="g-1", email="a@example.com", email_verified=True, name="A"
     )
-    first = run(oauth.create_or_link_user(info, OAuthProvider.GOOGLE))
-    run(oauth.create_or_link_user(info, OAuthProvider.GOOGLE))  # second sign-in warms any cache
+    first = run(oauth.create_or_link_user(info, "google"))
+    run(oauth.create_or_link_user(info, "google"))  # second sign-in warms any cache
 
-    assert run(oauth.unlink_oauth_account(first.id, OAuthProvider.GOOGLE))
+    assert run(oauth.unlink_oauth_account(first.id, "google"))
 
     unverified = info.model_copy(update={"email_verified": False})
     with pytest.raises(ValueError):
-        run(oauth.create_or_link_user(unverified, OAuthProvider.GOOGLE))
+        run(oauth.create_or_link_user(unverified, "google"))
 
 
 # ---- login --------------------------------------------------------------------------

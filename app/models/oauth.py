@@ -3,32 +3,15 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from enum import StrEnum
 
 from pydantic import BaseModel, Field
-
-
-class OAuthProvider(StrEnum):
-    """OAuth provider enumeration."""
-
-    GOOGLE = "google"
-
-
-class OAuthToken(BaseModel):
-    """OAuth token model."""
-
-    access_token: str = Field(..., description="OAuth access token")
-    refresh_token: str | None = Field(None, description="OAuth refresh token")
-    expires_in: int = Field(..., description="Token expiration in seconds")
-    token_type: str = Field(default="Bearer", description="Token type")
-    scope: str | None = Field(None, description="Token scope")
 
 
 class OAuthUserInfo(BaseModel):
     """OAuth user information model."""
 
     provider_user_id: str = Field(..., description="Provider user ID")
-    email: str = Field(..., description="User email")
+    email: str | None = Field(None, description="User email, if the provider shares it")
     name: str = Field(..., description="User name")
     picture: str | None = Field(None, description="User picture URL")
     email_verified: bool = Field(
@@ -40,10 +23,8 @@ class OAuthAccount(BaseModel):
     """OAuth account link model."""
 
     user_id: str = Field(..., description="Local user ID")
-    provider: OAuthProvider = Field(..., description="OAuth provider")
+    provider: str = Field(..., description="Provider name from oauth_providers")
     provider_user_id: str = Field(..., description="Provider user ID")
-    access_token: str = Field(..., description="OAuth access token")
-    refresh_token: str | None = Field(None, description="OAuth refresh token")
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC), description="Account link creation time"
     )
@@ -54,7 +35,5 @@ class OAuthAccount(BaseModel):
 
 __all__ = [
     "OAuthAccount",
-    "OAuthProvider",
-    "OAuthToken",
     "OAuthUserInfo",
 ]
