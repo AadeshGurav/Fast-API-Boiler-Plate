@@ -89,32 +89,3 @@ class OAuthOps:
             {"user_id": user_id, "provider": provider},
             policy=CachePolicy.DB_ONLY,
         )
-
-    async def update_oauth_tokens(
-        self: OAuthOps, user_id: str, provider: str, tokens: dict[str, Any]
-    ) -> bool:
-        """Update OAuth tokens for user.
-
-        Args:
-        ----
-            user_id: User ID.
-            provider: OAuth provider name.
-            tokens: Token data dictionary.
-
-        Returns:
-        -------
-            True if successful, False otherwise.
-
-        """
-        updates = {
-            "access_token": tokens.get("access_token"),
-            "refresh_token": tokens.get("refresh_token"),
-            "updated_at": datetime.now(UTC),
-        }
-
-        return await self.ds.update(
-            self.collection,
-            {"user_id": user_id, "provider": provider},
-            updates,
-            policy=CachePolicy.DB_ONLY,
-        )
