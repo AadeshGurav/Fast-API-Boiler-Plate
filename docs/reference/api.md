@@ -30,7 +30,9 @@ roles live in `config.toml`.
 ### Errors
 
 Every error is an [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem document with
-`Content-Type: application/problem+json`:
+`Content-Type: application/problem+json` (the `ProblemDetail` schema in
+[`openapi.json`](openapi.json), declared on every operation for 400, 401, 403, 404, 409, 413,
+422, 429 and 503):
 
 ```json
 {

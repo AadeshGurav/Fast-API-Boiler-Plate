@@ -4,7 +4,7 @@ VENV   ?= .venv
 BIN    := $(VENV)/bin
 
 .DEFAULT_GOAL := help
-.PHONY: help setup up up-postgres up-mail down reset-data run test lint fmt config config-docs openapi graph hooks docker-build docker-up
+.PHONY: help setup up up-postgres up-mail down reset-data run test fuzz lint fmt config config-docs openapi graph hooks docker-build docker-up
 
 help:  ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*?## ' '{printf "  %-14s %s\n", $$1, $$2}'
@@ -50,6 +50,9 @@ run:  ## Run the API (generates a JWT secret on first start)
 
 test:  ## Run the test suite (needs no running services)
 	$(BIN)/python -m pytest -q
+
+fuzz:  ## Fuzz every API operation from the OpenAPI contract (Schemathesis, about a minute)
+	$(BIN)/python -m pytest -q -m fuzz
 
 lint:  ## Lint and format-check
 	$(BIN)/ruff check app tests main.py config.py

@@ -12,6 +12,11 @@ All notable changes are recorded here. The format follows
 - Cursor pagination for `/files`, `/admin/audit-events` and `/admin/jobs`: responses carry
   `next_cursor`; `?cursor=` returns the next page, fast at any depth and stable while records are
   added. Page numbers keep working.
+- API fuzzing (`make fuzz`, CI): Schemathesis sends generated requests to every operation and
+  fails on any 5xx or undocumented status, content type or body.
+- The OpenAPI contract now declares the RFC 9457 `application/problem+json` error responses
+  (400, 401, 403, 404, 409, 413, 422, 429, 503) and a `ProblemDetail` schema; previously only
+  success bodies and FastAPI's unused validation shape were described. Fuzzing found the gap.
 - Engineering standards (`docs/STANDARDS.md`), binding for every pull request, human or AI.
 - Bring-your-own backend guide (`docs/how-to/write-a-backend.md`): the database, cache and
   storage contracts, including the filter vocabulary.

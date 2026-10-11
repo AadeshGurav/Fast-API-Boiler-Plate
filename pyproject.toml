@@ -54,3 +54,5 @@ ignore = [
 testpaths = ["tests"]
 python_files = "test_*.py"
 asyncio_mode = "auto"
+markers = ["fuzz: property-based API fuzzing (make fuzz); slow, so not in make test"]
+addopts = "-m 'not fuzz'"

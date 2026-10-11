@@ -7,3 +7,4 @@ moto==5.2.3       # fake S3 for those tests
 -r requirements-postgres.txt   # PostgreSQL backend contract tests
 -r requirements-observability.txt   # Sentry and tracing tests
 pytest-cov==7.1.0
+schemathesis==4.28.0   # API fuzzing (make fuzz)

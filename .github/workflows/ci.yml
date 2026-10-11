@@ -39,6 +39,10 @@ jobs:
       - name: Test
         run: python -m pytest -q --cov=app --cov-report=term-missing:skip-covered
 
+      # Generated requests for every operation: no 5xx, and only documented answers.
+      - name: Fuzz the API contract
+        run: python -m pytest -q -m fuzz
+
   contract:
     # The storage-agnostic promise, proven against the real engines.
     runs-on: ubuntu-latest
