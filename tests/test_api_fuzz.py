@@ -31,7 +31,9 @@ EXCLUDED = r"^/api/v1/(files/upload|auth/login/mfa|oauth/)"
 
 @pytest.fixture(scope="module")
 def app(tmp_path_factory):
-    app, services = build_test_app(tmp_path_factory.mktemp("fuzz"))
+    app, services = build_test_app(
+        tmp_path_factory.mktemp("fuzz"), passkeys_enabled=True, webauthn_rp_id="localhost"
+    )
     env = type("Env", (), {"auth_service": services.auth_service})
     make_admin(env)
     return app
