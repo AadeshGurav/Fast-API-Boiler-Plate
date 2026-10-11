@@ -1,26 +1,26 @@
 # Graph Report - Fast-API-Boiler-Plate  (2026-10-11)
 
 ## Corpus Check
-- 204 files · ~177,055 words
+- 204 files · ~177,085 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 10 file(s) not represented in the graph (top: (none) 7, .example 2, .toml 1)
 
 ## Summary
-- 2845 nodes · 6862 edges · 145 communities (85 shown, 60 thin omitted)
+- 2845 nodes · 6862 edges · 147 communities (87 shown, 60 thin omitted)
 - Extraction: 89% EXTRACTED · 11% INFERRED · 0% AMBIGUOUS · INFERRED: 755 edges (avg confidence: 0.92)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `9bf008b7`
+- Built from commit: `6c0a6b46`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - xlsx_package.py
-- CacheService
+- StorageInterface
 - e
 - auth.py
-- typing
+- config.py
 - MongoDB
 - test_jwt_secret.py
 - test_files.py
@@ -31,13 +31,13 @@
 - LocalStorage
 - TokenPayload
 - SpreadsheetProcessor
-- rate_limiter.py
+- middleware/base.py
 - FileService
 - MFAService
 - test_middleware.py
 - mailer.py
 - test_data_layer.py
-- StorageInterface
+- tests/conftest.py
 - S3Storage
 - UsersOps
 - ChunkedUploadHandler
@@ -45,7 +45,7 @@
 - test_auth_flow.py
 - middleware/rbac.py
 - CookieManager
-- DataService
+- typing
 - require_any_role
 - test_security_fixes.py
 - README.md
@@ -115,12 +115,12 @@
 - get_file_versions
 - assign_group
 - [Unreleased]
+- Any
 - For designers
 - models/oauth.py
 - Contributing
 - Architecture
 - Competitive analysis and roadmap proposal (October 2026)
-- make_user
 - .record
 - ApiTokenError
 - .allows
@@ -129,6 +129,7 @@
 - pull_request_template.md
 - A database backend
 - Security policy
+- ensure_bootstrap_admin
 - RBACMiddleware
 - test_streamed_oversize_body_without_content_length_is_rejected
 - fastapi-boilerplate
@@ -167,27 +168,27 @@
 ## Import Cycles
 - 3-file cycle: `app/services/file/__init__.py -> app/services/file/file_service.py -> app/services/file/spreadsheet_processor.py -> app/services/file/__init__.py`
 
-## Communities (145 total, 60 thin omitted)
+## Communities (147 total, 60 thin omitted)
 
 ### Community 0 - "xlsx_package.py"
 Cohesion: 0.15
 Nodes (7): _add_sheet(), _delete_sheet(), _drop_calculation_state(), edit_xlsx(), _Package, _parse_xml(), _sheet_parts()
 
-### Community 1 - "CacheService"
-Cohesion: 0.04
-Nodes (7): CacheInterface, CacheUnavailableError, RateDecision, CacheService, A cache backend, A storage backend, Bring your own database, cache or storage
+### Community 1 - "StorageInterface"
+Cohesion: 0.03
+Nodes (15): What this is, CacheInterface, CacheUnavailableError, RateDecision, DatabaseInterface, StorageInterface, CacheService, Ways to help (+7 more)
 
 ### Community 2 - "e"
-Cohesion: 0.09
+Cohesion: 0.07
 Nodes (48): body(), body(), body(), infra(), body(), body(), body(), body() (+40 more)
 
 ### Community 3 - "auth.py"
 Cohesion: 0.06
 Nodes (20): register(), get_current_user_info(), update_my_profile(), get_user(), list_users(), _public(), set_user_status(), ChangePasswordRequest (+12 more)
 
-### Community 4 - "typing"
-Cohesion: 0.06
-Nodes (4): BaseService, ImageProcessor, iter_bytes(), set_request_id()
+### Community 4 - "config.py"
+Cohesion: 0.08
+Nodes (5): BaseService, ImageProcessor, iter_bytes(), _JsonFormatter, _RequestIdFilter
 
 ### Community 6 - "test_jwt_secret.py"
 Cohesion: 0.09
@@ -221,6 +222,10 @@ Nodes (8): list_files(), upload_new_version(), _parse_metadata(), _parse_tags(),
 Cohesion: 0.11
 Nodes (5): neutralize(), SpreadsheetProcessor, with_headers(), validate_sheet_name(), test_parsing_stops_at_the_cell_limit()
 
+### Community 15 - "middleware/base.py"
+Cohesion: 0.11
+Nodes (3): add_timing(), set_headers(), ErrorService
+
 ### Community 16 - "FileService"
 Cohesion: 0.10
 Nodes (4): complete_chunked_upload(), upload_file(), FileResponse, FileService
@@ -238,19 +243,19 @@ Cohesion: 0.08
 Nodes (12): _send_blocking(), send_email(), send_password_reset_email(), register_job_handlers(), send_email_job(), Background jobs, 1. Register a handler, 2. Enqueue from a service (+4 more)
 
 ### Community 20 - "test_data_layer.py"
-Cohesion: 0.11
-Nodes (11): ensure_bootstrap_admin(), file_record(), make_auth_service(), rbac(), test_bootstrap_admin_created_only_when_configured_and_empty(), test_bootstrap_admin_skipped_when_users_exist(), test_deleted_file_leaves_the_listing_and_all_versions_are_flagged(), test_find_many_does_not_write_list_results_to_cache() (+3 more)
+Cohesion: 0.10
+Nodes (16): file_record(), make_user(), rbac(), test_assignments_validate_against_definitions_and_take_effect_at_once(), test_changing_email_drops_the_old_email_lookup(), test_create_user_keeps_its_own_id(), test_deleted_file_leaves_the_listing_and_all_versions_are_flagged(), test_deleted_user_is_not_served_from_cache() (+8 more)
 
-### Community 21 - "StorageInterface"
-Cohesion: 0.03
-Nodes (17): What this is, DatabaseInterface, StorageInterface, create_database(), _drop_superseded_indexes(), Migration, run_migrations(), DatabaseService (+9 more)
+### Community 21 - "tests/conftest.py"
+Cohesion: 0.06
+Nodes (6): create_database(), _drop_superseded_indexes(), Migration, run_migrations(), DatabaseService, data_service()
 
 ### Community 22 - "S3Storage"
 Cohesion: 0.17
 Nodes (4): _is_missing(), S3Storage, collect(), send_part()
 
 ### Community 23 - "UsersOps"
-Cohesion: 0.17
+Cohesion: 0.11
 Nodes (3): normalize_user(), UsersOps, test_legacy_user_fields_are_normalised()
 
 ### Community 24 - "ChunkedUploadHandler"
@@ -269,9 +274,9 @@ Nodes (24): test_accounts_two_factor_files_audit_and_jobs(), bearer(), login(), 
 Cohesion: 0.09
 Nodes (11): login(), logout(), logout_all_devices(), refresh_tokens(), login_with_mfa_code(), CookieManager, default_cookie_secure(), get_token_cookie_names() (+3 more)
 
-### Community 29 - "DataService"
-Cohesion: 0.05
-Nodes (11): _fernet(), _convert_datetime_strings(), DataService, _default_cache_key(), _normalize_record(), FilesOps, OAuthOps, CachePolicy (+3 more)
+### Community 29 - "typing"
+Cohesion: 0.06
+Nodes (5): FilesOps, OAuthOps, CachePolicy, set_request_id(), main()
 
 ### Community 30 - "require_any_role"
 Cohesion: 0.14
@@ -310,8 +315,8 @@ Cohesion: 0.12
 Nodes (7): authorize_oauth(), link_oauth_account(), oauth_callback(), _state_cookie_name(), unlink_oauth_account(), OAuthProvider, OAuthService
 
 ### Community 40 - "registry.py"
-Cohesion: 0.05
-Nodes (13): Where things go, ErrorService, MetricsService, build_services(), sentry(), tracing(), SentryService, set_user() (+5 more)
+Cohesion: 0.06
+Nodes (13): Where things go, create_storage(), MetricsService, build_services(), sentry(), tracing(), SentryService, set_user() (+5 more)
 
 ### Community 43 - "JobService"
 Cohesion: 0.06
@@ -331,7 +336,7 @@ Nodes (22): DuplicateRecordError, seed(), test_compound_unique_index_is_on_the_c
 
 ### Community 48 - "Config"
 Cohesion: 0.04
-Nodes (12): create_cache(), AuditService, ApiTokenManager, TokenManager, UserManager, _JsonFormatter, Logger, _RequestIdFilter (+4 more)
+Nodes (12): create_cache(), AuditService, ApiTokenManager, _fernet(), TokenManager, UserManager, DataService, hash_token() (+4 more)
 
 ### Community 49 - "ods.py"
 Cohesion: 0.12
@@ -465,6 +470,10 @@ Nodes (5): assign_group(), assign_role(), _not_found(), remove_role(), revoke_te
 Cohesion: 0.22
 Nodes (9): [1.0.0] - 2026-10-10, Added, Added, Changed, Changelog, Fixed, [Unreleased], Upgrading (+1 more)
 
+### Community 105 - "Any"
+Cohesion: 0.09
+Nodes (6): _convert_datetime_strings(), _default_cache_key(), _normalize_record(), Layers, Rules worth knowing, 2. Data: `app/services/data/parts_ops.py`
+
 ### Community 106 - "For designers"
 Cohesion: 0.18
 Nodes (7): expand(), Copy rules from security, For designers, Patterns the API expects, Screens and the states they need, The account journey, Turning errors into states
@@ -480,10 +489,6 @@ Nodes (9): Architecture, Authentication model, Files, Known limits, Resilience, 
 ### Community 110 - "Competitive analysis and roadmap proposal (October 2026)"
 Cohesion: 0.20
 Nodes (9): 1. Who we compete with, 2. Gaps found in our own repository while checking, 4. What not to add, and why, 5. What to remove or reconsider, 6. Suggested order of work, 7. Decisions needed from the maintainer, Competitive analysis and roadmap proposal (October 2026), Progress (+1 more)
-
-### Community 111 - "make_user"
-Cohesion: 0.24
-Nodes (10): make_user(), test_assignments_validate_against_definitions_and_take_effect_at_once(), test_changing_email_drops_the_old_email_lookup(), test_create_user_keeps_its_own_id(), test_deleted_user_is_not_served_from_cache(), test_group_grants_reach_members(), test_permissions_come_from_roles_groups_and_temporary_grants(), test_update_user_refreshes_every_cached_lookup_key() (+2 more)
 
 ### Community 116 - "Documentation"
 Cohesion: 0.50
@@ -501,6 +506,10 @@ Nodes (6): A database backend, Index declarations, Prove it, The filter vocabula
 Cohesion: 0.50
 Nodes (4): Reporting a vulnerability, Scope, Security policy, Supported versions
 
+### Community 126 - "ensure_bootstrap_admin"
+Cohesion: 0.47
+Nodes (5): ensure_bootstrap_admin(), make_auth_service(), test_bootstrap_admin_created_only_when_configured_and_empty(), test_bootstrap_admin_skipped_when_users_exist(), test_no_default_admin_without_explicit_config()
+
 ### Community 135 - "Generate a typed client"
 Cohesion: 0.40
 Nodes (5): Calling the API from a browser, Generate a typed client, Other languages, TypeScript (web and React Native), When you change the API
@@ -517,7 +526,7 @@ Nodes (3): limited_client(), size(), small_chunks()
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `Config` connect `Config` to `CacheService`, `typing`, `test_jwt_secret.py`, `permissions.py`, `app.py`, `LocalStorage`, `SpreadsheetProcessor`, `FileService`, `MFAService`, `test_middleware.py`, `mailer.py`, `test_data_layer.py`, `StorageInterface`, `S3Storage`, `ChunkedUploadHandler`, `CookieManager`, `DataService`, `test_security_fixes.py`, `AuthService`, `Services`, `test_route_access.py`, `OAuthProvider`, `registry.py`, `BaseMiddleware`, `JobService`, `test_operations.py`, `OAuthBase`, `asyncio`, `contract/conftest.py`, `.reload`, `RBACService`?**
+- **Why does `Config` connect `Config` to `StorageInterface`, `config.py`, `test_jwt_secret.py`, `permissions.py`, `app.py`, `LocalStorage`, `SpreadsheetProcessor`, `middleware/base.py`, `FileService`, `MFAService`, `test_middleware.py`, `mailer.py`, `tests/conftest.py`, `S3Storage`, `ChunkedUploadHandler`, `CookieManager`, `typing`, `test_security_fixes.py`, `AuthService`, `Services`, `test_route_access.py`, `OAuthProvider`, `registry.py`, `BaseMiddleware`, `JobService`, `test_operations.py`, `OAuthBase`, `asyncio`, `contract/conftest.py`, `.reload`, `RBACService`, `Any`, `ensure_bootstrap_admin`?**
   _High betweenness centrality (0.204) - this node is a cross-community bridge._
 - **Are the 47 inferred relationships involving `Config` (e.g. with `AppFactory` and `BaseMiddleware`) actually correct?**
   _`Config` has 47 INFERRED edges - model-reasoned connections that need verification._
@@ -525,9 +534,9 @@ _Questions this graph is uniquely positioned to answer:_
   _152 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `xlsx_package.py` be split into smaller, more focused modules?**
   _Cohesion score 0.14624505928853754 - nodes in this community are weakly interconnected._
-- **Why does `Logger` connect `Config` to `CacheService`, `typing`, `app.py`, `LocalStorage`, `SpreadsheetProcessor`, `FileService`, `MFAService`, `mailer.py`, `test_data_layer.py`, `StorageInterface`, `S3Storage`, `ChunkedUploadHandler`, `DataService`, `AuthService`, `Services`, `OAuthProvider`, `registry.py`, `BaseMiddleware`, `JobService`, `OAuthBase`, `RBACService`, `models/oauth.py`?**
+- **Why does `Logger` connect `Config` to `StorageInterface`, `config.py`, `app.py`, `LocalStorage`, `SpreadsheetProcessor`, `middleware/base.py`, `FileService`, `MFAService`, `mailer.py`, `tests/conftest.py`, `S3Storage`, `ChunkedUploadHandler`, `typing`, `AuthService`, `Services`, `OAuthProvider`, `registry.py`, `BaseMiddleware`, `JobService`, `OAuthBase`, `RBACService`, `Any`, `models/oauth.py`, `ensure_bootstrap_admin`?**
   _High betweenness centrality (0.109) - this node is a cross-community bridge._
 - **Are the 40 inferred relationships involving `Logger` (e.g. with `AppFactory` and `BaseMiddleware`) actually correct?**
   _`Logger` has 40 INFERRED edges - model-reasoned connections that need verification._
-- **Should `CacheService` be split into smaller, more focused modules?**
-  _Cohesion score 0.0443307757885763 - nodes in this community are weakly interconnected._
+- **Should `StorageInterface` be split into smaller, more focused modules?**
+  _Cohesion score 0.030427819720887667 - nodes in this community are weakly interconnected._
