@@ -93,6 +93,7 @@ class Settings(BaseModel):
             "/api/v1/auth/refresh",
             "/api/v1/auth/reset-password-request",
             "/api/v1/auth/reset-password-confirm",
+            "/api/v1/auth/passkeys/login",
             "/api/v1/oauth/providers",
             "/api/v1/oauth/{provider}/authorize",
             "/api/v1/oauth/{provider}/callback",
@@ -217,6 +218,20 @@ class Settings(BaseModel):
         ge=1,
         le=15,
         description="How long the password step of a two-factor sign-in stays valid.",
+    )
+    passkeys_enabled: bool = Field(
+        False, description="Allow passkey (WebAuthn) registration and sign-in."
+    )
+    webauthn_rp_id: str = Field(
+        "localhost",
+        description="Passkey relying party: the registrable domain of your front end, e.g. 'example.com'.",
+    )
+    webauthn_rp_name: str | None = Field(
+        None, description="Name shown in the passkey prompt. Default: app_title."
+    )
+    webauthn_origins: list[str] = Field(
+        default_factory=lambda: ["http://localhost:3000"],
+        description="Front-end origins allowed to use passkeys, e.g. ['https://app.example.com'].",
     )
     api_token_max_days: int = Field(
         365, ge=1, description="Longest lifetime a personal access token may be given."

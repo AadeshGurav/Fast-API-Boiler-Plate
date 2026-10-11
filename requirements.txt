@@ -20,6 +20,7 @@ redis==8.1.0
 # Auth
 PyJWT==2.15.1
 cryptography==50.0.2          # encrypts MFA secrets at rest
+webauthn==3.0.1               # passkeys
 argon2-cffi==25.1.0
 
 # Files

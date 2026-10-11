@@ -12,6 +12,11 @@ All notable changes are recorded here. The format follows
 - Cursor pagination for `/files`, `/admin/audit-events` and `/admin/jobs`: responses carry
   `next_cursor`; `?cursor=` returns the next page, fast at any depth and stable while records are
   added. Page numbers keep working.
+- Passkeys (WebAuthn): register, list and remove them, and sign in without a password or
+  username (`/api/v1/auth/passkeys/...`, `passkeys_enabled`, `webauthn_rp_id`,
+  `webauthn_origins`). User verification is required, challenges are single-use, a lagging
+  signature counter is refused as a cloned authenticator, and changes are audited. New
+  dependency: `webauthn`.
 - Sign-in with any OpenID Connect provider (Google, Microsoft Entra ID, Okta, Auth0, Keycloak,
   GitLab...): each `[oauth_providers.<name>]` needs only `issuer`, `client_id`, `client_secret`
   and `redirect_uri`. The flow adds PKCE (S256), a nonce, and ID-token verification against the

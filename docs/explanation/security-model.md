@@ -63,6 +63,16 @@ collection, read from the database only. A code is accepted by a write condition
 accepted time step, so it works once even when two requests race; recovery codes are hashed and
 consumed the same way. The challenge token is a JWT typed `mfa`, which no access check accepts.
 
+## Passkeys
+
+Off unless `passkeys_enabled`. A passkey is a key pair bound by the browser to
+`webauthn_rp_id` and usable only from `webauthn_origins`, so a look-alike site cannot use it: the
+strongest defence against phishing this API offers, and the reason authenticator codes (which a
+phishing page can relay) are the weaker option. Only the public key is stored. Registration and
+sign-in require user verification; each challenge is single-use and expires in five minutes; a
+signature counter lower than the stored one is refused as a cloned authenticator. Passkeys are
+managed only from a password session, never with an API token.
+
 ## API tokens
 
 <picture>
@@ -126,8 +136,7 @@ implemented (501).
 
 ## Not covered
 
-- CAPTCHA, and passkeys (WebAuthn). Authenticator codes can be phished in real time; passkeys
-  cannot.
+- CAPTCHA.
 - Audit events record *that* something changed and who changed it, not the before and after
   values; they are as tamper-proof as the database that stores them.
 - Slow-but-steady request bodies are bounded only by the request timeout: keep a reverse proxy

@@ -150,6 +150,22 @@ otherwise): any OpenID Connect provider ([configure](../how-to/configure.md#sign
 | DELETE | `/sessions/{session_id}` | `sessions:delete` | Revoke one → 200 |
 | DELETE | `/sessions/all` | `sessions:delete` | Revoke all, including this one → 200 `revoked_count` |
 
+### Passkeys
+
+Answer 503 while `passkeys_enabled` is off. Managing passkeys needs a session (not an API token).
+
+| Method | Path | Permission | Purpose → success |
+| --- | --- | --- | --- |
+| POST | `/auth/passkeys/registration/options` | `auth:write` | `{challenge_id, options}` for `navigator.credentials.create()` → 200 |
+| POST | `/auth/passkeys` | `auth:write` | `{challenge_id, name, credential}` → 201 passkey; 400 if it fails verification |
+| GET | `/auth/passkeys` | `auth:read` | Your passkeys → 200 |
+| DELETE | `/auth/passkeys/{passkey_id}` | `auth:delete` | Remove one → 204 |
+| POST | `/auth/passkeys/login/options` | public | `{challenge_id, options}` for `navigator.credentials.get()`; no username needed → 200 |
+| POST | `/auth/passkeys/login` | public | `{challenge_id, credential}` → 200 like login; sets cookies; 401 if refused |
+
+Each challenge works once and for five minutes. Passkey sign-in requires user verification on the
+device (biometric or PIN), so it does not ask for an authenticator code.
+
 ### API tokens (your own)
 
 Need a signed-in session: a token cannot create, list or revoke tokens.
@@ -201,7 +217,7 @@ Recorded actions: `user.registered`, `user.password_changed`, `user.password_res
 `user.status_changed`, `user.deleted`, `session.revoked`, `session.revoked_all`,
 `rbac.role_assigned`, `rbac.role_removed`, `rbac.group_assigned`, `rbac.grant_created`,
 `rbac.grant_revoked`, `mfa.enabled`, `mfa.disabled`, `mfa.reset`, `mfa.recovery_code_used`,
-`mfa.recovery_codes_regenerated`, `token.created`, `token.revoked`, `oauth.linked`,
+`mfa.recovery_codes_regenerated`, `token.created`, `token.revoked`, `passkey.added`, `passkey.removed`, `oauth.linked`,
 `oauth.unlinked`. Each event carries the actor, target, client IP, user agent, request id
 and small `details` (never secrets). Refused changes are not recorded; sign-in attempts are in
 `login_attempts`.
