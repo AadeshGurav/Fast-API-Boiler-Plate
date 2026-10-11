@@ -12,6 +12,9 @@ All notable changes are recorded here. The format follows
 - Cursor pagination for `/files`, `/admin/audit-events` and `/admin/jobs`: responses carry
   `next_cursor`; `?cursor=` returns the next page, fast at any depth and stable while records are
   added. Page numbers keep working.
+- An agent skill, `.claude/skills/add-a-resource`, so AI coding agents add resources the way the
+  standards require; the human guide gains cursor paging, `make openapi`, `make fuzz`, audit and
+  webhook steps.
 - Outgoing webhooks (`/api/v1/admin/webhooks`): subscriptions to event types or patterns, every
   audit event published plus `WebhookService.publish()` for your own, deliveries as retried jobs,
   Standard Webhooks signatures (`webhook-id`, `webhook-timestamp`, `webhook-signature`),

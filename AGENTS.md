@@ -57,6 +57,11 @@ make up / make run  # Docker MongoDB + Redis, then the API
 
 Finish every change with `make fmt && make lint && make test`.
 
+## Skills
+
+`.claude/skills/add-a-resource/SKILL.md` is the step-by-step recipe for a new resource (Claude
+Code loads it automatically; other agents can read it as instructions).
+
 ## Where things go
 
 | Change | Place |
