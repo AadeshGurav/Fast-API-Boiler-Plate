@@ -97,6 +97,8 @@ All notable changes are recorded here. The format follows
 
 ### Changed
 
+- Dependencies: pydantic 2.14.0 (pydantic-core 2.50.0), schemathesis 4.30.0 and jsonschema-rs 0.58.6; the OpenAPI contract is unchanged. graphql-core stays on 3.2.x because hypothesis-graphql caps it below 3.3.
+
 - Dependencies are declared in `pyproject.toml` (extras `s3`, `postgres`, `observability`; a
   `dev` group) and locked with hashes in `uv.lock`, transitive packages included. `make setup`
   uses uv when present and falls back to pip; `make lock` re-locks and exports the
