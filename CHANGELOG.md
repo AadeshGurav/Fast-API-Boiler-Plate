@@ -9,6 +9,9 @@ All notable changes are recorded here. The format follows
 
 ### Added
 
+- README repositioned as a production-grade foundation: two-command start, a "what building
+  on it feels like" section, and the request-pipeline and sign-in diagrams on the front page.
+
 - Three diagrams, light and dark: passkey sign-in, OpenID Connect sign-in and webhook delivery;
   the CI, system-context and security-data diagrams show fuzzing, the lock, identity providers
   and passkeys.

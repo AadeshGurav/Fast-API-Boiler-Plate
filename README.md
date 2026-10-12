@@ -1,4 +1,4 @@
-# FastAPI Boilerplate: production-ready, storage-agnostic FastAPI starter
+# FastAPI Foundation: the production-grade chassis for serious FastAPI back ends
 
 [![CI](https://github.com/AadeshGurav/Fast-API-Boiler-Plate/actions/workflows/ci.yml/badge.svg)](https://github.com/AadeshGurav/Fast-API-Boiler-Plate/actions/workflows/ci.yml)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-3776AB?logo=python&logoColor=white)](https://www.python.org/)
@@ -8,22 +8,67 @@
 [![Ruff](https://img.shields.io/badge/lint-ruff-D7FF64)](https://docs.astral.sh/ruff/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**A secure, production-ready FastAPI back end you can build a real product on today.**
-Authentication with revocable sessions, role-based access control, versioned file storage,
-rate limiting, safe retries and RFC 9457 errors are already done, tested and documented. You add
-your product's resources; the plumbing is finished.
+**An enterprise-ready FastAPI foundation:** session-bound auth with revocable tokens, TOTP and
+passkey sign-in, audited RBAC, idempotent writes, database-backed background jobs and
+storage you can swap, all tested and documented. Not a three-file starter: you add your
+product's resources; the plumbing is finished.
+
+```bash
+git clone https://github.com/AadeshGurav/Fast-API-Boiler-Plate.git && cd Fast-API-Boiler-Plate
+make setup && make docker-up      # API + MongoDB + Redis, random passwords, free ports
+# open http://127.0.0.1:8000/docs
+```
+
+Needs Docker, `make` and Python 3.11 (`uv` recommended). First user and no-Docker run:
+[Quick start](#quick-start).
 
 **Bring your own database.** Every layer above the storage engines talks to interfaces, never to
 a driver, so you can move from MongoDB to PostgreSQL, Redis to another cache, or local disk to
-any object store by writing one class: no application code changes. Complete MongoDB, Redis,
-in-memory, local-disk and S3 implementations ship ready to use.
+any object store by writing one class: no application code changes. Complete MongoDB,
+PostgreSQL, Redis, in-memory, local-disk and S3 implementations ship ready to use.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/what-you-get-dark.svg">
   <img alt="What you get: your product sits on top of included accounts and access, files and data, and safety nets, running on open-source FastAPI, MongoDB, Redis and Docker." src="docs/diagrams/what-you-get.svg">
 </picture>
 
-## Why this boilerplate
+## What building on it feels like
+
+A new authenticated, permission-checked, rate-limited, idempotent endpoint is a route
+and one line of config. The middleware stack supplies the rest.
+
+```python
+router = APIRouter(prefix="/parts", tags=["Parts"])
+
+@router.post("", response_model=Part, status_code=status.HTTP_201_CREATED)
+async def create_part(
+    body: PartCreate,                                    # validated at the boundary
+    user: TokenPayload = Depends(get_current_user),      # session-bound token, revocable
+    data: DataService = Depends(get_data_service),       # Mongo, PostgreSQL or yours
+) -> Part:
+    part_id = await data.parts.create(user.user_id, body.model_dump())
+    return Part(id=part_id, owner_id=user.user_id, **body.model_dump())
+```
+
+```toml
+permissions = ["parts:read", "parts:write"]   # in a role; a test fails if no role can grant a route's permission
+```
+
+Rate limits, `Idempotency-Key` replay, CSRF checks and RFC 9457 errors apply without
+touching the route. The complete, tested walk-through is
+[Add a resource](docs/how-to/add-a-resource.md).
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/request-pipeline-dark.svg">
+  <img alt="Every request passes request id, security headers, body limit, CSRF, timeout, rate limit, idempotency and access control before reaching your route." src="docs/diagrams/request-pipeline.svg">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/auth-sequence-dark.svg">
+  <img alt="Sign-in, token refresh with rotation and theft detection, and instant revocation, all bound to a server-side session." src="docs/diagrams/auth-sequence.svg">
+</picture>
+
+## Why this foundation
 
 - **Secure by default, not by checklist.** Session-bound JWTs that revoke instantly, refresh
   token rotation with theft detection, account lockout, CSRF and CORS checks, strict security
