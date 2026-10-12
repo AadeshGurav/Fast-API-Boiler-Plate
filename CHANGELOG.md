@@ -49,7 +49,6 @@ All notable changes are recorded here. The format follows
 - Seven diagrams, light and dark: two-factor sign-in, API token check, audit trail, security
   data model, job lifecycle, backend contract and CI pipeline; the system context, code layers
   and data model diagrams now show PostgreSQL, jobs, audit and two-factor.
-- Competitive analysis and roadmap (`docs/proposals/2026-10-competitive-analysis.md`).
 - CI: tests on Python 3.11 and 3.13 with a coverage report, a `pip-audit` job for known
   vulnerabilities in pinned dependencies, and a job that builds the Docker image and fails on
   HIGH or CRITICAL fixable vulnerabilities (Trivy).
