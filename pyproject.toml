@@ -25,7 +25,7 @@ classifiers = [
 # requirements*.txt files are exported from the lock (`make lock`) for pip users and Docker.
 dependencies = [
     "fastapi==0.142.4",
-    "starlette==1.7.0",
+    "starlette==1.8.0",
     "uvicorn==0.54.0",
     "uvloop==0.23.0; sys_platform != 'win32'",
     "httptools==0.8.0",
