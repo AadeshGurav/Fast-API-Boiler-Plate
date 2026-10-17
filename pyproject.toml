@@ -34,7 +34,7 @@ dependencies = [
     "email-validator==2.3.0",  # pydantic EmailStr
     "httpx==0.28.1",  # outbound HTTP (OIDC, webhooks)
     "motor==3.7.1",
-    "pymongo==4.18.2",
+    "pymongo==4.18.3",
     "redis==8.1.0",
     "PyJWT==2.15.1",
     "cryptography==50.0.2",  # secrets at rest (two-factor, webhooks)
